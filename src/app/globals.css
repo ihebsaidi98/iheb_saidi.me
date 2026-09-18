@@ -1,0 +1,677 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   DESIGN TOKENS
+   ========================================================= */
+
+:root {
+  /* Backgrounds */
+  --background: #05070a;
+  --background-soft: #070b0f;
+  --surface: #0a0f14;
+  --surface-elevated: #0d141b;
+  --surface-hover: #101820;
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --border-accent: rgba(110, 231, 183, 0.24);
+
+  /* Text */
+  --text-primary: #f5f7fa;
+  --text-secondary: rgba(245, 247, 250, 0.72);
+  --muted: rgba(245, 247, 250, 0.6);
+  --muted-subtle: rgba(245, 247, 250, 0.42);
+
+  /* Accent */
+  --emerald: #6ee7b7;
+  --emerald-bright: #a7f3d0;
+  --cyan: #38bdf8;
+  --cyan-bright: #7dd3fc;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --motion-fast: 180ms;
+  --motion-normal: 350ms;
+  --motion-slow: 650ms;
+  --motion-cinematic: 900ms;
+
+  /* Layout */
+  --header-height: 72px;
+  --section-spacing: clamp(5rem, 10vw, 9rem);
+  --content-width: 72rem;
+
+  /* Effects */
+  --shadow-soft:
+    0 18px 50px rgba(0, 0, 0, 0.18);
+
+  --shadow-elevated:
+    0 28px 80px rgba(0, 0, 0, 0.28);
+
+  --glow-emerald:
+    0 0 50px rgba(110, 231, 183, 0.08);
+
+  --glow-cyan:
+    0 0 50px rgba(56, 189, 248, 0.08);
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+@layer base {
+  html {
+    background: var(--background);
+    color-scheme: dark;
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+
+    background:
+      radial-gradient(
+        ellipse 80% 45% at 50% -10%,
+        rgba(56, 189, 248, 0.085),
+        transparent 66%
+      ),
+      radial-gradient(
+        ellipse 55% 35% at 15% 20%,
+        rgba(110, 231, 183, 0.035),
+        transparent 70%
+      ),
+      var(--background);
+
+    color: var(--text-primary);
+
+    overflow-x: hidden;
+  }
+
+  /*
+   * Prevent accidental horizontal overflow from animated
+   * elements, large SVGs and decorative effects.
+   */
+  html,
+  body {
+    width: 100%;
+  }
+
+  ::selection {
+    background: rgba(110, 231, 183, 0.24);
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--emerald);
+    outline-offset: 4px;
+  }
+
+  /*
+   * Better default anchor behavior for fixed navigation.
+   */
+  section,
+  [id] {
+    scroll-margin-top: calc(var(--header-height) + 24px);
+  }
+
+  /*
+   * Cleaner scrollbar for desktop.
+   */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    border: 2px solid var(--background);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /*
+   * Images should never create unexpected inline spacing.
+   */
+  img,
+  svg,
+  canvas {
+    display: block;
+  }
+
+  /*
+   * Interactive elements should inherit the project's font.
+   */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+/* =========================================================
+   COMPONENT UTILITIES
+   ========================================================= */
+
+@layer components {
+  .container {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/75;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-emerald-300 to-sky-400 bg-clip-text text-transparent;
+  }
+
+  /*
+   * Base surface.
+   */
+  .surface {
+    @apply border border-white/[0.08] bg-[#0b1015];
+  }
+
+  /*
+   * Elevated surface for important UI.
+   */
+  .surface-elevated {
+    @apply border border-white/[0.09] bg-[#0d141b];
+    box-shadow: var(--shadow-soft);
+  }
+
+  /*
+   * Engineering grid.
+   */
+  .engineering-grid {
+    background-image:
+      linear-gradient(
+        rgba(255, 255, 255, 0.025) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.025) 1px,
+        transparent 1px
+      );
+
+    background-size: 36px 36px;
+  }
+
+  /*
+   * Smaller technical grid for dense UI.
+   */
+  .engineering-grid-dense {
+    background-image:
+      linear-gradient(
+        rgba(255, 255, 255, 0.022) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.022) 1px,
+        transparent 1px
+      );
+
+    background-size: 24px 24px;
+  }
+
+  /*
+   * Interactive card.
+   *
+   * transform + box-shadow are intentionally used instead
+   * of animating layout properties.
+   */
+  .card-interaction {
+    @apply transition-[transform,border-color,background-color,box-shadow]
+      duration-300 ease-out
+      hover:-translate-y-1
+      hover:border-white/[.16]
+      hover:bg-[#101820];
+    
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  .card-interaction:hover {
+    box-shadow: var(--shadow-soft);
+  }
+
+  /*
+   * Premium subtle glow on hover.
+   */
+  .glow-interaction {
+    transition:
+      transform var(--motion-normal) var(--ease-out-expo),
+      border-color var(--motion-normal) var(--ease-out-expo),
+      box-shadow var(--motion-normal) var(--ease-out-expo);
+  }
+
+  .glow-interaction:hover {
+    border-color: var(--border-accent);
+    box-shadow:
+      var(--shadow-soft),
+      var(--glow-emerald);
+  }
+
+  /*
+   * Section divider.
+   */
+  .section-line {
+    @apply mt-4 h-px w-10 origin-left bg-gradient-to-r
+      from-emerald-300 to-sky-400;
+  }
+
+  /*
+   * Subtle atmospheric glow.
+   */
+  .ambient-glow {
+    pointer-events: none;
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    opacity: 0.5;
+    transform: translateZ(0);
+  }
+
+  /*
+   * Glass effect for floating navigation / controls.
+   */
+  .glass {
+    background: rgba(10, 15, 20, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  /*
+   * Technical mono label.
+   */
+  .technical-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.16em]
+      text-white/40;
+  }
+
+  /*
+   * Thin animated-looking accent line.
+   */
+  .accent-line {
+    background: linear-gradient(
+      90deg,
+      var(--emerald),
+      var(--cyan),
+      transparent
+    );
+  }
+}
+
+/* =========================================================
+   BACKGROUND / ATMOSPHERE
+   ========================================================= */
+
+/*
+ * Very subtle noise layer.
+ *
+ * This uses a CSS-generated texture rather than loading an
+ * external image.
+ */
+.noise-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+
+  opacity: 0.025;
+
+  background-image:
+    repeating-radial-gradient(
+      circle at 0 0,
+      rgba(255, 255, 255, 0.8) 0,
+      rgba(255, 255, 255, 0) 1px,
+      transparent 2px
+    );
+
+  background-size: 4px 4px;
+
+  mix-blend-mode: soft-light;
+}
+
+/*
+ * Optional atmospheric radial layer.
+ */
+.atmosphere {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(110, 231, 183, 0.035),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 80% 35%,
+      rgba(56, 189, 248, 0.04),
+      transparent 30%
+    );
+
+  opacity: 0.9;
+}
+
+/* =========================================================
+   DATA FLOW / ENGINEERING ANIMATIONS
+   ========================================================= */
+
+@keyframes data-flow {
+  to {
+    offset-distance: 100%;
+  }
+}
+
+.data-particle {
+  offset-path: path("M 0 0 L 120 0");
+
+  animation:
+    data-flow 3.6s linear infinite;
+
+  will-change: offset-distance;
+}
+
+/*
+ * Slow ambient pulse.
+ *
+ * Useful for nodes / status indicators, not large surfaces.
+ */
+@keyframes engineering-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.engineering-pulse {
+  animation:
+    engineering-pulse 2.8s ease-in-out infinite;
+}
+
+/*
+ * Small signal animation.
+ */
+@keyframes signal-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    box-shadow: 0 0 0 rgba(110, 231, 183, 0);
+  }
+
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 18px rgba(110, 231, 183, 0.22);
+  }
+}
+
+.signal-pulse {
+  animation:
+    signal-pulse 2.4s ease-in-out infinite;
+}
+
+/* =========================================================
+   PERFORMANCE HELPERS
+   ========================================================= */
+
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+.will-change-filter {
+  will-change: filter;
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .data-particle,
+  .engineering-pulse,
+  .signal-pulse {
+    animation: none !important;
+  }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 640px) {
+  :root {
+    --header-height: 64px;
+  }
+
+  .engineering-grid {
+    background-size: 28px 28px;
+  }
+
+  .noise-overlay {
+    opacity: 0.018;
+  }
+}
+
+/* =========================================================
+   TOUCH DEVICES
+   ========================================================= */
+
+@media (hover: none) {
+  .card-interaction:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .glow-interaction:hover {
+    box-shadow: none;
+  }
+}
+
+/* =========================================================
+   PRINT
+   ========================================================= */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .noise-overlay {
+    display: none;
+  }
+}
+@keyframes hero-letter-in {
+  from { opacity: 0; transform: translateY(110%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(110%);
+  animation: hero-letter-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform;
+}
+
+@keyframes hero-caret {
+  0%, 45% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-letter { animation: none; opacity: 1; transform: none; }
+}
+
+/* =========================================================
+   HERO — SHORT VIEWPORT FALLBACKS
+   ========================================================= */
+
+@media (max-height: 780px) {
+  .hero-stats,
+  .hero-scroll-hint {
+    display: none;
+  }
+}
+
+@media (max-height: 640px) {
+  .hero-stack-chips {
+    display: none;
+  }
+}
+
+/* =========================================================
+   HERO — REVIEW FIXES
+   ========================================================= */
+
+/* Descender safety for the letter-reveal masks
+   (leading-[0.85] + overflow-hidden would clip g/y/j
+   the day the headline text or font changes) */
+.hero-letter-mask {
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+
+/* 100svh fallback for Safari < 15.4 */
+@supports not (height: 100svh) {
+  #top {
+    height: 100vh;
+  }
+}
+
+/* Skip layout/paint for below-fold sections */
+section:not(#top) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
+/* Firefox scrollbar (you only style -webkit- today) */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) #04070c;
+}
+/* =========================================================
+   SITE-WIDE POLISH (batch 2)
+   ========================================================= */
+
+/* Anchor targets must clear the fixed pill header */
+section[id],
+[id="top"] {
+  scroll-margin-top: 5.5rem;
+}
+
+/* Branded text selection */
+::selection {
+  background: rgba(52, 211, 153, 0.28);
+  color: #fff;
+}
+
+/* Visible keyboard focus everywhere */
+:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.65);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* CSS animations must respect reduced motion too
+   (framer components already do via MotionConfig) */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ping,
+  .animate-pulse,
+  .data-particle,
+  [class*="hero-caret"] {
+    animation: none !important;
+  }
+  .hero-letter {
+    animation-duration: 0.01s !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+
+/* =========================================================
+   SECTION UPGRADES (batch 3)
+   ========================================================= */
+
+/* Spotlight hover glow (SpotlightCard) */
+.spotlight-card { position: relative; overflow: hidden; }
+.spotlight-card::before {
+  content: "";
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(500px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(52, 211, 153, 0.07), transparent 45%);
+  opacity: 0; transition: opacity 0.4s;
+  pointer-events: none;
+}
+.spotlight-card:hover::before { opacity: 1; }
+
+/* Background sweep for interactive list rows */
+.row-sweep { position: relative; overflow: hidden; }
+.row-sweep::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: rgba(255, 255, 255, 0.03);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.row-sweep:hover::before { transform: scaleX(1); }
+
+/* Featured project image zoom */
+.img-zoom { overflow: hidden; }
+.img-zoom img { transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.group:hover .img-zoom img { transform: scale(1.04); }
+
+/* Hide scrollbars on filter tab bars */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

@@ -1,0 +1,30 @@
+import { Header } from "@/sections/Header";
+import { HeroSection } from "@/sections/Hero";
+import { ProjectsSection } from "@/sections/Projects";
+import { TapeSection } from "@/sections/Tape";
+import { AboutSection } from "@/sections/About";
+import { ExperienceSection } from "@/sections/Experience";
+import { EducationSection } from "@/sections/Education";
+import { ContactSection } from "@/sections/Contact";
+import { Footer } from "@/sections/Footer";
+import { SmoothScroll } from "@/components/SmoothScroll";
+import { SiteEnhancements } from "@/components/SiteEnhancements";
+
+export default function Home() {
+  return (
+    <SmoothScroll>
+      <SiteEnhancements />
+      <Header />
+      <main>
+        <HeroSection />
+        <ProjectsSection />
+        <TapeSection />
+        <ExperienceSection />
+        <AboutSection />
+        <EducationSection />
+        <ContactSection />
+      </main>
+      <Footer />
+    </SmoothScroll>
+  );
+}
