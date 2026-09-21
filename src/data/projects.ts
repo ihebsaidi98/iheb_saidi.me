@@ -80,7 +80,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
     slug: "novatek-platform",
     company: "Novatek",
     role: "Full Stack Software Engineer",
-    period: "Jul 2024 – Jan 2026",
+    period: "Jul 2024 – Jul 2026",
     location: "Montplaisir, Tunis",
     description:
       "Real-time industrial supervision platform for production monitoring, L1–L3 traceability, energy consumption tracking and anomaly alerting.",
@@ -97,9 +97,8 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       { value: "75%+", label: "test coverage" }
     ],
     tech: [
-      "Java 17", "Spring Boot", "Angular 14", "NgRx", "RxJS", "MySQL",
-      "iText", "Spring Security", "JUnit 5", "Mockito", "SonarQube",
-      "Jenkins", "Docker",
+      "Java", "Spring Boot", "Angular", "PostgreSQL", "Redis", "JUnit 5", "Mockito", "SonarQube",
+      "Kubernetes", "Docker",
     ],
     screenshot: "novatek-platform.png",
   },
@@ -123,10 +122,20 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       { value: "35%", label: "faster responses" },
       { value: "70%+", label: "test coverage" }
     ],
-    tech: [
-      "Java 17", "Spring Boot", "Spring StateMachine", "Angular 14",
-      "Python", "Flask", "Ollama LLM", "MySQL", "Swagger",
-    ],
+   tech: [
+  "Python",
+  "Ollama",
+  "Flask",
+  "LLM",
+  "NLP",
+  "Java",
+  "Spring Boot",
+  "Angular",
+  "MySQL",
+  "Docker",
+  "GitLab",
+  "Swagger",
+],
     screenshot: "tunisair-itsm.png",
   },
   {
@@ -149,8 +158,19 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       { value: "30%", label: "faster responses" },
       { value: "65%+", label: "test coverage" }
     ],
-    tech: ["Java", "Spring Boot", "Angular", "TypeScript", "MySQL", "RxJS"],
-    screenshot: "xtensus-client-management.png",
+tech: [
+  "Java",
+  "Spring Boot",
+  "Angular",
+  "TypeScript",
+  "MySQL",
+  "Spring Security",
+  "REST API",
+  "JUnit",
+  "Docker",
+  "GitHub",
+  "Postman",
+],    screenshot: "xtensus-client-management.png",
   },
   {
     slug: "world-soft-hotel",
@@ -172,8 +192,19 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       { value: "30%", label: "faster responses" },
       { value: "60%+", label: "test coverage" }
     ],
-    tech: ["Spring Boot", "Angular", "MySQL", "RxJS", "JavaScript"],
-    screenshot: "world-soft-hotel.png",
+tech: [
+  "Java",
+  "Spring Boot",
+  "Angular",
+  "TypeScript",
+  "MySQL",
+  "Spring Security",
+  "REST API",
+  "JUnit",
+  "Docker",
+  "GitHub",
+  "Postman",
+],    screenshot: "world-soft-hotel.png",
   },
   {
     slug: "nlp-conversational-chatbot",
@@ -210,16 +241,25 @@ export const academicProjects: readonly AcademicProject[] = [
     period: "Sep 2023 – Nov 2023",
     description:
       "Distributed microservices auction system with automated CI/CD and enforced quality gates.",
-    tech: [
-      "Spring Boot",
-      "Angular",
-      "Microservices",
-      "Eureka",
-      "API Gateway",
-      "Docker",
-      "Jenkins",
-      "SonarQube",
-    ],
+  tech: [
+  "Java",
+  "Spring Boot",
+  "Microservices",
+  "Eureka",
+  "API Gateway",
+  "GitHub",
+  "Docker",
+  "Kubernetes",
+  "Jenkins",
+  "CI/CD",
+  "SonarQube",
+  "JUnit",
+  "Swagger",
+  "Prometheus",
+  "Grafana",
+  "PostgreSQL",
+  "Linux",
+],
     screenshot: "auction-platform.png",
   },
   {
@@ -229,7 +269,7 @@ export const academicProjects: readonly AcademicProject[] = [
     period: "Feb 2023 – May 2023",
     description:
       "Medical sample management platform combining Angular and Spring Boot workflows with Python and R data-analytics modules.",
-    tech: ["Spring Boot", "Angular", "Python", "R", "MySQL", "Data Mining"],
+    tech: ["Python",  "Machine Learning", "Data Mining", "R", "MySQL","Spring Boot", "Angular"],
     screenshot: "medical-app.png",
   },
   {
@@ -239,8 +279,19 @@ export const academicProjects: readonly AcademicProject[] = [
     period: "Jan 2022 – May 2022",
     description:
       "Full-stack fitness center management and e-commerce platform covering administration modules and an online store.",
-    tech: ["Java", "JavaFX", "Symfony", "MySQL", "JavaScript", "TypeScript", "HTML5", "CSS3"],
-    screenshot: "fitness-platform.png",
+tech: [
+  "Java",
+  "JavaFX",
+  "FXML",
+  "MySQL",
+  "JDBC",
+  "Maven",
+  "JUnit",
+  "JavaScript",
+  "TypeScript",
+  "HTML5",
+  "CSS3",
+],    screenshot: "fitness-platform.png",
   },
 ];
 
