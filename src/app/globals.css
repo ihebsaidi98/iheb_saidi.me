@@ -667,11 +667,70 @@ section[id],
 }
 .row-sweep:hover::before { transform: scaleX(1); }
 
-/* Featured project image zoom */
-.img-zoom { overflow: hidden; }
-.img-zoom img { transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
-.group:hover .img-zoom img { transform: scale(1.04); }
 
 /* Hide scrollbars on filter tab bars */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* =========================================================
+   PROJECT CASE-CARD HOVER SYSTEM (single source of truth)
+   ---------------------------------------------------------
+   hover -> card lifts 3px · image scales 1.04 · border
+   brightens · arrow fades in · scanline sweeps once.
+   Replaces the old .scan-thumb style-jsx block and the
+   batch-3 .img-zoom rules for the Projects section.
+   If other sections still use .img-zoom, keep those rules;
+   Projects cards use .case-thumb exclusively.
+   ========================================================= */
+
+.case-thumb {
+  position: relative;
+}
+
+.case-thumb::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  margin: auto 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(110, 231, 183, 0.85),
+    transparent
+  );
+  transform: translateX(-110%);
+  pointer-events: none;
+}
+
+.group:hover .case-thumb::after,
+.group:focus-within .case-thumb::after {
+  transform: translateX(110%);
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.case-thumb img {
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.group:hover .case-thumb img {
+  transform: scale(1.04);
+}
+
+@media (hover: none) {
+  .case-thumb img {
+    transition: none;
+  }
+  .case-thumb::after {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .case-thumb img {
+    transition: none;
+  }
+}

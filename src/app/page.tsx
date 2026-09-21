@@ -7,12 +7,11 @@ import { ExperienceSection } from "@/sections/Experience";
 import { EducationSection } from "@/sections/Education";
 import { ContactSection } from "@/sections/Contact";
 import { Footer } from "@/sections/Footer";
-import { SmoothScroll } from "@/components/SmoothScroll";
 import { SiteEnhancements } from "@/components/SiteEnhancements";
 
 export default function Home() {
   return (
-    <SmoothScroll>
+    <>
       <SiteEnhancements />
       <Header />
       <main>
@@ -25,6 +24,6 @@ export default function Home() {
         <ContactSection />
       </main>
       <Footer />
-    </SmoothScroll>
+    </>
   );
 }

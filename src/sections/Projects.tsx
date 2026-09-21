@@ -1,7 +1,14 @@
-import SelectedWorkCarousel from "@/components/projects/SelectedWorkCarousel";
-import MoreBuildsGrid from "@/components/projects/MoreBuildsGrid";
 import { SectionShell } from "@/components/ui/SectionShell";
-import { additionalProjects, featuredProjects } from "@/data/projects";
+import { ProfessionalExperience } from "@/components/projects/ProfessionalExperience";
+import { OtherBuilds } from "@/components/projects/OtherBuilds";
+import { professionalExperience, academicProjects } from "@/data/projects";
+
+/* =========================================================
+   PROJECTS — two deliberately different systems:
+   1. SELECTED WORK  → professional experience, horizontal
+                       case-study showcase
+   2. OTHER BUILDS   → academic projects, editorial rows
+   ========================================================= */
 
 export function ProjectsSection() {
   return (
@@ -9,13 +16,18 @@ export function ProjectsSection() {
       id="projects"
       index="02"
       eyebrow="SELECTED WORK"
-      title="Projects with real users, real load, real constraints."
-      intro="Production systems from Novatek and Tunisair alongside university and internship builds — the metrics are measured, not estimated."
+      title={
+        <>
+          Professional experience &<br />
+          <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 bg-clip-text text-transparent">
+            production systems.
+          </span>
+        </>
+      }
+      intro="Industrial supervision, ITSM with AI integration, and full-stack delivery across five engagements — every item below shipped to production."
     >
-      <SelectedWorkCarousel projects={featuredProjects} />
-      <MoreBuildsGrid projects={additionalProjects} />
+      <ProfessionalExperience items={professionalExperience} />
+      <OtherBuilds projects={academicProjects} />
     </SectionShell>
   );
 }
-
-export default ProjectsSection;
