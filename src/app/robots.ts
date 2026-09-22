@@ -4,6 +4,6 @@ import type { MetadataRoute } from "next";
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: { userAgent: "*", allow: "/" },
-    sitemap: "https://yourdomain.dev/sitemap.xml", // ← change me
+    sitemap: "https://iheb-saidi.dev/sitemap.xml",
   };
 }

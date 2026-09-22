@@ -15,7 +15,7 @@ const calistoga = Calistoga({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://yourdomain.dev"), // ← change me
+  metadataBase: new URL("https://iheb-saidi.dev"),
   title: {
     default: "Iheb Saidi — Full Stack Software Engineer",
     template: "%s — Iheb Saidi",
@@ -42,7 +42,7 @@ const jsonLd = {
   name: profile.name,
   jobTitle: "Full Stack Software Engineer",
   email: `mailto:${profile.email}`,
-  url: "https://yourdomain.dev", // ← change me
+  url: "https://iheb-saidi.dev",
   sameAs: [profile.linkedin, profile.github],
   knowsAbout: ["Java", "Spring Boot", "Angular", "TypeScript", "Microservices"],
   address: { "@type": "PostalAddress", addressLocality: "Tunis", addressCountry: "TN" },

@@ -11,6 +11,7 @@ const navItems = [
   { name: "Home", href: "#top" },
   { name: "Work", href: "#projects" },
   { name: "Experience", href: "#experience" },
+  // 'Stack' section maps to the Tape section; ensure anchor exists
   { name: "Stack", href: "#stack" },
   { name: "About", href: "#about" },
   { name: "Contact", href: "#contact" },

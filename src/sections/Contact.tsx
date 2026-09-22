@@ -65,9 +65,9 @@ export function ContactSection() {
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Magnetic>
-              {/* Put your PDF at public/resume.pdf to enable the download link */}
+              {/* Download uses `profile.cv` to avoid a hardcoded filename */}
               <a
-                href="/resume.pdf"
+                href={profile.cv}
                 download
                 className="inline-flex items-center gap-2 rounded-full border border-emerald-200/25 bg-emerald-300/[0.08] px-7 py-3.5 text-xs font-semibold text-white transition-all duration-300 hover:bg-emerald-300/[0.14] hover:shadow-[0_8px_40px_rgba(16,185,129,0.25)]"
               >

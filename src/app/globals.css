@@ -643,18 +643,6 @@ section[id],
    SECTION UPGRADES (batch 3)
    ========================================================= */
 
-/* Spotlight hover glow (SpotlightCard) */
-.spotlight-card { position: relative; overflow: hidden; }
-.spotlight-card::before {
-  content: "";
-  position: absolute; inset: 0; border-radius: inherit;
-  background: radial-gradient(500px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(52, 211, 153, 0.07), transparent 45%);
-  opacity: 0; transition: opacity 0.4s;
-  pointer-events: none;
-}
-.spotlight-card:hover::before { opacity: 1; }
-
 /* Background sweep for interactive list rows */
 .row-sweep { position: relative; overflow: hidden; }
 .row-sweep::before {

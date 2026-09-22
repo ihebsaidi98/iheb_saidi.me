@@ -2,9 +2,8 @@
 
 import { motion, useScroll, useSpring } from "framer-motion";
 import { useRef } from "react";
-import { Chip } from "@/components/ui/Chip";
 import { SectionShell } from "@/components/ui/SectionShell";
-import { experience } from "@/data/experience";
+import { experience, type ExperienceEntry } from "@/data/experience";
 
 // DATA FIELDS USED per job:
 //   title? | role?, company, period ("Jul 2024 – Jan 2026"), description? | summary?,
@@ -20,7 +19,7 @@ function yearOf(period: string) {
   return m ? m[0] : "";
 }
 
-function JobCard({ job }: { job: any }) {
+function JobCard({ job }: { job: ExperienceEntry }) {
   const current = isCurrent(job.period);
 
   return (
@@ -34,12 +33,9 @@ function JobCard({ job }: { job: any }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-serif text-xl tracking-[-0.02em] text-white sm:text-2xl">
-            {job.title ?? job.role}
+            {job.role}
           </h3>
-          <p className="mt-1 font-mono text-[12px] text-emerald-200/60">
-            {job.company}
-            {job.location ? ` · ${job.location}` : ""}
-          </p>
+          <p className="mt-1 font-mono text-[12px] text-emerald-200/60">{job.organization}</p>
         </div>
         {current && (
           <span className="flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/[0.07] px-3 py-1">
@@ -54,29 +50,15 @@ function JobCard({ job }: { job: any }) {
         )}
       </div>
 
-      {(job.summary ?? job.description) && (
-        <p className="mt-4 text-pretty text-sm leading-6 text-white/50">
-          {job.summary ?? job.description}
-        </p>
-      )}
-
-      {job.bullets?.length > 0 && (
+      {job.details.length > 0 && (
         <ul className="mt-4 space-y-2.5">
-          {job.bullets.map((b: string, i: number) => (
-            <li key={i} className="flex gap-3 text-sm leading-6 text-white/55">
+          {job.details.map((detail, i) => (
+            <li key={`${job.organization}-${i}`} className="flex gap-3 text-sm leading-6 text-white/55">
               <span aria-hidden className="mt-[9px] size-1 shrink-0 rounded-full bg-emerald-300/50" />
-              {b}
+              {detail}
             </li>
           ))}
         </ul>
-      )}
-
-      {job.tech?.length > 0 && (
-        <div className="mt-5 flex flex-wrap gap-2 border-t border-white/[0.07] pt-4">
-          {job.tech.map((t: string) => (
-            <Chip key={t}>{t}</Chip>
-          ))}
-        </div>
       )}
     </motion.article>
   );
@@ -108,8 +90,8 @@ export function ExperienceSection() {
         />
 
         <div className="space-y-10 pl-8 sm:pl-12">
-          {experience.map((job: any) => (
-            <div key={`${job.company}-${job.period}`} className="relative lg:grid lg:grid-cols-[140px_1fr] lg:gap-8">
+          {experience.map((job) => (
+            <div key={`${job.organization}-${job.period}`} className="relative lg:grid lg:grid-cols-[140px_1fr] lg:gap-8">
               {/* node dot */}
               <span
                 aria-hidden

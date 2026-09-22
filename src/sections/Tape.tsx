@@ -38,6 +38,7 @@ export const TapeSection = () => {
 
   return (
     <section
+      id="stack"
       aria-label="Engineering values"
       className="overflow-hidden border-y border-white/[.06] bg-white/[.015] py-3"
     >

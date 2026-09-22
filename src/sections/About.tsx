@@ -103,7 +103,7 @@ function IdentityCard() {
     .toUpperCase();
 
   const details: [string, string][] = [
-    ["location", (profile as any).location ?? "Tunis, TN"],
+    ["location", profile.location ?? "Tunis, TN"],
     ["local_time", time],
     ["email", profile.email],
     ["timezone", "GMT+1"],
