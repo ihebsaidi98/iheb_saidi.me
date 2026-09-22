@@ -85,7 +85,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "agroretail-os.png",
+    screenshot: "agroretail-os.webp",
   },
 
   /* =========================================================
@@ -128,7 +128,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "novatek-platform.png",
+    screenshot: "novatek-platform.webp",
   },
 
   /* =========================================================
@@ -171,7 +171,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "tunisair-itsm.png",
+    screenshot: "tunisair-itsm.webp",
   },
 
   /* =========================================================
@@ -214,7 +214,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "xtensus-client-management.png",
+    screenshot: "xtensus-client-management.webp",
   },
 
   /* =========================================================
@@ -257,7 +257,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "world-soft-hotel.png",
+    screenshot: "world-soft-hotel.webp",
   },
 
   /* =========================================================
@@ -300,7 +300,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "nlp-conversational-chatbot.png",
+    screenshot: "nlp-conversational-chatbot.webp",
   },
 ];
 
@@ -329,7 +329,7 @@ export const academicProjects: readonly AcademicProject[] = [
       "SonarQube",
     ],
 
-    screenshot: "auction-platform.png",
+    screenshot: "auction-platform.webp",
   },
 
   {
@@ -350,7 +350,7 @@ export const academicProjects: readonly AcademicProject[] = [
       "Data Mining",
     ],
 
-    screenshot: "medical-app.png",
+    screenshot: "medical-app.webp",
   },
 
   {
@@ -373,7 +373,7 @@ export const academicProjects: readonly AcademicProject[] = [
       "CSS3",
     ],
 
-    screenshot: "fitness-platform.png",
+    screenshot: "fitness-platform.webp",
   },
 ];
 

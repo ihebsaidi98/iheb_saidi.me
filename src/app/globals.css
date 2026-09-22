@@ -69,7 +69,6 @@
   html {
     background: var(--background);
     color-scheme: dark;
-    scroll-behavior: smooth;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -626,13 +625,12 @@ section[id],
   scroll-margin-top: 5.5rem;
 }
 
-/* Branded text selection */
+/* Branded text selection + keyboard focus */
 ::selection {
   background: rgba(52, 211, 153, 0.28);
   color: #fff;
 }
 
-/* Visible keyboard focus everywhere */
 :focus-visible {
   outline: 2px solid rgba(52, 211, 153, 0.65);
   outline-offset: 2px;

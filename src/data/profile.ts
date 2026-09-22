@@ -1,9 +1,3 @@
-export type ProfileStat = {
-  value: number;
-  suffix?: string;
-  label: string;
-};
-
 export const profile: {
   name: string;
   title: string;
@@ -29,18 +23,8 @@ export const profile: {
   linkedin: "https://linkedin.com/in/iheb-saidi-/",
   github: "https://github.com/ihebsaidi98",
   cv: "/cv-iheb-saidi.pdf",
-  portrait: "/images/portrait.png",
+  portrait: "/images/portrait.webp",
   portraitYear: 2025,
   timezone: "Africa/Tunis",
   coordinates: "36.8065° N, 10.1815° E",
-  
 };
-
-export const awards = [
-  "1st National Prize, Hult Prize 2020 (AI & Innovation) — IoT/AI hospital waste management solution",
-  "Software Engineering Mentor at ESPRIT (2022–present) — UML design & architecture",
-  "Tunisian National Taekwondo Team — 15 years",
-  "Enactus (2019–2021) — team coordination, event management, social innovation",
-] as const;
-
-export const languages = "Arabic (Native) · French (Professional, B2) · English (Professional, B2)";

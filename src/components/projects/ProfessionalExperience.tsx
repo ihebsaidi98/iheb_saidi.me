@@ -187,7 +187,7 @@ function MetricValue({
     const suffix = match[2];
 
     const controls = animate(0, target, {
-      duration: 3.0,
+      duration: 1.2,
       ease: EASE,
       delay,
       onUpdate: (currentValue) => {
@@ -578,7 +578,7 @@ export function ProfessionalExperience({
                       alt=""
                       fill
                       sizes="(max-width: 1023px) 100vw, 45vw"
-                      className="scale-110 object-cover object-center opacity-xl blur-sm"
+                      className="scale-110 object-cover object-center opacity-10 blur-sm"
                       priority={active === 0}
                     />
 
