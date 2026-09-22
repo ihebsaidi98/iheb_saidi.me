@@ -116,6 +116,22 @@
     outline-offset: 4px;
   }
 
+  @keyframes cursorBlink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .writing-mode-vertical {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
   /*
    * Better default anchor behavior for fixed navigation.
    */

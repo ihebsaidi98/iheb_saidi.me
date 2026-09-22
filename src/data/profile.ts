@@ -14,7 +14,10 @@ export const profile: {
   linkedin: string;
   github: string;
   cv: string;
-  stats: readonly ProfileStat[];
+  portrait: string;
+  portraitYear: number;
+  timezone: string;
+  coordinates: string;
 } = {
   name: "Iheb Saidi",
   title: "Full Stack Software Engineer — Java · Spring Boot · Angular",
@@ -26,7 +29,11 @@ export const profile: {
   linkedin: "https://linkedin.com/in/iheb-saidi-/",
   github: "https://github.com/ihebsaidi98",
   cv: "/cv-iheb-saidi.pdf",
-  stats: [],
+  portrait: "/images/portrait.png",
+  portraitYear: 2025,
+  timezone: "Africa/Tunis",
+  coordinates: "36.8065° N, 10.1815° E",
+  
 };
 
 export const awards = [

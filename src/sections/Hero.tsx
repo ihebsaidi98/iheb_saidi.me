@@ -3,9 +3,7 @@
 import dynamic from "next/dynamic";
 import { memo, useEffect, useRef, useState } from "react";
 import ArrowDown from "@/assets/icons/arrow-down.svg";
-import { profile } from "@/data/profile";
 import { useEnvironment } from "@/lib/environment";
-import { useCountUp } from "@/hooks/useCountUp";
 
 const HeroScene3D = dynamic(() => import("@/components/HeroScene3D"), {
   ssr: false,
@@ -263,22 +261,6 @@ function TerminalCard() {
   );
 }
 
-function Stat({ value, suffix, label }: { value: number; suffix?: string; label: string }) {
-  const { ref, value: displayed } = useCountUp(value);
-  return (
-    <div>
-      <div className="font-serif text-2xl tracking-[-0.04em] text-white sm:text-3xl">
-        {/* tabular-nums: stops digit-width jitter during count-up */}
-        <span ref={ref} className="tabular-nums">
-          {displayed}
-          {suffix}
-        </span>
-      </div>
-      <div className="mt-1 max-w-[110px] text-[11px] leading-4 text-white/30">{label}</div>
-    </div>
-  );
-}
-
 /* ================= SECTION ================= */
 
 export const HeroSection = () => {
@@ -402,13 +384,6 @@ export const HeroSection = () => {
               </a>
             </div>
 
-            <div className="hero-stats mt-7 grid max-w-md grid-cols-3 border-t border-white/[0.08] pt-4">
-              {profile.stats.map((stat, i) => (
-                <div key={stat.label} className={i > 0 ? "border-l border-white/[0.08] pl-5" : ""}>
-                  <Stat value={stat.value} suffix={stat.suffix} label={stat.label} />
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* RIGHT — terminal (aria-hidden, pure decoration) */}
