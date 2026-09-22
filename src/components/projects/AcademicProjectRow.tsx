@@ -42,17 +42,9 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
         </span>
 
         <div className="min-w-0 flex-1 lg:flex lg:min-h-[280px] lg:flex-col lg:justify-center">
-          <div className="flex items-start justify-between gap-4">
-            <h3 className="font-serif text-2xl leading-tight tracking-[-0.02em] text-white/85 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 sm:text-3xl lg:text-4xl">
-              {project.title}
-            </h3>
-            <span
-              aria-hidden
-              className="mt-1.5 hidden shrink-0 font-mono text-sm text-white/25 transition-all duration-300 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:text-emerald-200/80 lg:block"
-            >
-              ↗
-            </span>
-          </div>
+          <h3 className="font-serif text-2xl leading-tight tracking-[-0.02em] text-white/85 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 sm:text-3xl lg:text-4xl">
+            {project.title}
+          </h3>
 
           <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">
             {project.organization}&nbsp;&nbsp;·&nbsp;&nbsp;{project.period}
@@ -113,23 +105,9 @@ export function AcademicProjectRow({
 }) {
   return (
     <li>
-      {project.link ? (
-        <a
-          href={project.link}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`${project.title} — view project`}
-          className={rowClass}
-        >
-          <RowBody project={project} index={index} />
-        </a>
-      ) : (
-        /* No fabricated links: rows without a URL render as plain
-           articles with identical styling — no dead affordance. */
-        <article aria-label={project.title} className={rowClass}>
-          <RowBody project={project} index={index} />
-        </article>
-      )}
+      <article aria-label={project.title} className={rowClass}>
+        <RowBody project={project} index={index} />
+      </article>
     </li>
   );
 }

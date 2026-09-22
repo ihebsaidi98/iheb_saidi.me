@@ -57,7 +57,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
     location: "Tunis, Tunisia",
 
     description:
-      "Production-grade multi-tenant SaaS platform for agricultural retail, connecting cooperatives, cashiers and farmers through secure POS, B2B and farmer-facing workflows.",
+      "connecting cooperatives, cashiers and farmers through secure POS, B2B and farmer-facing workflows.",
 
     impact: [
       "Engineered a multi-tenant SaaS platform with tenant-isolated data, role-based access and secure workflows for cooperatives, cashiers and farmers",
@@ -100,7 +100,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
     location: "Montplaisir, Tunis",
 
     description:
-      "Real-time industrial supervision platform for production monitoring, L1–L3 traceability, energy consumption tracking and anomaly alerting.",
+      "Manage production monitoring, L1–L3 traceability, energy consumption tracking and anomaly alerting.",
 
     impact: [
       "Engineered 30+ secured REST APIs with Spring Boot and Spring Security for production workflows and L1–L3 traceability",

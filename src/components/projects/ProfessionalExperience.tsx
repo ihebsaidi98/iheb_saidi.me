@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import Image from "next/image";
 import {
@@ -22,18 +21,17 @@ import type { ProfessionalExperience as Experience } from "@/data/projects";
 /* =========================================================
    PROFESSIONAL EXPERIENCE — CASE STUDY DECK
 
-   Design rules:
-   - No technology chips
+   Interaction:
+   - Normal page scrolling
+   - Mouse wheel NEVER changes project
+   - Bottom navigation changes project
+   - Previous / Next buttons change project
+   - Keyboard arrows change project
+   - Subtle image parallax while scrolling
    - No horizontal scrolling
    - No drag
-   - One wheel gesture = one project
-   - Equal visual dimensions for every project
-   - Stable layout when switching projects
-   - Directional project transitions
-   - Metrics remain visible
    - Screenshots are never cropped
    - Period appears only inside the visual card
-   - Right panel focuses on role, description, metrics and impact
    ========================================================= */
 
 const FOCUS_RING =
@@ -128,7 +126,7 @@ const metricItem: Variants = {
 };
 
 /* =========================================================
-   DIRECTIONAL PROJECT TRANSITION
+   PROJECT TRANSITION
    ========================================================= */
 
 const projectTransition: Variants = {
@@ -223,7 +221,7 @@ function ExperiencePanel({
 
   const hasMetrics = Boolean(
     experience.metrics &&
-    experience.metrics.length > 0,
+      experience.metrics.length > 0,
   );
 
   return (
@@ -234,7 +232,7 @@ function ExperiencePanel({
       exit="exit"
       className="flex h-full min-h-0 flex-col lg:min-h-[560px]"
     >
-      {/* ROLE */}
+      {/* PROJECT TITLE */}
 
       <motion.h3
         variants={panelItem}
@@ -291,10 +289,11 @@ function ExperiencePanel({
       {experience.impact.length > 0 && (
         <motion.ul
           variants={metricsStagger}
-          className={`space-y-3 ${hasMetrics
-            ? "mt-7"
-            : "mt-7 border-t border-white/[0.07] pt-7"
-            }`}
+          className={`space-y-3 ${
+            hasMetrics
+              ? "mt-7"
+              : "mt-7 border-t border-white/[0.07] pt-7"
+          }`}
         >
           {experience.impact
             .slice(0, 4)
@@ -358,11 +357,15 @@ export function ProfessionalExperience({
   const [active, setActive] = useState(0);
   const [direction, setDirection] = useState(1);
 
-  const wheelLockRef = useRef(false);
+  /*
+   * Ref used only for the visual parallax.
+   * It does NOT control project navigation.
+   */
+  const visualRef = useRef<HTMLDivElement>(null);
 
-  const wheelUnlockTimer = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
+  /* =======================================================
+     PROJECT NAVIGATION
+     ======================================================= */
 
   const goTo = useCallback(
     (
@@ -383,7 +386,7 @@ export function ProfessionalExperience({
 
       setDirection(
         forcedDirection ??
-        calculatedDirection,
+          calculatedDirection,
       );
 
       setActive(nextIndex);
@@ -392,64 +395,60 @@ export function ProfessionalExperience({
   );
 
   /* =======================================================
-     MOUSE WHEEL NAVIGATION
-     ======================================================= */
-
-  const onWheel = (
-    event: ReactWheelEvent<HTMLDivElement>,
-  ) => {
-    if (items.length <= 1) {
-      return;
-    }
-
-    if (Math.abs(event.deltaY) < 18) {
-      return;
-    }
-
-    if (wheelLockRef.current) {
-      event.preventDefault();
-      return;
-    }
-
-    const movingForward = event.deltaY > 0;
-
-    const nextIndex = movingForward
-      ? active + 1
-      : active - 1;
-
-    if (
-      nextIndex < 0 ||
-      nextIndex > items.length - 1
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-
-    wheelLockRef.current = true;
-
-    goTo(
-      nextIndex,
-      movingForward ? 1 : -1,
-    );
-
-    wheelUnlockTimer.current =
-      setTimeout(() => {
-        wheelLockRef.current = false;
-      }, 650);
-  };
-
-  /* =======================================================
-     CLEANUP
+     SUBTLE SCROLL PARALLAX
+     
+     IMPORTANT:
+     This only moves the visual.
+     It NEVER changes the active project.
      ======================================================= */
 
   useEffect(() => {
-    return () => {
-      if (wheelUnlockTimer.current) {
-        clearTimeout(wheelUnlockTimer.current);
+    if (reduceMotion) {
+      return;
+    }
+
+    const handleScroll = () => {
+      const element = visualRef.current;
+
+      if (!element) {
+        return;
       }
+
+      const rect =
+        element.getBoundingClientRect();
+
+      const viewportCenter =
+        window.innerHeight / 2;
+
+      const elementCenter =
+        rect.top + rect.height / 2;
+
+      const distance =
+        elementCenter - viewportCenter;
+
+      const offset = Math.max(
+        -14,
+        Math.min(14, distance * -0.025),
+      );
+
+      element.style.transform = `translate3d(0, ${offset}px, 0)`;
     };
-  }, []);
+
+    window.addEventListener(
+      "scroll",
+      handleScroll,
+      { passive: true },
+    );
+
+    handleScroll();
+
+    return () => {
+      window.removeEventListener(
+        "scroll",
+        handleScroll,
+      );
+    };
+  }, [reduceMotion]);
 
   /* =======================================================
      KEYBOARD NAVIGATION
@@ -491,7 +490,6 @@ export function ProfessionalExperience({
       aria-label="Professional experience"
       tabIndex={0}
       onKeyDown={onKeyDown}
-      onWheel={onWheel}
       className={`relative ${FOCUS_RING}`}
     >
       {/* =====================================================
@@ -503,9 +501,9 @@ export function ProfessionalExperience({
           reduceMotion
             ? false
             : {
-              opacity: 0,
-              y: 16,
-            }
+                opacity: 0,
+                y: 16,
+              }
         }
         whileInView={{
           opacity: 1,
@@ -531,7 +529,8 @@ export function ProfessionalExperience({
               className="signal-pulse inline-block size-1.5 rounded-full bg-emerald-300"
             />
 
-            {pad2(active)} / {pad2(items.length - 1)}
+            {pad2(active)} /{" "}
+            {pad2(items.length - 1)}
           </span>
         </div>
       </motion.div>
@@ -547,89 +546,100 @@ export function ProfessionalExperience({
 
         <div className="flex min-w-0">
           <div className="case-thumb surface-elevated flex w-full flex-col overflow-hidden rounded-2xl lg:h-[560px]">
-            {/* IMAGE */}
+            {/* =================================================
+                IMAGE
+                ================================================= */}
 
-      {/* IMAGE */}
-<div className="relative aspect-[3/2] w-full shrink-0 overflow-hidden bg-[#101418] lg:min-h-0 lg:flex-1 lg:aspect-auto">
-  <AnimatePresence
-    mode="wait"
-    initial={false}
-    custom={direction}
-  >
-    <motion.div
-      key={current.slug}
-      custom={direction}
-      variants={projectTransition}
-      initial="enter"
-      animate="center"
-      exit="exit"
-      className="absolute inset-0"
-    >
-      {/* Blurred screenshot background */}
-      <div
-        aria-hidden
-        className="absolute inset-[-8%] overflow-hidden"
-      >
-        <Image
-          src={`/images/${current.screenshot}`}
-          alt=""
-          fill
-          sizes="(max-width: 1023px) 100vw, 45vw"
-          className="scale-110 object-cover object-center opacity-2 blur-2xl"
-          priority={active === 0}
-        />
+            <div className="relative aspect-[3/2] w-full shrink-0 overflow-hidden bg-[#101418] lg:min-h-0 lg:flex-1 lg:aspect-auto">
+              <AnimatePresence
+                mode="wait"
+                initial={false}
+                custom={direction}
+              >
+                <motion.div
+                  key={current.slug}
+                  custom={direction}
+                  variants={projectTransition}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="absolute inset-0"
+                >
+                  {/* =========================================
+                      BLURRED PROJECT BACKGROUND
+                      ========================================= */}
 
-        {/* Dark translucent layer to keep the foreground readable */}
-        <div className="absolute inset-0 bg-black/20" />
-      </div>
+                  <div
+                    aria-hidden
+                    className="absolute inset-[-8%] overflow-hidden"
+                  >
+                    <Image
+                      src={`/images/${current.screenshot}`}
+                      alt=""
+                      fill
+                      sizes="(max-width: 1023px) 100vw, 45vw"
+                      className="scale-110 object-cover object-center opacity-xl blur-sm"
+                      priority={active === 0}
+                    />
 
-      {/* Soft glass-like atmosphere */}
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-white/[0.025]"
-      />
+                    {/* Soft dark overlay */}
+                    <div className="absolute inset-0 bg-black/20" />
 
-      {/* Main screenshot */}
-      <div className="absolute inset-0 flex items-center justify-center px-5 py-7 sm:px-7 lg:px-6">
-        <motion.div
-          initial={{
-            opacity: 0,
-            scale: 0.96,
-            y: 12,
-          }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            y: 0,
-          }}
-          transition={{
-            duration: 0.45,
-            ease: EASE,
-          }}
-          className="relative aspect-video w-full max-w-[560px]"
-        >
-          <Image
-            src={`/images/${current.screenshot}`}
-            alt={`${current.company} — ${current.role} product screenshot`}
-            fill
-            sizes="(max-width: 1023px) 100vw, 45vw"
-            className="object-contain object-center drop-shadow-[0_18px_35px_rgba(0,0,0,0.35)]"
-            priority={active === 0}
-          />
-        </motion.div>
-      </div>
+                    {/* Slight atmospheric layer */}
+                    <div className="absolute inset-0 bg-white/[0.025]" />
+                  </div>
 
-      {/* Project number */}
-      <span
-        aria-hidden
-        className="absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/30"
-      >
-        {pad2(active)}
-      </span>
-    </motion.div>
-  </AnimatePresence>
-</div>
-            {/* COMPANY + PERIOD */}
+                  {/* =========================================
+                      MAIN SCREENSHOT
+                      ========================================= */}
+
+                  <div className="absolute inset-0 flex items-center justify-center px-5 py-7 sm:px-7 lg:px-6">
+                    <motion.div
+                      ref={visualRef}
+                      initial={{
+                        opacity: 0,
+                        scale: 0.96,
+                        y: 12,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        y: 0,
+                      }}
+                      transition={{
+                        duration: 0.45,
+                        ease: EASE,
+                      }}
+                      className="relative aspect-video w-full max-w-[560px] will-change-transform"
+                    >
+                      <Image
+                        src={`/images/${current.screenshot}`}
+                        alt={`${current.company} — ${current.role} product screenshot`}
+                        fill
+                        sizes="(max-width: 1023px) 100vw, 45vw"
+                        className="object-contain object-center drop-shadow-[0_18px_35px_rgba(0,0,0,0.35)]"
+                        priority={active === 0}
+                      />
+                    </motion.div>
+                  </div>
+
+                  {/* =========================================
+                      PROJECT NUMBER
+                      ========================================= */}
+
+                  <span
+                    aria-hidden
+                    className="absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/30"
+                  >
+                    {pad2(active)}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* =================================================
+                COMPANY + LOCATION + PERIOD
+                ================================================= */}
 
             <div className="flex h-[52px] shrink-0 items-center justify-between border-t border-white/[0.06] bg-[#0b1015] px-4">
               <AnimatePresence
@@ -700,10 +710,12 @@ export function ProfessionalExperience({
       </div>
 
       {/* =====================================================
-          NAVIGATION
+          PROJECT NAVIGATION
           ===================================================== */}
 
       <div className="mt-7 flex items-center gap-4 sm:gap-6">
+        {/* PROJECT SELECTOR */}
+
         <div
           role="group"
           aria-label="Choose experience"
@@ -730,11 +742,14 @@ export function ProfessionalExperience({
                 }
                 className={`flex-1 py-2 ${FOCUS_RING}`}
               >
+                {/* NUMBER + COMPANY */}
+
                 <span
-                  className={`mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums ${isActive
-                    ? "text-emerald-200"
-                    : "text-white/35"
-                    }`}
+                  className={`mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums ${
+                    isActive
+                      ? "text-emerald-200"
+                      : "text-white/35"
+                  }`}
                 >
                   {pad2(index)}
 
@@ -743,13 +758,16 @@ export function ProfessionalExperience({
                   </span>
                 </span>
 
+                {/* PROGRESS LINE */}
+
                 <span className="relative block h-px w-full overflow-hidden bg-white/15">
                   <span
                     aria-hidden
-                    className={`absolute inset-0 origin-left bg-emerald-300 transition-transform duration-500 ${isActive
-                      ? "scale-x-100"
-                      : "scale-x-0"
-                      }`}
+                    className={`absolute inset-0 origin-left bg-emerald-300 transition-transform duration-500 ${
+                      isActive
+                        ? "scale-x-100"
+                        : "scale-x-0"
+                    }`}
                     style={{
                       transitionTimingFunction:
                         "cubic-bezier(0.22, 1, 0.36, 1)",
@@ -761,9 +779,13 @@ export function ProfessionalExperience({
           })}
         </div>
 
-        {/* PREVIOUS / NEXT */}
+        {/* ===================================================
+            PREVIOUS / NEXT
+            =================================================== */}
 
         <div className="flex items-center gap-2">
+          {/* PREVIOUS */}
+
           <button
             type="button"
             onClick={() =>
@@ -787,6 +809,8 @@ export function ProfessionalExperience({
               <path d="m12 19-7-7 7-7" />
             </svg>
           </button>
+
+          {/* NEXT */}
 
           <button
             type="button"
@@ -816,7 +840,9 @@ export function ProfessionalExperience({
         </div>
       </div>
 
-      {/* SCREEN READER STATUS */}
+      {/* =====================================================
+          SCREEN READER STATUS
+          ===================================================== */}
 
       <p
         className="sr-only"
