@@ -86,7 +86,7 @@ export function IdentityCard() {
 
       <div className="px-5 pb-7 pt-3 sm:px-6">
         <div className="font-serif text-xl text-white">{profile.name}</div>
-        <div className="mt-0.5 font-mono text-[10px] tracking-wider text-white/40">
+        <div className="mt-0.5 font-mono text-[10px] tracking-wider text-white/55">
           {profile.title}
         </div>
       </div>
