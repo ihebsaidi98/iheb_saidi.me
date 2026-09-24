@@ -15,6 +15,8 @@ type Allowed = {
 // Intentionally-unmeasurable incomplete nodes. Asserted in BOTH directions:
 // every incomplete node must match an entry, and every entry must still match
 // at least one node (rot detector — stale entries fail the run).
+// Deleted since 976d708: the Medical "AI" tooShort entry — absent from the
+// incomplete set in both drift-probe scans under the current strips.
 const ALLOWED_INCOMPLETE: Allowed[] = [
   { rule: "color-contrast", targetTokens: ["ml-1", "emerald-300"],
     reasonIncludes: "non-text characters",
@@ -22,9 +24,6 @@ const ALLOWED_INCOMPLETE: Allowed[] = [
   { rule: "color-contrast", targetTokens: ["mr-2"],
     reasonIncludes: "non-text characters",
     reason: "decorative status glyph (●)" },
-  { rule: "color-contrast", targetTokens: ["Medical Sample Management"],
-    reasonIncludes: "too short to determine",
-    reason: "tag content is literally 'AI'; same-class siblings measure 8.79:1" },
 ];
 
 test("no a11y violations across the full page", async ({ page }) => {
@@ -42,9 +41,8 @@ test("no a11y violations across the full page", async ({ page }) => {
   // non-ancestor siblings. Stripped carriers:
   //  - body's two radial-gradient layers → solid #070a0d base
   //  - content-visibility:auto skips below-fold paint subtrees
-  //  - [class*="bg-gradient-"]: Tailwind gradient utilities (inline JSX)
-  //  - [class*="bg-[radial-gradient"]: arbitrary-value utility, invisible to
-  //    the substring match above (hero corner glow)
+  //  - [class*="bg-gradient-"] / [class*="bg-[radial-gradient"]: Tailwind
+  //    gradient utilities incl. arbitrary values (hero readability overlays)
   //  - [style*=gradient]: SectionShell underlays (4×) + IdentityCard glow —
   //    inline styles, absolute SIBLINGS behind every text node in their
   //    sections; unreachable by class selectors. Removed layers are
@@ -52,16 +50,23 @@ test("no a11y violations across the full page", async ({ page }) => {
   //    (slightly optimistic near glow center). Decorative; direction
   //    documented; immaterial at current color choices.
   //  - named decorative layers: grids, noise, atmosphere, ambient-glow
-  //  - .case-thumb img + [class*="from-black/80"] img: images hidden so text
-  //    spans layered over them measure against the card surface (their
-  //    gradient scrims are stripped above)
+  //  - display:none (NOT visibility:hidden — hidden elements keep their
+  //    layout rect and can still trip axe's overlap detection) for solid
+  //    decorative coverers named by the drift-probe census:
+  //      · the four SectionShell opacity-[0.35] grid underlays
+  //      · .decorative-watermark ("01" numeral) — also excluded below
+  //      · img.blur-sm — decorative blurred card-background images
+  //      · bg-black/20 + bg-white/[0.025] card overlays
+  //      · bg-emerald-400/[0.05] hero-fallback glow blob
+  //      · case-thumb + group/card images — scrim spans measure against the
+  //        card surface (the old scrim descendant selector matched zero
+  //        elements: the portrait img is a sibling, not a descendant)
+  //      · bg-emerald-300/40 1px underline accents
+  //  - [class*="bg-[#04070c]"] transparent: the hero-fallback base div and
+  //    section#top — text measures against body #070a0d (lighter →
+  //    conservative). Cross-boot drift was traced to fallback boots.
   //  - .case-thumb::after + .row-sweep::before: decorative pseudos on
-  //    ANCESTORS (scanline sweep / hover sweep). The residue-probe census
-  //    showed the pseudo carrier is an ancestor, not the flagged element
-  //    itself — the old self-::before strips are kept as belt-and-suspenders.
-  //  - [class*="bg-emerald-300/40"]: 1px link underline accents that graze
-  //    the About paragraph's bounding box (overlapPx 1) and trip axe's
-  //    "partially overlaps" check.
+  //    ANCESTORS (scanline sweep / hover sweep).
   // Hero letters: clip gradient stripped above leaves color:transparent →
   // meaningless 1:1. Pin the WORST stop of emerald-300→sky-400 (#38bdf8,
   // 9.26:1). Worst stop passing ⇒ gradient passing.
@@ -79,11 +84,18 @@ test("no a11y violations across the full page", async ({ page }) => {
       .noise-overlay,
       .atmosphere,
       .ambient-glow { display: none !important; }
-      .case-thumb img { visibility: hidden !important; }
-      [class*="from-black/80"] img { visibility: hidden !important; }
+      .decorative-watermark { display: none !important; }
+      [class*="opacity-[0.35]"] { display: none !important; }
+      img.blur-sm { display: none !important; }
+      [class*="bg-black/20"] { display: none !important; }
+      [class*="bg-white/[0.025]"] { display: none !important; }
+      [class*="bg-emerald-400/[0.05]"] { display: none !important; }
+      .case-thumb img,
+      [class*="group/card"] img { display: none !important; }
+      [class*="bg-emerald-300/40"] { display: none !important; }
+      [class*="bg-[#04070c]"] { background-color: transparent !important; }
       .case-thumb::after { content: none !important; }
       .row-sweep::before { content: none !important; }
-      [class*="bg-emerald-300/40"] { display: none !important; }
       .left-4::before,
       .ml-4::before,
       .mt-0\\.5.truncate.block::before,
@@ -92,16 +104,14 @@ test("no a11y violations across the full page", async ({ page }) => {
     `,
   });
 
-  // Settle wait. 250ms produced run-to-run drift in the incomplete set (a spec
-  // run and a same-conditions probe run differed by ~5 nodes, including
-  // hero-terminal lines). Late-arriving content — typed terminal text, font
-  // swaps, hydration commits — must settle before measurement; reduced-motion
-  // emulation does not stop JS/rAF-driven effects.
+  // Settle wait: the drift probe showed the incomplete set is stable within
+  // a boot after 3s (two scans, identical nodes and world state). Cross-boot
+  // variance comes from WebGL-fallback boots, handled by the strips above.
   await page.waitForTimeout(3000);
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
-    // Documented intentional low-contrast watermarks (aria-hidden decorative).
+    // Documented intentional near-invisible numeral (also display:none above).
     .exclude(".decorative-watermark")
     // Next.js dev toolbar — runtime-injected, not shipped.
     .exclude("nextjs-portal")
@@ -129,8 +139,16 @@ test("no a11y violations across the full page", async ({ page }) => {
   const stale = ALLOWED_INCOMPLETE.filter((a) => !incomplete.some((n) => matches(a, n)));
 
   if (unmatched.length || stale.length) {
+    // Boot fingerprint: cross-boot drift was traced to WebGL-fallback boots.
+    const boot = await page.evaluate(() => ({
+      canvases: document.querySelectorAll("canvas").length,
+      imgsLoaded: [...document.querySelectorAll("img")].filter(
+        (i) => i.complete && i.naturalWidth > 0,
+      ).length,
+      imgsTotal: document.querySelectorAll("img").length,
+    }));
     test.info().attach("a11y-failure", {
-      body: JSON.stringify({ unmatched, staleAllowlist: stale }, null, 2),
+      body: JSON.stringify({ boot, unmatched, staleAllowlist: stale }, null, 2),
       contentType: "application/json",
     });
   }
