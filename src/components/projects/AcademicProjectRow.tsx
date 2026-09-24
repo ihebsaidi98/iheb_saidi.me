@@ -64,7 +64,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
               </span>
             ))}
             {project.tech.length > MAX_TECH && (
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/45">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/55">
                 +{project.tech.length - MAX_TECH}
               </span>
             )}

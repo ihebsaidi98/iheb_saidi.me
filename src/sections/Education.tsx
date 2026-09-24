@@ -39,19 +39,19 @@ export function EducationSection() {
                   {entry.school ?? entry.institution}
                 </p>
                 {(entry.description ?? entry.details) && (
-                  <p className="mt-2 text-sm leading-6 text-white/45">
+                  <p className="mt-2 text-sm leading-6 text-white/55">
                     {entry.description ?? entry.details}
                   </p>
                 )}
                 {entry.gpa && (
-                  <p className="mt-2 font-mono text-[11px] text-white/35">
+                  <p className="mt-2 font-mono text-[11px] text-white/55">
                     GPA: <span className="text-white/60">{entry.gpa}</span>
                   </p>
                 )}
               </div>
 
               <div className="sm:text-right">
-                <div className="font-mono text-[11px] text-white/35 tabular-nums">
+                <div className="font-mono text-[11px] text-white/55 tabular-nums">
                   {entry.period}
                 </div>
                 {courses.length > 0 && (

@@ -87,7 +87,7 @@ export function ContactSection() {
                 ) : (
                   <span className="truncate">{profile.email}</span>
                 )}
-                <span aria-hidden className="text-white/30 transition-colors group-hover:text-white/60">
+                <span aria-hidden className="text-white/55 transition-colors group-hover:text-white/60">
                   {copied ? "✓" : "⧉"}
                 </span>
               </button>
@@ -102,7 +102,7 @@ export function ContactSection() {
                   href={s.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="group inline-flex items-center gap-1.5 px-2 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/40 transition-colors hover:text-white"
+                  className="group inline-flex items-center gap-1.5 px-2 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/55 transition-colors hover:text-white"
                 >
                   {s.label}
                   <span aria-hidden className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
@@ -113,7 +113,7 @@ export function ContactSection() {
             </div>
           )}
 
-          <p className="mt-10 font-mono text-[10px] tracking-[0.2em] text-white/25 tabular-nums">
+          <p className="mt-10 font-mono text-[10px] tracking-[0.2em] text-white/55 tabular-nums">
             {locationShort.toUpperCase()} · {time} · TYPICALLY REPLIES WITHIN 24H
           </p>
         </motion.div>

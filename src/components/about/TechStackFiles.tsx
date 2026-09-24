@@ -8,10 +8,10 @@ import { SKILL_GROUPS, type SkillGroup } from "@/data/about";
 type Token = { text: string; className: string };
 
 const CLS = {
-  punct: "text-white/25",
+  punct: "text-white/55",
   string:
     "text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100",
-  comment: "text-white/25",
+  comment: "text-white/55",
 };
 
 function toFileName(label: string) {
@@ -101,7 +101,7 @@ function StackFileCard({
           <span className="size-2 rounded-full bg-[#febc2e]/50" />
           <span className="size-2 rounded-full bg-[#28c840]/50" />
         </div>
-        <span className="ml-1 font-mono text-[10px] tracking-wider text-white/35 transition-colors duration-300 group-hover/card:text-emerald-200/70">
+        <span className="ml-1 font-mono text-[10px] tracking-wider text-white/55 transition-colors duration-300 group-hover/card:text-emerald-200/70">
           {file}
         </span>
       </div>
@@ -164,14 +164,14 @@ export function TechStackFiles() {
   return (
     <div>
       <div className="flex items-center gap-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/35">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/55">
           <span aria-hidden className="mr-2 text-emerald-300/70">
             ▸
           </span>
           ~/stack
         </span>
         <span aria-hidden className="h-px flex-1 bg-white/[0.07]" />
-        <span className="font-mono text-[10px] tracking-wider text-white/25">
+        <span className="font-mono text-[10px] tracking-wider text-white/55">
           {GROUPS.length} FILES
         </span>
         <CopyButton value={RAW_JSON}>copy</CopyButton>
