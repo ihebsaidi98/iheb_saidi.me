@@ -236,10 +236,10 @@ function TerminalCard() {
           <span className="size-2.5 rounded-full bg-[#ff5f57]/70" />
           <span className="size-2.5 rounded-full bg-[#febc2e]/70" />
           <span className="size-2.5 rounded-full bg-[#28c840]/70" />
-          <span className="ml-3 font-mono text-[10px] tracking-wider text-white/35">
+          <span className="ml-3 font-mono text-[10px] tracking-wider text-white/50">
             OpportunityController.java
           </span>
-          <span className="ml-auto font-mono text-[10px] text-white/20">UTF-8</span>
+          <span className="ml-auto font-mono text-[10px] text-white/50">UTF-8</span>
         </div>
 
         <pre className="min-h-[280px] overflow-hidden px-5 py-4 font-mono text-[12.5px] leading-6 text-white/60 lg:min-h-[320px]">
@@ -249,7 +249,7 @@ function TerminalCard() {
           <span className="ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
         </pre>
 
-        <div className="flex items-center gap-4 border-t border-white/[0.07] px-4 py-2 font-mono text-[10px] text-white/30">
+        <div className="flex items-center gap-4 border-t border-white/[0.07] px-4 py-2 font-mono text-[10px] text-white/50">
           <span className="flex items-center gap-1.5">
             <span className="size-1.5 rounded-full bg-emerald-400" />
             build: success
@@ -366,7 +366,7 @@ export const HeroSection = () => {
               {/* padded to a 44px touch target */}
               <a
                 href="#contact"
-                className="px-2 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white/40 transition-colors hover:text-white"
+                className="px-2 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white/60 transition-colors hover:text-white"
               >
                 Get in touch
               </a>
@@ -380,17 +380,17 @@ export const HeroSection = () => {
       </div>
 
       <div className="hero-scroll-hint absolute bottom-7 left-0 right-0 z-10 hidden items-center justify-between px-6 lg:flex">
-        <span className="font-mono text-[10px] tracking-[0.2em] text-white/20">
+        <span className="font-mono text-[10px] tracking-[0.2em] text-white/50">
           {locationShort.toUpperCase().replace(", ", " / ")}
         </span>
         <a
           href="#projects"
-          className="group flex items-center gap-3 px-2 py-2 font-mono text-[10px] tracking-[0.2em] text-white/25 transition-colors hover:text-white/60"
+          className="group flex items-center gap-3 px-2 py-2 font-mono text-[10px] tracking-[0.2em] text-white/50 transition-colors hover:text-white/80"
         >
           SCROLL
           <span className="h-px w-10 origin-left bg-white/[0.15] transition-transform duration-500 group-hover:scale-x-150" />
         </a>
-        <span className="font-mono text-[10px] tracking-[0.2em] text-white/20">2026</span>
+        <span className="font-mono text-[10px] tracking-[0.2em] text-white/50">2026</span>
       </div>
     </section>
   );
