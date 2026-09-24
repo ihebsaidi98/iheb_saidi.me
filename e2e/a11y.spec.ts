@@ -3,6 +3,12 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 test("no a11y violations across the full page", async ({ page }) => {
+  // Freeze entrance animations at their final state before first paint.
+  // The site honours prefers-reduced-motion via MotionConfig reducedMotion='user'
+  // and the @media (prefers-reduced-motion: reduce) block in globals.css.
+  // Without this, axe can scan mid-animation opacity states (e.g. hero letters
+  // at opacity:0), producing nondeterministic violation counts across runs.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 

@@ -8,7 +8,7 @@ export function Footer() {
 
   return (
     <footer className="border-t border-white/[0.07] py-8">
-      <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-6 font-mono text-[10px] tracking-[0.15em] text-white/25 sm:flex-row">
+      <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-6 font-mono text-[10px] tracking-[0.15em] text-white/50 sm:flex-row">
         <span>© 2026 IHEB SAIDI</span>
         <span className="tabular-nums">{locationShort.toUpperCase()} — {time}</span>
         <button
