@@ -15,8 +15,6 @@ type Allowed = {
 // Intentionally-unmeasurable incomplete nodes. Asserted in BOTH directions:
 // every incomplete node must match an entry, and every entry must still match
 // at least one node (rot detector — stale entries fail the run).
-// Deleted since 976d708: the Medical "AI" tooShort entry — absent from the
-// incomplete set in both drift-probe scans under the current strips.
 const ALLOWED_INCOMPLETE: Allowed[] = [
   { rule: "color-contrast", targetTokens: ["ml-1", "emerald-300"],
     reasonIncludes: "non-text characters",
@@ -27,6 +25,7 @@ const ALLOWED_INCOMPLETE: Allowed[] = [
 ];
 
 test("no a11y violations across the full page", async ({ page }) => {
+  test.setTimeout(120_000);
   // Freeze entrance animations at final state — otherwise axe can scan
   // mid-animation opacity (hero letters at 0) → nondeterministic counts.
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -62,9 +61,16 @@ test("no a11y violations across the full page", async ({ page }) => {
   //        card surface (the old scrim descendant selector matched zero
   //        elements: the portrait img is a sibling, not a descendant)
   //      · bg-emerald-300/40 1px underline accents
-  //  - [class*="bg-[#04070c]"] transparent: the hero-fallback base div and
-  //    section#top — text measures against body #070a0d (lighter →
-  //    conservative). Cross-boot drift was traced to fallback boots.
+  //  - [class*="inset-[-8%]"]: the decorative background-screenshot wrapper
+  //    in ProfessionalExperience cards — ORACLE-CERTIFIED blocker: hiding it
+  //    alone flipped all three card-footer nodes to measurable. It paints
+  //    nothing itself, which is why every rect census filtered it out — but
+  //    a positioned transparent div still paints ABOVE static text in the
+  //    same stacking context, and axe counts it.
+  //  - [class*="hero-caret"]: decorative terminal caret; removed so terminal
+  //    measurement cannot depend on typing phase (its geometry follows text).
+  //  - [class*="bg-[#04070c]"] transparent: hero base layers — text measures
+  //    against body #070a0d (lighter → conservative).
   //  - .case-thumb::after + .row-sweep::before: decorative pseudos on
   //    ANCESTORS (scanline sweep / hover sweep).
   // Hero letters: clip gradient stripped above leaves color:transparent →
@@ -93,6 +99,8 @@ test("no a11y violations across the full page", async ({ page }) => {
       .case-thumb img,
       [class*="group/card"] img { display: none !important; }
       [class*="bg-emerald-300/40"] { display: none !important; }
+      [class*="inset-[-8%]"] { display: none !important; }
+      [class*="hero-caret"] { display: none !important; }
       [class*="bg-[#04070c]"] { background-color: transparent !important; }
       .case-thumb::after { content: none !important; }
       .row-sweep::before { content: none !important; }
@@ -104,10 +112,22 @@ test("no a11y violations across the full page", async ({ page }) => {
     `,
   });
 
-  // Settle wait: the drift probe showed the incomplete set is stable within
-  // a boot after 3s (two scans, identical nodes and world state). Cross-boot
-  // variance comes from WebGL-fallback boots, handled by the strips above.
+  // ── deterministic settle ──────────────────────────────────────────────────
+  // The drift probe showed the incomplete set is stable WITHIN a boot; the
+  // residual cross-boot variance (pre > code flickering on clean boots) tracks
+  // boot-speed-dependent client state. So: wait for webfonts, hold 3s, then
+  // poll until DOM text stops mutating (3 consecutive equal readings, max 12s)
+  // — typed terminal content must be final before measurement.
+  await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(3000);
+  let stableReadings = 0;
+  let lastLen = -1;
+  for (let i = 0; i < 24 && stableReadings < 3; i++) {
+    const len = await page.evaluate(() => document.body.innerText.length);
+    stableReadings = len === lastLen ? stableReadings + 1 : 0;
+    lastLen = len;
+    if (stableReadings < 3) await page.waitForTimeout(500);
+  }
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
