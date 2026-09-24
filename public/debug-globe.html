@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Debug Globe</title>
+    <style>html,body{height:100%;margin:0;background:#111;color:#eee;display:flex;align-items:center;justify-content:center}canvas{width:480px;height:480px;border:1px solid rgba(255,255,255,.06);image-rendering:pixelated}</style>
+  </head>
+  <body>
+    <canvas id="globe" width="480" height="480"></canvas>
+    <script type="module">
+      // Instrument canvas and offscreen contexts before loading the globe
+      (function instrumentPrototypes(){
+        try{
+          window.__cobeLogs = window.__cobeLogs || [];
+          const wrap = (obj, name) => {
+            if(!obj || !obj.prototype) return;
+            const proto = obj.prototype;
+            if(proto.__cobe_get_ctx_wrapped) return;
+            const orig = proto.getContext;
+            proto.getContext = function(type, opts){
+              try{ window.__cobeLogs.push({event:'getContext called', target: name, type: type, opts: !!opts, time: Date.now()}); }catch(e){}
+              const gl = orig.call(this, type, Object.assign({}, opts || {}, { preserveDrawingBuffer: true }));
+              try{
+                if(!gl) return gl;
+                if(gl.__cobe_instrumented) return gl;
+                const names = ['drawArrays','drawElements','texImage2D','bufferData','useProgram','bindTexture','clear','viewport'];
+                for(const n of names){
+                  const o = gl[n];
+                  if(!o) continue;
+                  gl[n] = function(...a){ try{ window.__cobeLogs.push({event:'gl.'+n, args:a.map(x=>typeof x), time: Date.now()}); }catch(e){} return o.apply(this,a); };
+                }
+                gl.__cobe_instrumented = true;
+              }catch(e){ try{ window.__cobeLogs.push({event:'instrument_error',err:String(e)}); }catch(_){} }
+              return gl;
+            };
+            proto.__cobe_get_ctx_wrapped = true;
+          };
+          wrap(HTMLCanvasElement, 'HTMLCanvasElement');
+          if(typeof OffscreenCanvas !== 'undefined') wrap(OffscreenCanvas, 'OffscreenCanvas');
+        }catch(e){ console.error('instrumentPrototypes', e); }
+      })();
+
+      const canvas = document.getElementById('globe');
+
+      // Force preserveDrawingBuffer and instrument GL for logging
+      (function forcePreserveAndInstrument(){
+        const origGet = canvas.getContext.bind(canvas);
+        canvas.getContext = function(type, opts){
+          const newOpts = Object.assign({}, opts || {}, { preserveDrawingBuffer: true });
+          const gl = origGet(type, newOpts);
+          try{
+            if(!gl) return gl;
+            if(gl.__cobe_instrumented) return gl;
+            const names = ['drawArrays','drawElements','texImage2D','bufferData','useProgram','bindTexture'];
+            for(const name of names){
+              const orig = gl[name];
+              if(!orig) continue;
+              gl[name] = function(...args){
+                try{ (window.__cobeLogs = window.__cobeLogs||[]).push({fn:name,time:Date.now(),args:args.map(a=>typeof a)}); }catch(e){}
+                return orig.apply(this,args);
+              };
+            }
+            gl.__cobe_instrumented = true;
+          }catch(e){
+            try{ (window.__cobeLogs = window.__cobeLogs||[]).push({fn:'instrumentError',err:String(e)}); }catch(_){}
+          }
+          return gl;
+        };
+      })();
+      const cfg = {
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        width: 480,
+        height: 480,
+        mapSamples: 16000,
+        mapBrightness: 12,
+        baseColor: [0.32,0.45,0.55],
+        markerColor: [0.43,0.94,0.68],
+        glowColor: [0.16,0.45,0.5],
+        markers: [{ location: [36.8065, 10.1815], size: 0.09 }],
+        context: { preserveDrawingBuffer: true }
+      };
+
+      // Dynamically import after instrumentation so any context creation is intercepted
+      let globe;
+      (async ()=>{
+        try{
+          const mod = await import('/cobe-debug-wrapper.mjs');
+          const createGlobe = mod.default || mod;
+          globe = createGlobe(canvas, cfg);
+          window.__inAppCobe = window.__inAppCobe || {};
+          window.__inAppCobe.created = Date.now();
+        }catch(e){
+          (window.__cobeLogs = window.__cobeLogs||[]).push({event:'create_error',err:String(e),time:Date.now()});
+        }
+      })();
+
+      function sampleCenter() {
+        try {
+          const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
+          if (!gl) return null;
+          const px = new Uint8Array(4);
+          const w = Math.floor(canvas.width/2);
+          const h = Math.floor(canvas.height/2);
+          gl.readPixels(w, h, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          return Array.from(px);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // poll until non-zero sample appears (or timeout)
+      (async function poll(){
+        for (let i=0;i<60;i++){
+          await new Promise(r=>setTimeout(r,100));
+          const s = sampleCenter();
+          console.log('sample', i, s);
+          if (s && s.some(v=>v!==0)){
+            (window as any).__debugSample = s;
+            document.body.insertAdjacentHTML('beforeend',`<div style="position:fixed;left:8px;top:8px;background:#0008;padding:8px;border-radius:6px">sample: ${s.join(',')}</div>`);
+            return;
+          }
+        }
+        document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;left:8px;top:8px;background:#0008;padding:8px;border-radius:6px">no non-zero sample</div>');
+      })();
+      // Observe for any additional canvases the library may create (hidden overlay or separate buffers)
+      (function observeCanvases(){
+        function sampleCanvas(canv){
+          try{
+            const gl = canv.getContext('webgl') || canv.getContext('webgl2');
+            if(!gl) return null;
+            const px = new Uint8Array(4);
+            const w = Math.floor(canv.width/2);
+            const h = Math.floor(canv.height/2);
+            gl.readPixels(w,h,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
+            return Array.from(px);
+          }catch(e){
+            return { err: String(e) };
+          }
+        }
+
+        function scanAll(){
+          const canvases = Array.from(document.querySelectorAll('canvas'));
+          const info = canvases.map(c=>({
+            id: c.id || null,
+            w: c.width, h: c.height, cssW: c.clientWidth, cssH: c.clientHeight,
+            sample: sampleCanvas(c),
+            attrs: (c.getContext && (c.getContext('webgl')||c.getContext('webgl2')) && (c.getContext('webgl')||c.getContext('webgl2')).getContextAttributes) ? (c.getContext('webgl')||c.getContext('webgl2')).getContextAttributes() : null
+          }));
+          window.__debugCanvasScan = info;
+          const el = document.getElementById('cobe-scan');
+          if(el) el.textContent = JSON.stringify(info.map(i=>({w:i.w,h:i.h,s:i.sample,attrs:i.attrs})),null,0);
+          return info;
+        }
+
+        const mo = new MutationObserver((mut)=>{
+          for(const rec of mut){
+            for(const n of rec.addedNodes){
+              if(n.nodeType===1 && n.tagName==='CANVAS'){
+                console.log('detected canvas', n);
+                scanAll();
+              }
+            }
+          }
+        });
+        mo.observe(document.documentElement||document.body,{childList:true,subtree:true});
+        // initial scan
+        setTimeout(scanAll, 300);
+        // periodic scan as a fallback
+        setInterval(scanAll, 1000);
+      })();
+    </script>
+    <pre id="cobe-scan" style="position:fixed;right:8px;top:8px;max-width:40vw;max-height:60vh;overflow:auto;background:#0008;color:#fff;padding:8px;border-radius:6px;font-size:12px"></pre>
+  </body>
+</html>

@@ -308,6 +308,14 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
    ACADEMIC PROJECTS
    ========================================================= */
 
+export const workPeriodsByOrganization = {
+  "Novatek (Délice Group)": "Jul 2024 – Jan 2026",
+  Tunisair: "Jan 2024 – Jul 2024",
+  "Xtensus, Ariana": "Jul 2023 – Aug 2023",
+  "World Soft Group, Marsa": "Jul 2022 – Sep 2022",
+  "ISIMS, Sfax — Bachelor's Final Project": "Feb 2021 – Jun 2021",
+} as const;
+
 export const academicProjects: readonly AcademicProject[] = [
   {
     slug: "auction-platform",

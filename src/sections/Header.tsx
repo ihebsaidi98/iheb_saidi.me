@@ -6,6 +6,7 @@ import {
   useScroll,
 } from "framer-motion";
 import { useEffect, useState } from "react";
+import { EASE } from "@/components/hero-motion";
 
 const navItems = [
   { name: "Home", href: "#top" },
@@ -16,8 +17,6 @@ const navItems = [
   { name: "About", href: "#about" },
   { name: "Contact", href: "#contact" },
 ] as const;
-
-const EASE = [0.16, 1, 0.3, 1] as const;
 
 export const Header = () => {
   const [active, setActive] = useState("Home");

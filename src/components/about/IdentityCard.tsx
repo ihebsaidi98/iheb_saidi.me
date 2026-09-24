@@ -1,26 +1,15 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { SignalRadar } from "@/components/about/SignalRadar";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { EASE } from "@/components/hero-motion";
 import { CopyButton } from "@/components/CopyButton";
+import { StatusDot } from "@/components/ui/StatusDot";
 import { profile } from "@/data/profile";
 import { useLocalTime } from "@/hooks/useLocalTime";
 import { useTilt } from "@/hooks/useTilt";
 
-const Globe = dynamic(
-  () => import("@/components/Globe").then((module) => module.Globe),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        aria-hidden
-        className="aspect-square w-full max-w-[260px] animate-pulse rounded-full bg-emerald-300/[.05] blur-2xl"
-      />
-    ),
-  },
-);
 
 export function IdentityCard() {
   const reducedMotion = useReducedMotion();
@@ -41,8 +30,8 @@ export function IdentityCard() {
         shouldReduce
           ? undefined
           : {
-              transform: `perspective(1200px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
-            }
+            transform: `perspective(1200px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
+          }
       }
       className="group/card relative h-fit overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] transition-colors duration-500 hover:border-emerald-300/20 will-change-transform"
     >
@@ -61,14 +50,20 @@ export function IdentityCard() {
         />
       )}
 
-      <div className="relative m-3 overflow-hidden rounded-xl border border-white/[0.08] bg-[#070b0a]">
+      <div className="relative m-3 overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#0b1210] to-[#070d0c]">
+        {/* soft glow behind the cutout */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-6 rounded-full bg-emerald-400/[0.08] blur-2xl"
+        />
+
         <div className="relative aspect-square">
           <Image
             src={profile.portrait}
             alt={`${profile.name}, ${profile.title}`}
             fill
             sizes="(min-width: 1024px) 316px, calc(100vw - 48px)"
-            className="object-contain transition-transform duration-700 ease-out group-hover/card:scale-[1.02]"
+            className="object-contain drop-shadow-[0_10px_30px_rgba(16,185,129,0.15)] transition-transform duration-700 ease-out group-hover/card:scale-[1.02]"
           />
 
           {!shouldReduce && (
@@ -89,9 +84,8 @@ export function IdentityCard() {
             <span className="absolute bottom-0 right-0 size-3 border-b border-r border-emerald-300/60" />
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-1 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-10 font-mono text-[9px] tracking-[0.2em] text-white/50">
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-10 font-mono text-[9px] tracking-[0.2em] text-white/50">
             <span>PORTRAIT — {profile.portraitYear}</span>
-            <span className="hidden text-emerald-200/60 sm:inline">{profile.coordinates}</span>
           </div>
         </div>
       </div>
@@ -102,20 +96,13 @@ export function IdentityCard() {
           {profile.title}
         </div>
         <div className="mt-3 flex items-center gap-2">
-          <span className="relative flex size-1.5">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
-          </span>
+          <StatusDot size={6} className="shrink-0" />
           <span className="font-mono text-[9px] tracking-[0.18em] text-emerald-200/70">
             OPEN TO WORK
           </span>
         </div>
 
         <dl className="mt-5 space-y-2.5 border-t border-white/[0.07] pt-5 font-mono text-[11px]">
-          <div className="flex justify-between gap-4">
-            <dt className="shrink-0 text-white/30">location</dt>
-            <dd className="truncate text-white/60">{profile.location}</dd>
-          </div>
           <div className="flex justify-between gap-4">
             <dt className="shrink-0 text-white/30">local_time</dt>
             <dd className="tabular-nums text-white/60">{time}</dd>
@@ -155,12 +142,9 @@ export function IdentityCard() {
             </svg>
           </motion.div>
           <div className="relative z-10">
-            <Globe />
+            <SignalRadar />
           </div>
         </div>
-        <p className="relative mt-2 text-center font-mono text-[9px] tracking-[0.2em] text-white/24">
-          {profile.coordinates}
-        </p>
       </div>
     </motion.div>
   );

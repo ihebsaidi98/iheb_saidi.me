@@ -3,6 +3,9 @@
 import dynamic from "next/dynamic";
 import { memo, useEffect, useRef, useState } from "react";
 import ArrowDown from "@/assets/icons/arrow-down.svg";
+import { Chip } from "@/components/ui/Chip";
+import { StatusDot } from "@/components/ui/StatusDot";
+import { availability, locationShort } from "@/data/site";
 import { useEnvironment } from "@/lib/environment";
 
 const HeroScene3D = dynamic(() => import("@/components/HeroScene3D"), {
@@ -315,12 +318,9 @@ export const HeroSection = () => {
           {/* LEFT */}
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
-              </span>
+              <StatusDot size={8} className="shrink-0" />
               <span className="font-mono text-[9px] font-medium tracking-[0.22em] text-emerald-200/70">
-                AVAILABLE FOR NEW OPPORTUNITIES
+                {availability}
               </span>
             </div>
 
@@ -349,20 +349,10 @@ export const HeroSection = () => {
             </p>
 
             <p className="mt-4 max-w-lg text-pretty text-base leading-7 text-white/50 sm:text-lg sm:leading-8">
-              Full-stack software engineer turning complex backend and frontend
-              challenges into simple, reliable, user-loved products.
+              Think deeply. Build simply. Ship reliably.
             </p>
 
-            <div className="hero-stack-chips mt-4 flex flex-wrap gap-2">
-              {STACK.map((s) => (
-                <span
-                  key={s}
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-[10px] tracking-wider text-white/50"
-                >
-                  {s}
-                </span>
-              ))}
-            </div>
+
 
             <div className="mt-6 flex flex-wrap items-center gap-6">
               <a
@@ -392,7 +382,9 @@ export const HeroSection = () => {
       </div>
 
       <div className="hero-scroll-hint absolute bottom-7 left-0 right-0 z-10 hidden items-center justify-between px-6 lg:flex">
-        <span className="font-mono text-[10px] tracking-[0.2em] text-white/20">TUNIS / TN</span>
+        <span className="font-mono text-[10px] tracking-[0.2em] text-white/20">
+          {locationShort.toUpperCase().replace(", ", " / ")}
+        </span>
         <a
           href="#projects"
           className="group flex items-center gap-3 px-2 py-2 font-mono text-[10px] tracking-[0.2em] text-white/25 transition-colors hover:text-white/60"

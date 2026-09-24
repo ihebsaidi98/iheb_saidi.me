@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { EASE } from "@/components/hero-motion";
 import { Magnetic } from "@/components/ui/Magnetic";
+import { StatusDot } from "@/components/ui/StatusDot";
+import { availability, locationShort } from "@/data/site";
 import { useLocalTime } from "@/hooks/useLocalTime";
 import { profile } from "@/data/profile";
 
@@ -42,12 +44,9 @@ export function ContactSection() {
           transition={{ duration: 0.7, ease: EASE }}
         >
           <div className="inline-flex items-center gap-2.5">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
-            </span>
+            <StatusDot size={8} className="shrink-0" />
             <span className="font-mono text-[9px] font-medium tracking-[0.22em] text-emerald-200/70">
-              AVAILABLE FOR NEW OPPORTUNITIES
+              {availability}
             </span>
           </div>
 
@@ -115,7 +114,7 @@ export function ContactSection() {
           )}
 
           <p className="mt-10 font-mono text-[10px] tracking-[0.2em] text-white/25 tabular-nums">
-            TUNIS, TN · {time} · TYPICALLY REPLIES WITHIN 24H
+            {locationShort.toUpperCase()} · {time} · TYPICALLY REPLIES WITHIN 24H
           </p>
         </motion.div>
       </div>

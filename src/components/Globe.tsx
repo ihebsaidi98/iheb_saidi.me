@@ -45,9 +45,12 @@ export function Globe() {
     let width = canvasRef.current.offsetWidth;
     let phi = 0;
 
-    // dpr 1.5 + buffer 1.5 — was effectively 4x supersampled before
-    const globe = createGlobe(canvasRef.current, {
-      devicePixelRatio: 1.5,
+    // use device pixel ratio with an upper cap to avoid excessive supersampling
+    const debug = typeof window !== "undefined" && window.location.search.includes("globe-debug");
+
+    // default (recommended) config — tuned for dark card background
+    const cfg = {
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       width: width * 1.5,
       height: width * 1.5,
       phi: 0,
@@ -55,29 +58,75 @@ export function Globe() {
       dark: 1,
       diffuse: 1.2,
       mapSamples: 16000,
-      mapBrightness: 6,
-      baseColor: [0.05, 0.15, 0.2],
+      mapBrightness: 8,
+      baseColor: [0.32, 0.45, 0.55],
       markerColor: [0.43, 0.94, 0.68],
-      glowColor: [0.15, 0.4, 0.45],
+      glowColor: [0.16, 0.45, 0.5],
       markers: [{ location: [36.8065, 10.1815], size: 0.09 }],
-      onRender: (state: { phi: number; width: number; height: number }) => {
+    } as unknown as COBEOptions;
+
+    if (debug) console.log("COBE globe debug config", cfg);
+
+    // onRender handler
+    const onRender = (state: { phi: number; width: number; height: number }) => {
         if (pointerInteracting.current === null && !reduceMotion) {
           phi += 0.003;
         }
         state.phi = phi + pointerInteractionMovement.current;
         state.width = width * 1.5;
         state.height = width * 1.5;
-      },
-    } as unknown as COBEOptions);
+      };
+
+    // debug wrapper for createGlobe to expose the canvas and GL context in the running app
+    const createGlobeDebug = (...args: any[]) => {
+      const inst = (createGlobe as any)(...args);
+      try {
+        const canvas = args[0] as HTMLCanvasElement | null;
+        const opts = args[1];
+        if (canvas) {
+          const gl = (canvas.getContext("webgl") || canvas.getContext("webgl2")) as WebGLRenderingContext | null;
+          try {
+            (window as any).__inAppCobe = (window as any).__inAppCobe || {};
+            (window as any).__inAppCobe.canvas = canvas;
+            (window as any).__inAppCobe.gl = gl;
+            (window as any).__inAppCobe.opts = opts;
+            (window as any).__inAppCobe.createdAt = Date.now();
+            // helper to sample pixels from the app canvas
+            (window as any).__inAppCobe.sample = function(){
+              try{
+                const g = (canvas.getContext('webgl') || canvas.getContext('webgl2')) as WebGLRenderingContext | null;
+                if(!g) return null;
+                const px = new Uint8Array(4);
+                g.readPixels(Math.floor(canvas.width/2), Math.floor(canvas.height/2), 1, 1, g.RGBA, g.UNSIGNED_BYTE, px);
+                return Array.from(px);
+              }catch(e){ return null; }
+            };
+          } catch (e) {}
+        }
+      } catch (e) {}
+      return inst;
+    };
+
+    // create globe once with onRender included
+    const globeWithRender = createGlobeDebug(canvasRef.current, { ...cfg, onRender, context: { preserveDrawingBuffer: true } } as unknown as COBEOptions);
+    (globeWithRender as any).__debug = { cfg };
+    if (debug) {
+      try {
+        (window as any).__lastCobeCfg = cfg;
+        (window as any).__lastCobe = globeWithRender;
+      } catch (e) {}
+    }
 
     const onResize = () => {
       width = canvasRef.current?.offsetWidth ?? width;
     };
-    window.addEventListener("resize", onResize);
+
+    const observer = new ResizeObserver(onResize);
+    if (wrapRef.current) observer.observe(wrapRef.current);
 
     return () => {
-      globe.destroy();
-      window.removeEventListener("resize", onResize);
+      globeWithRender.destroy();
+      observer.disconnect();
     };
   }, [inView, reduceMotion]);
 

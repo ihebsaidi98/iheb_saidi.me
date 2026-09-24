@@ -2,6 +2,7 @@
 
 import { motion, useScroll, useSpring } from "framer-motion";
 import { useRef } from "react";
+import { StatusDot } from "@/components/ui/StatusDot";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { experience, type ExperienceEntry } from "@/data/experience";
 
@@ -39,10 +40,7 @@ function JobCard({ job }: { job: ExperienceEntry }) {
         </div>
         {current && (
           <span className="flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/[0.07] px-3 py-1">
-            <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
-            </span>
+            <StatusDot size={6} className="shrink-0" />
             <span className="font-mono text-[9px] tracking-[0.18em] text-emerald-200/80">
               PRESENT
             </span>
