@@ -309,7 +309,7 @@
    */
   .technical-label {
     @apply font-mono text-[10px] uppercase tracking-[0.16em]
-      text-white/40;
+      text-white/50;
   }
 
   /*

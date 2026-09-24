@@ -4,10 +4,9 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useRef } from "react";
 import { IdentityCard } from "@/components/about/IdentityCard";
 import { NeuralMesh } from "@/components/about/NeuralMesh";
-import { SignalMeter } from "@/components/about/SignalMeter";
+import { TechStackFiles } from "@/components/about/TechStackFiles";
 import { EASE } from "@/components/hero-motion";
 import { SectionShell } from "@/components/ui/SectionShell";
-import { SKILL_GROUPS } from "@/data/about";
 
 function Mono({ children }: { children: React.ReactNode }) {
   return (
@@ -69,106 +68,70 @@ export function AboutSection() {
           <IdentityCard />
 
           <div className="relative min-w-0">
-  <div
-    aria-hidden
-    className="pointer-events-none absolute -top-10 right-0 hidden select-none font-serif text-[9rem] leading-none text-white/[0.03] sm:block lg:text-[12rem] xl:text-[15rem]"
-  >
-    01
-  </div>
+            <div
+              aria-hidden
+              className="decorative-watermark pointer-events-none absolute -top-10 right-0 hidden select-none font-serif text-[9rem] leading-none text-white/[0.03] sm:block lg:text-[12rem] xl:text-[15rem]"
+            >
+              01
+            </div>
 
-  <div className="relative space-y-4 text-pretty text-base leading-7 text-white/55 sm:text-lg sm:leading-8">
-    <RevealP reduce={shouldReduce} delay={0}>
-      <p>
-        I&apos;m a full-stack engineer focused on <Mono>Spring Boot</Mono>{" "}
-        backends and <Mono>Angular</Mono> frontends — working in the
-        unglamorous middle where business logic, data, APIs, and user
-        experience meet.
-      </p>
-    </RevealP>
+            <div className="relative space-y-4 text-pretty text-base leading-7 text-white/55 sm:text-lg sm:leading-8">
+              <RevealP reduce={shouldReduce} delay={0}>
+                <p>
+                  I&apos;m a full-stack engineer focused on <Mono>Spring Boot</Mono>{" "}
+                  backends and <Mono>Angular</Mono> frontends — working in the
+                  unglamorous middle where business logic, data, APIs, and user
+                  experience meet.
+                </p>
+              </RevealP>
 
-    <RevealP reduce={shouldReduce} delay={0.12}>
-      <p>
-        I care about <Mono>clean architecture</Mono>, observable systems, and
-        code the next engineer can trust. I build software for real-world
-        constraints, from <Mono>event-driven microservices</Mono> to
-        resilient delivery and production-ready systems.
-      </p>
-    </RevealP>
+              <RevealP reduce={shouldReduce} delay={0.12}>
+                <p>
+                  I care about <Mono>clean architecture</Mono>, observable systems, and
+                  code the next engineer can trust. I build software for real-world
+                  constraints, from <Mono>event-driven microservices</Mono> to
+                  resilient delivery and production-ready systems.
+                </p>
+              </RevealP>
 
-    <RevealP reduce={shouldReduce} delay={0.24}>
-      <p>
-        AI is part of that stack too: <Mono>RAG</Mono> pipelines with{" "}
-        <Mono>pgvector</Mono>, <Mono>Spring AI</Mono> integrations, and
-        production-minded systems with proper testing and guardrails. I use AI
-        to move faster — but I own the architecture, the engineering decisions,
-        and everything that ships.
-        {shouldReduce ? (
-          <span
-            aria-hidden
-            className="ml-1 font-mono text-emerald-300/90"
-          >
-            ▍
-          </span>
-        ) : (
-          <motion.span
-            aria-hidden
-            animate={{ opacity: [1, 1, 0, 0] }}
-            transition={{
-              duration: 1.1,
-              times: [0, 0.45, 0.5, 1],
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "linear",
-            }}
-            className="ml-1 inline-block font-mono text-emerald-300/90"
-          >
-            ▍
-          </motion.span>
-        )}
-      </p>
-    </RevealP>
-  </div>
-
-  <div className="relative mt-14 grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 xl:grid-cols-4">
-    {SKILL_GROUPS.map((group, groupIndex) => (
-      <div key={group.label}>
-        <h3 className="flex items-center gap-2.5 font-mono text-[10px] uppercase tracking-[0.22em] text-white/35">
-          <span aria-hidden className="text-emerald-300/70">
-            ▸
-          </span>
-          {group.label}
-
-          <motion.span
-            aria-hidden
-            initial={shouldReduce ? false : { scaleX: 0 }}
-            whileInView={{ scaleX: 1 }}
-            viewport={{ once: true }}
-            transition={
-              shouldReduce
-                ? { duration: 0 }
-                : { duration: 0.8, ease: EASE, delay: 0.2 }
-            }
-            className="h-px flex-1 origin-left bg-white/[0.07]"
-          />
-        </h3>
-
-        <div className="mt-5 space-y-5">
-          {group.skills.map((skill, skillIndex) => (
-            <SignalMeter
-              key={skill.name}
-              {...skill}
-              delay={
-                shouldReduce
-                  ? 0
-                  : groupIndex * 0.08 + skillIndex * 0.05
-              }
-            />
-          ))}
+              <RevealP reduce={shouldReduce} delay={0.24}>
+                <p>
+                  AI is part of that stack too: <Mono>RAG</Mono> pipelines with{" "}
+                  <Mono>pgvector</Mono>, <Mono>Spring AI</Mono> integrations, and
+                  production-minded systems with proper testing and guardrails. I use AI
+                  to move faster — but I own the architecture, the engineering decisions,
+                  and everything that ships.
+                  {shouldReduce ? (
+                    <span
+                      aria-hidden
+                      className="ml-1 font-mono text-emerald-300/90"
+                    >
+                      ▍
+                    </span>
+                  ) : (
+                    <motion.span
+                      aria-hidden
+                      animate={{ opacity: [1, 1, 0, 0] }}
+                      transition={{
+                        duration: 1.1,
+                        times: [0, 0.45, 0.5, 1],
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: "linear",
+                      }}
+                      className="ml-1 inline-block font-mono text-emerald-300/90"
+                    >
+                      ▍
+                    </motion.span>
+                  )}
+                </p>
+              </RevealP>
+            </div>
+          </div>
         </div>
-      </div>
-    ))}
-  </div>
-  </div>
-</div>
+
+        <div className="relative z-10 mt-14 sm:mt-16">
+          <TechStackFiles />
+        </div>
       </div>
     </SectionShell>
   );

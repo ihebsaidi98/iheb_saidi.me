@@ -44,7 +44,7 @@ export function SectionShell({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-15% 0px" }}
               transition={{ duration: 0.65, ease: EASE }}
-              className="pointer-events-none absolute left-0 top-0 flex h-40 flex-col items-center justify-start font-mono text-[10px] tracking-[0.34em] text-white/20"
+              className="decorative-watermark pointer-events-none absolute left-0 top-0 flex h-40 flex-col items-center justify-start font-mono text-[10px] tracking-[0.34em] text-white/20"
               aria-hidden
             >
               <span className="writing-mode-vertical">

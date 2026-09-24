@@ -276,7 +276,7 @@ function ExperiencePanel({
                   />
                 </dd>
 
-                <dd className="mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/35">
+                <dd className="mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50">
                   {metric.label}
                 </dd>
               </motion.div>
@@ -523,7 +523,7 @@ export function ProfessionalExperience({
             02 — SELECTED WORK
           </span>
 
-          <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-white/40 tabular-nums">
+          <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-white/50 tabular-nums">
             <span
               aria-hidden
               className="signal-pulse inline-block size-1.5 rounded-full bg-emerald-300"
@@ -629,7 +629,7 @@ export function ProfessionalExperience({
 
                   <span
                     aria-hidden
-                    className="absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/30"
+                    className="absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/50"
                   >
                     {pad2(active)}
                   </span>
@@ -665,14 +665,14 @@ export function ProfessionalExperience({
 
                     {/* LOCATION */}
 
-                    <span className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/30">
+                    <span className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/50">
                       {current.location}
                     </span>
                   </div>
 
                   {/* PERIOD */}
 
-                  <span className="ml-4 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-white/40">
+                  <span className="ml-4 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-white/50">
                     {current.period}
                   </span>
                 </motion.div>
@@ -748,7 +748,7 @@ export function ProfessionalExperience({
                   className={`mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums ${
                     isActive
                       ? "text-emerald-200"
-                      : "text-white/35"
+                      : "text-white/60 hover:text-white"
                   }`}
                 >
                   {pad2(index)}

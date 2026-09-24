@@ -36,7 +36,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
       <div className="flex min-w-0 items-start gap-5 sm:gap-8">
         <span
           aria-hidden
-          className="pt-1.5 font-serif text-lg tabular-nums text-white/20 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl"
+          className="pt-1.5 font-serif text-lg tabular-nums text-white/50 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl"
         >
           {pad2(index)}
         </span>
@@ -46,7 +46,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
             {project.title}
           </h3>
 
-          <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">
+          <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50">
             {project.organization}&nbsp;&nbsp;·&nbsp;&nbsp;{project.period}
           </p>
 

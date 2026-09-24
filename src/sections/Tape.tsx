@@ -52,7 +52,7 @@ export const TapeSection = () => {
               {words.map((word) => (
                 <span
                   key={`${copy}-${word}`}
-                  className="inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/40"
+                  className="inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50"
                 >
                   <i aria-hidden className="size-1 rounded-full bg-emerald-300/70" />
                   {word}

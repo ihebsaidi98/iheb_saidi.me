@@ -102,16 +102,16 @@ export function ExperienceSection() {
               {/* sticky year column (desktop) */}
               <div className="hidden lg:block">
                 <div className="sticky top-28 pt-7">
-                  <span className="font-mono text-xs tracking-wider text-white/35 tabular-nums">
+                  <span className="font-mono text-xs tracking-wider text-white/50 tabular-nums">
                     {yearOf(job.period)}
                   </span>
-                  <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/20">
+                  <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50">
                     {job.period}
                   </div>
                 </div>
               </div>
               {/* mobile period (inline) */}
-              <div className="mb-3 font-mono text-[10px] tracking-wider text-white/35 lg:hidden">
+              <div className="mb-3 font-mono text-[10px] tracking-wider text-white/50 lg:hidden">
                 {job.period}
               </div>
               <JobCard job={job} />
