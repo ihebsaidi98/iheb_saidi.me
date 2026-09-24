@@ -24,8 +24,6 @@ const ROLES = [
   "clean, maintainable architecture",
 ];
 
-const STACK = ["Java 21", "Spring Boot", "Angular", "TypeScript", "PostgreSQL", "Docker", "AWS"];
-
 const TYPED_CODE = `@RestController
 @RequestMapping("/api/v1")
 public class OpportunityController {

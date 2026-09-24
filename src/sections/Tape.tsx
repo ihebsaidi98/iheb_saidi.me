@@ -47,7 +47,7 @@ export const TapeSection = () => {
           style={{ x: reducedMotion ? "0%" : x }}
           className="flex w-max gap-5 pr-5"
         >
-          {[0, 1, 2].map((copy) => (
+          {[0, 1, 2, 3].map((copy) => (
             <Fragment key={copy}>
               {words.map((word) => (
                 <span

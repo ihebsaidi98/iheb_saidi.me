@@ -130,7 +130,7 @@ export const Header = () => {
           shadow-[0_12px_40px_rgba(0,0,0,0.28)]
           backdrop-blur-2xl
           backdrop-saturate-150
-          scrollbar-none
+          no-scrollbar
         "
       >
         {/* Ambient border glow */}

@@ -1,20 +1,14 @@
 "use client";
 
-import { SignalRadar } from "@/components/about/SignalRadar";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { EASE } from "@/components/hero-motion";
-import { CopyButton } from "@/components/CopyButton";
-import { StatusDot } from "@/components/ui/StatusDot";
 import { profile } from "@/data/profile";
-import { useLocalTime } from "@/hooks/useLocalTime";
 import { useTilt } from "@/hooks/useTilt";
-
 
 export function IdentityCard() {
   const reducedMotion = useReducedMotion();
   const shouldReduce = reducedMotion === null ? false : reducedMotion;
-  const time = useLocalTime(profile.timezone);
   const tilt = useTilt({ max: 6 });
 
   return (
@@ -30,8 +24,8 @@ export function IdentityCard() {
         shouldReduce
           ? undefined
           : {
-            transform: `perspective(1200px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
-          }
+              transform: `perspective(1200px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
+            }
       }
       className="group/card relative h-fit overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] transition-colors duration-500 hover:border-emerald-300/20 will-change-transform"
     >
@@ -62,7 +56,7 @@ export function IdentityCard() {
             src={profile.portrait}
             alt={`${profile.name}, ${profile.title}`}
             fill
-            sizes="(min-width: 1024px) 316px, calc(100vw - 48px)"
+            sizes="(min-width: 1200px) 316px, calc(100vw - 48px)"
             className="object-contain drop-shadow-[0_10px_30px_rgba(16,185,129,0.15)] transition-transform duration-700 ease-out group-hover/card:scale-[1.02]"
           />
 
@@ -90,60 +84,10 @@ export function IdentityCard() {
         </div>
       </div>
 
-      <div className="px-5 pb-6 pt-2 sm:px-6">
+      <div className="px-5 pb-7 pt-3 sm:px-6">
         <div className="font-serif text-xl text-white">{profile.name}</div>
         <div className="mt-0.5 font-mono text-[10px] tracking-wider text-white/40">
           {profile.title}
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <StatusDot size={6} className="shrink-0" />
-          <span className="font-mono text-[9px] tracking-[0.18em] text-emerald-200/70">
-            OPEN TO WORK
-          </span>
-        </div>
-
-        <dl className="mt-5 space-y-2.5 border-t border-white/[0.07] pt-5 font-mono text-[11px]">
-          <div className="flex justify-between gap-4">
-            <dt className="shrink-0 text-white/30">local_time</dt>
-            <dd className="tabular-nums text-white/60">{time}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="shrink-0 text-white/30">email</dt>
-            <dd className="min-w-0" aria-live="polite">
-              <CopyButton value={profile.email}>copy</CopyButton>
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="shrink-0 text-white/30">timezone</dt>
-            <dd className="text-white/60">{profile.timezone}</dd>
-          </div>
-        </dl>
-
-        <div className="relative mt-6 flex justify-center">
-          <motion.div
-            aria-hidden
-            animate={shouldReduce ? undefined : { rotate: 360 }}
-            transition={
-              shouldReduce
-                ? undefined
-                : { repeat: Number.POSITIVE_INFINITY, duration: 40, ease: "linear" }
-            }
-            className="absolute inset-[-14%]"
-          >
-            <svg viewBox="0 0 100 100" className="h-full w-full" fill="none">
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                stroke="rgba(255,255,255,0.18)"
-                strokeWidth="0.6"
-                strokeDasharray="1.5 4.5"
-              />
-            </svg>
-          </motion.div>
-          <div className="relative z-10">
-            <SignalRadar />
-          </div>
         </div>
       </div>
     </motion.div>
