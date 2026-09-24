@@ -2,88 +2,45 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-const SECTION_IDS = [
-  "top",
-  "about",
-  "projects",
-  "stack",
-  "experience",
-  "education",
-  "contact",
-];
-
-test("no a11y violations across all sections and footer", async ({ page }) => {
-  test.setTimeout(60000);
+test("no a11y violations across the full page", async ({ page }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 
-  type ViolationDetail = {
-    section: string;
-    id: string;
-    impact: string | null | undefined;
-    description: string;
-    target: string;
-    html: string;
-    failureSummary: string;
-  };
+  // Staleness canary: this content was added this session. If it's missing,
+  // we are testing a different server — fail loudly.
+  await expect(page.locator("#experience")).toContainText("AgroRetail OS");
 
-  const accumulatedViolations: ViolationDetail[] = [];
-
-  const seenNodes = new Set<string>();
-
-  const runScan = async (contextName: string) => {
-    const builder = new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa"])
-      // Exclude intentional low-contrast watermarks:
-      // 1. About section giant "01" numeral (decorative background graphic)
-      // 2. SectionShell vertical section index (decorative sidebar watermark)
-      .exclude(".decorative-watermark");
-
-    const results = await builder.analyze();
-    for (const v of results.violations) {
-      for (const node of v.nodes) {
-        const key = `${v.id}::${node.target.join(" > ")}`;
-        if (!seenNodes.has(key)) {
-          seenNodes.add(key);
-          accumulatedViolations.push({
-            section: contextName,
-            id: v.id,
-            impact: v.impact,
-            description: v.description,
-            target: node.target.join(" "),
-            html: node.html,
-            failureSummary: node.failureSummary || "",
-          });
-        }
-      }
-    }
-  };
-
-  for (const id of SECTION_IDS) {
-    const section = page.locator(`#${id}`);
-    await section.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(250);
-    await runScan(`section#${id}`);
-  }
-
-  // Scroll to document end and scan the footer
-  const footer = page.locator("footer");
-  await footer.scrollIntoViewIfNeeded();
+  // Two rendering fixes applied for the scan only (no source changes):
+  //
+  // 1. body background-image: none — body carries two radial-gradient layers
+  //    on top of the solid #070a0d base. axe cannot resolve contrast through
+  //    any gradient ancestor and marks every descendant as "incomplete" (= 0
+  //    violations reported). Stripping the gradient exposes the solid base so
+  //    axe can calculate ratios correctly. The gradient is purely decorative
+  //    and near-transparent; removing it does not change any text/bg pair.
+  //
+  // 2. content-visibility: visible — below-fold sections have
+  //    content-visibility: auto, which skips their paint subtree. Without
+  //    this override, off-screen elements are invisible to axe.
+  await page.addStyleTag({
+    content: `
+      body { background-image: none !important; }
+      section, footer { content-visibility: visible !important; }
+    `,
+  });
   await page.waitForTimeout(250);
-  await runScan("footer");
 
-  const formattedViolations = accumulatedViolations
-    .map(
-      (v, idx) =>
-        `\n[${idx + 1}] [${v.section}] ${v.id} (${v.impact ?? "unknown"}): ${v.description}\n` +
-        `    Target: ${v.target}\n` +
-        `    HTML: ${v.html}\n` +
-        `    Summary: ${v.failureSummary}`
-    )
-    .join("\n");
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    // Documented intentional low-contrast watermarks (aria-hidden decorative):
+    // - About "01" numeral: near-invisible background graphic (white/[0.03])
+    // - SectionShell vertical index: design sidebar watermark (white/20)
+    .exclude(".decorative-watermark")
+    .analyze();
 
-  expect(
-    accumulatedViolations,
-    `Found ${accumulatedViolations.length} accessibility violation(s) across sections:\n${formattedViolations}`
-  ).toEqual([]);
+  const summary = results.violations.flatMap((v) =>
+    v.nodes.map((n) => `${v.id} (${v.impact}): ${n.target.join(" ")}`),
+  );
+
+  expect(summary.join("\n")).toBe("");
 });
