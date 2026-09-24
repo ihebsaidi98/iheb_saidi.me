@@ -4,7 +4,10 @@ import AxeBuilder from "@axe-core/playwright";
 
 type Allowed = {
   rule: string;
-  targetPrefix: string;
+  // Sed-stable match tokens: every token must appear in the axe target string.
+  // Never match on full serialized selectors — axe re-serializes targets when
+  // sibling classes change, and opacity fixes rewrite class strings mid-harness.
+  targetTokens: string[];
   reasonIncludes: string;
   reason: string;
 };
@@ -13,14 +16,15 @@ type Allowed = {
 // every incomplete node must match an entry, and every entry must still match
 // at least one node (rot detector — stale entries fail the run).
 const ALLOWED_INCOMPLETE: Allowed[] = [
-  { rule: "color-contrast", targetPrefix: ".ml-1.text-emerald-300\\/90.font-mono",
-    reasonIncludes: "non-text characters", reason: "decorative glyph (↳)" },
-  { rule: "color-contrast", targetPrefix: ".mr-2",
-    reasonIncludes: "non-text characters", reason: "decorative glyph (●)" },
-  { rule: "color-contrast", targetPrefix: 'code > .ml-1.text-emerald-300\\/90[aria-hidden="true"]',
-    reasonIncludes: "non-text characters", reason: "decorative glyph (↳), explicitly aria-hidden" },
-  { rule: "color-contrast", targetPrefix: 'article[aria-label="Medical Sample Management"]',
-    reasonIncludes: "too short to determine", reason: "tag content is literally 'AI'; same-class siblings measure 8.79:1" },
+  { rule: "color-contrast", targetTokens: ["ml-1", "emerald-300"],
+    reasonIncludes: "non-text characters",
+    reason: "decorative prompt/arrow glyphs (↳); one instance explicitly aria-hidden" },
+  { rule: "color-contrast", targetTokens: ["mr-2"],
+    reasonIncludes: "non-text characters",
+    reason: "decorative status glyph (●)" },
+  { rule: "color-contrast", targetTokens: ["Medical Sample Management"],
+    reasonIncludes: "too short to determine",
+    reason: "tag content is literally 'AI'; same-class siblings measure 8.79:1" },
 ];
 
 test("no a11y violations across the full page", async ({ page }) => {
@@ -48,9 +52,16 @@ test("no a11y violations across the full page", async ({ page }) => {
   //    (slightly optimistic near glow center). Decorative; direction
   //    documented; immaterial at current color choices.
   //  - named decorative layers: grids, noise, atmosphere, ambient-glow
-  //  - .case-thumb img: hidden so the span over it measures against the card
-  //    surface (its gradient scrim is stripped above)
-  //  - four named ::before decorative gradients
+  //  - .case-thumb img + [class*="from-black/80"] img: images hidden so text
+  //    spans layered over them measure against the card surface (their
+  //    gradient scrims are stripped above)
+  //  - .case-thumb::after + .row-sweep::before: decorative pseudos on
+  //    ANCESTORS (scanline sweep / hover sweep). The residue-probe census
+  //    showed the pseudo carrier is an ancestor, not the flagged element
+  //    itself — the old self-::before strips are kept as belt-and-suspenders.
+  //  - [class*="bg-emerald-300/40"]: 1px link underline accents that graze
+  //    the About paragraph's bounding box (overlapPx 1) and trip axe's
+  //    "partially overlaps" check.
   // Hero letters: clip gradient stripped above leaves color:transparent →
   // meaningless 1:1. Pin the WORST stop of emerald-300→sky-400 (#38bdf8,
   // 9.26:1). Worst stop passing ⇒ gradient passing.
@@ -69,6 +80,10 @@ test("no a11y violations across the full page", async ({ page }) => {
       .atmosphere,
       .ambient-glow { display: none !important; }
       .case-thumb img { visibility: hidden !important; }
+      [class*="from-black/80"] img { visibility: hidden !important; }
+      .case-thumb::after { content: none !important; }
+      .row-sweep::before { content: none !important; }
+      [class*="bg-emerald-300/40"] { display: none !important; }
       .left-4::before,
       .ml-4::before,
       .mt-0\\.5.truncate.block::before,
@@ -76,7 +91,13 @@ test("no a11y violations across the full page", async ({ page }) => {
       .hero-letter { color: #38bdf8 !important; }
     `,
   });
-  await page.waitForTimeout(250);
+
+  // Settle wait. 250ms produced run-to-run drift in the incomplete set (a spec
+  // run and a same-conditions probe run differed by ~5 nodes, including
+  // hero-terminal lines). Late-arriving content — typed terminal text, font
+  // swaps, hydration commits — must settle before measurement; reduced-motion
+  // emulation does not stop JS/rAF-driven effects.
+  await page.waitForTimeout(3000);
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
@@ -102,7 +123,7 @@ test("no a11y violations across the full page", async ({ page }) => {
   );
   const matches = (a: Allowed, n: { rule: string; target: string; message: string }) =>
     n.rule === a.rule &&
-    n.target.startsWith(a.targetPrefix) &&
+    a.targetTokens.every((t) => n.target.includes(t)) &&
     n.message.includes(a.reasonIncludes);
   const unmatched = incomplete.filter((n) => !ALLOWED_INCOMPLETE.some((a) => matches(a, n)));
   const stale = ALLOWED_INCOMPLETE.filter((a) => !incomplete.some((n) => matches(a, n)));
@@ -114,5 +135,5 @@ test("no a11y violations across the full page", async ({ page }) => {
     });
   }
   expect(unmatched.map((n) => `${n.rule}: ${n.target}`).join("\n")).toBe("");
-  expect(stale.map((a) => `${a.rule}: ${a.targetPrefix}`).join("\n")).toBe("");
+  expect(stale.map((a) => `${a.rule}: ${a.targetTokens.join("+")}`).join("\n")).toBe("");
 });
