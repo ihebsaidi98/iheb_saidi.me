@@ -309,6 +309,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
    ========================================================= */
 
 export const workPeriodsByOrganization = {
+  "AgroRetail OS": "2026 – Present",
   "Novatek (Délice Group)": "Jul 2024 – Jan 2026",
   Tunisair: "Jan 2024 – Jul 2024",
   "Xtensus, Ariana": "Jul 2023 – Aug 2023",

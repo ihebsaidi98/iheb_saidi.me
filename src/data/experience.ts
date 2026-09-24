@@ -10,6 +10,16 @@ export type ExperienceEntry = {
 const EXPERIENCE_CONFIG = [
   {
     role: "Full Stack Engineer",
+    organization: "AgroRetail OS",
+    details: [
+      "Designing a multi-tenant SaaS platform where tenant isolation, role-based access and traceability shape every architectural decision",
+      "Learning to build offline-first POS and farmer-facing workflows that stay correct when connectivity is unreliable",
+      "Implementing regulatory and document workflows — Certiphyto validation, asynchronous DRE generation, transactional Outbox processing",
+      "Hardening the platform for production with load testing, observability, resilience patterns and OWASP ZAP security auditing",
+    ],
+  },
+  {
+    role: "Full Stack Engineer",
     organization: "Novatek (Délice Group)",
     details: [
       "Learned to design systems around real production constraints where reliability, performance and traceability matter every day",
