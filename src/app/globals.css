@@ -115,17 +115,6 @@
     outline-offset: 4px;
   }
 
-  @keyframes cursorBlink {
-    0%,
-    49% {
-      opacity: 1;
-    }
-    50%,
-    100% {
-      opacity: 0;
-    }
-  }
-
   .writing-mode-vertical {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
@@ -573,14 +562,7 @@
    ========================================================= */
 
 @media (max-height: 780px) {
-  .hero-stats,
   .hero-scroll-hint {
-    display: none;
-  }
-}
-
-@media (max-height: 640px) {
-  .hero-stack-chips {
     display: none;
   }
 }
