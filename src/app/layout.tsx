@@ -29,11 +29,15 @@ export const metadata: Metadata = {
     description:
       "Full-stack software engineer building scalable Spring Boot backends and reactive Angular frontends.",
   },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#05070a",
 };
 
 const jsonLd = {
@@ -64,7 +68,7 @@ export default function RootLayout({
       >
         {/* Skip link: first tab stop, visible only when focused */}
         <a
-          href="#top"
+          href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-emerald-300 focus:px-4 focus:py-2 focus:text-xs focus:font-semibold focus:text-[#05070a]"
         >
           Skip to content

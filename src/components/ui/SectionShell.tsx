@@ -70,7 +70,7 @@ export function SectionShell({
             className="max-w-2xl pt-5"
           >
             <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.22em] text-emerald-200/70">
-              <span className="text-white/25">{index}</span>
+              <span className="text-white/50">{index}</span>
               <span className="h-px w-8 bg-emerald-300/40" />
               {eyebrow}
             </div>

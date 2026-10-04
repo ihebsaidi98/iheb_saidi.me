@@ -1,7 +1,45 @@
 /** @type {import('next').NextConfig} */
 import nextBundleAnalyzer from "@next/bundle-analyzer";
 
+const connectSrc = process.env.NODE_ENV === "development" ? "'self' ws: http: https:" : "'self'";
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            // Next.js emits inline bootstrap scripts and layout.tsx emits JSON-LD.
+            // A nonce middleware is disproportionate for this static portfolio; keep
+            // unsafe-inline while Report-Only telemetry is reviewed.
+            value: [
+              "default-src 'self'",
+              "base-uri 'self'",
+              "object-src 'none'",
+              "frame-ancestors 'none'",
+              "form-action 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob:",
+              "font-src 'self'",
+              `connect-src ${connectSrc}`,
+              "worker-src 'self' blob:",
+              "upgrade-insecure-requests",
+            ].join("; "),
+          },
+        ],
+      },
+    ];
+  },
+
   webpack(config) {
     // Grab the existing rule that handles SVG imports
     const fileLoaderRule = config.module.rules.find((rule) =>
