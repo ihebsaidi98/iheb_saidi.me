@@ -231,7 +231,7 @@ function TerminalCard() {
 
   return (
     <div aria-hidden="true" className="hidden lg:block">
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#070b11]/85 shadow-[0_0_80px_rgba(16,185,129,0.07)] backdrop-blur-xl">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#070b11] shadow-[0_0_80px_rgba(16,185,129,0.07)]">
         <div className="flex items-center gap-2 border-b border-white/[0.07] px-4 py-2.5">
           <span className="size-2.5 rounded-full bg-[#ff5f57]/70" />
           <span className="size-2.5 rounded-full bg-[#febc2e]/70" />
@@ -242,11 +242,11 @@ function TerminalCard() {
           <span className="ml-auto font-mono text-[10px] text-white/50">UTF-8</span>
         </div>
 
-        <pre className="min-h-[280px] overflow-hidden px-5 py-4 font-mono text-[12.5px] leading-6 text-white/60 lg:min-h-[320px]">
+        <pre className="min-h-[280px] overflow-hidden bg-[#070b11] px-5 py-4 font-mono text-[12.5px] leading-6 text-white/60 lg:min-h-[320px]">
           <code>
             <TypedCode len={len} />
           </code>
-          <span className="ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
+          <span className="hero-caret ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
         </pre>
 
         <div className="flex items-center gap-4 border-t border-white/[0.07] px-4 py-2 font-mono text-[10px] text-white/50">

@@ -649,58 +649,66 @@ function Fallback() {
     >
       <div
         className="
-          absolute
-          left-[62%]
-          top-[42%]
-size-[42vw] max-w-[420px]
-          -translate-x-1/2
-          -translate-y-1/2
-          rounded-full
           bg-emerald-400/[0.05]
-          blur-[100px]
-        "
-      />
-
-      <div
-        className="
+          pointer-events-none
           absolute
-          left-[62%]
-          top-[42%]
-size-[26vw] max-w-[260px]
-          -translate-x-1/2
-          -translate-y-1/2
-          rounded-full
-          border
-          border-emerald-300/10
+          inset-0
         "
-      />
+      >
+        <div
+          className="
+            absolute
+            left-[62%]
+            top-[42%]
+            size-[42vw] max-w-[420px]
+            -translate-x-1/2
+            -translate-y-1/2
+            rounded-full
+            blur-[100px]
+          "
+        />
 
-      <div
-        className="
-          absolute
-          left-[62%]
-          top-[42%]
-size-[16vw] max-w-[160px]
-          -translate-x-1/2
-          -translate-y-1/2
-          rounded-full
-          border
-          border-cyan-300/[0.07]
-        "
-      />
+        <div
+          className="
+            absolute
+            left-[62%]
+            top-[42%]
+            size-[26vw] max-w-[260px]
+            -translate-x-1/2
+            -translate-y-1/2
+            rounded-full
+            border
+            border-emerald-300/10
+          "
+        />
 
-      <div
-        className="
-          absolute
-          bottom-0
-          left-0
-          right-0
-          h-64
-          bg-gradient-to-t
-          from-[#04070c]
-          to-transparent
-        "
-      />
+        <div
+          className="
+            absolute
+            left-[62%]
+            top-[42%]
+            size-[16vw] max-w-[160px]
+            -translate-x-1/2
+            -translate-y-1/2
+            rounded-full
+            border
+            border-cyan-300/[0.07]
+          "
+        />
+
+        <div
+          className="
+            absolute
+            bottom-0
+            left-0
+            right-0
+            h-64
+            bg-gradient-to-t
+            from-[#04070c]
+            to-transparent
+          "
+        />
+      </div>
     </div>
   );
 }
@@ -724,6 +732,7 @@ function ReadabilityOverlay() {
           inset-y-0
           left-0
           w-[62%]
+          lg:w-[48%]
           bg-gradient-to-r
           from-[#04070c]
           via-[#04070c]/80
