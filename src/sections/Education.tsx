@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useA11yMode } from "@/components/MotionProvider";
 import { Chip } from "@/components/ui/Chip";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { education, type EducationEntry } from "@/data/education";
@@ -11,6 +12,7 @@ import { education, type EducationEntry } from "@/data/education";
 // If your Education data currently lives inside About.tsx, delete it from there.
 
 export function EducationSection() {
+  const a11yMode = useA11yMode();
   return (
     <SectionShell
       id="education"
@@ -25,7 +27,7 @@ export function EducationSection() {
           return (
             <motion.div
               key={`${entry.degree}-${entry.period}`}
-              initial={{ opacity: 0, y: 16 }}
+              initial={a11yMode ? false : { opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-10% 0px" }}
               transition={{ duration: 0.5, delay: i * 0.05 }}

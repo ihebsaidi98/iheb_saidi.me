@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { EASE } from "@/components/hero-motion";
+import { useA11yMode } from "@/components/MotionProvider";
 
 export function SectionShell({
   id,
@@ -21,6 +22,8 @@ export function SectionShell({
   children: ReactNode;
   className?: string;
 }) {
+  const a11yMode = useA11yMode();
+
   return (
     <section id={id} className={`relative py-24 sm:py-32 ${className}`}>
       <div
@@ -40,7 +43,7 @@ export function SectionShell({
         <div className="relative lg:pl-16">
           <div className="hidden lg:block">
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
+              initial={a11yMode ? false : { opacity: 0, y: -8 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-15% 0px" }}
               transition={{ duration: 0.65, ease: EASE }}
@@ -54,7 +57,7 @@ export function SectionShell({
           </div>
 
           <motion.div
-            initial={{ scaleX: 0, opacity: 0 }}
+            initial={a11yMode ? false : { scaleX: 0, opacity: 0 }}
             whileInView={{ scaleX: 1, opacity: 1 }}
             viewport={{ once: true, margin: "-15% 0px" }}
             transition={{ duration: 1.2, ease: EASE }}
@@ -63,7 +66,7 @@ export function SectionShell({
           />
 
           <motion.header
-            initial={{ opacity: 0, y: 24 }}
+            initial={a11yMode ? false : { opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-15% 0px" }}
             transition={{ duration: 0.7, ease: EASE }}

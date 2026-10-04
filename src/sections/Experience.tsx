@@ -3,6 +3,7 @@
 import { motion, useScroll, useSpring } from "framer-motion";
 import { useRef } from "react";
 import { StatusDot } from "@/components/ui/StatusDot";
+import { useA11yMode } from "@/components/MotionProvider";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { experience, type ExperienceEntry } from "@/data/experience";
 
@@ -20,12 +21,12 @@ function yearOf(period: string) {
   return m ? m[0] : "";
 }
 
-function JobCard({ job }: { job: ExperienceEntry }) {
+function JobCard({ job, a11yMode }: { job: ExperienceEntry; a11yMode: boolean }) {
   const current = isCurrent(job.period);
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 24 }}
+      initial={a11yMode ? false : { opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-10% 0px" }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -63,6 +64,7 @@ function JobCard({ job }: { job: ExperienceEntry }) {
 }
 
 export function ExperienceSection() {
+  const a11yMode = useA11yMode();
   const listRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: listRef,
@@ -114,7 +116,7 @@ export function ExperienceSection() {
               <div className="mb-3 font-mono text-[10px] tracking-wider text-white/50 lg:hidden">
                 {job.period}
               </div>
-              <JobCard job={job} />
+              <JobCard job={job} a11yMode={a11yMode} />
             </div>
           ))}
         </div>

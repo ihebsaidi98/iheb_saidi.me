@@ -7,6 +7,7 @@ import {
 } from "framer-motion";
 import { useEffect, useState } from "react";
 import { EASE } from "@/components/hero-motion";
+import { useA11yMode } from "@/components/MotionProvider";
 
 const navItems = [
   { name: "Home", href: "#top" },
@@ -18,6 +19,7 @@ const navItems = [
 ] as const;
 
 export const Header = () => {
+  const a11yMode = useA11yMode();
   const [active, setActive] = useState("Home");
   const [hidden, setHidden] = useState(false);
 
@@ -107,7 +109,7 @@ export const Header = () => {
 
   return (
     <motion.header
-      initial={{ opacity: 0, y: -18 }}
+      initial={a11yMode ? false : { opacity: 0, y: -18 }}
       animate={{
         opacity: 1,
         y: hidden ? "-150%" : "0%",

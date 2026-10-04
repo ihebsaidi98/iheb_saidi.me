@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { EASE } from "@/components/hero-motion";
+import { useA11yMode } from "@/components/MotionProvider";
 import { Magnetic } from "@/components/ui/Magnetic";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { availability, locationShort } from "@/data/site";
@@ -10,6 +11,7 @@ import { useLocalTime } from "@/hooks/useLocalTime";
 import { profile } from "@/data/profile";
 
 export function ContactSection() {
+  const a11yMode = useA11yMode();
   const [copied, setCopied] = useState(false);
   const time = useLocalTime();
 
@@ -38,7 +40,7 @@ export function ContactSection() {
 
       <div className="container relative mx-auto px-6 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={a11yMode ? false : { opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15% 0px" }}
           transition={{ duration: 0.7, ease: EASE }}

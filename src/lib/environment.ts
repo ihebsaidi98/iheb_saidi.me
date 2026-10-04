@@ -50,7 +50,9 @@ function detect(): Environment {
       conn?.saveData === true ||
       conn?.effectiveType === "2g" ||
       conn?.effectiveType === "slow-2g",
-    reduceMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    reduceMotion:
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      new URLSearchParams(window.location.search).has("a11y"),
   };
 
   return cached;
