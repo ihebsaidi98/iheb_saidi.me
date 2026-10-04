@@ -8,11 +8,55 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { availability, locationShort } from "@/data/site";
 import { useEnvironment } from "@/lib/environment";
 
+type HeroSceneCapability = {
+  pointerFine: boolean;
+  webgl: boolean;
+  saveData: boolean;
+  enabled: boolean;
+};
+
+let hasLoggedHeroSceneCapability = false;
+
+function getHeroSceneCapability(): HeroSceneCapability {
+  const pointerFine = window.matchMedia("(pointer: fine)").matches;
+  const saveData = (
+    navigator as Navigator & { connection?: { saveData?: boolean } }
+  ).connection?.saveData === true;
+
+  let webgl = false;
+  try {
+    const canvas = document.createElement("canvas");
+    webgl = Boolean(
+      canvas.getContext("webgl2", { failIfMajorPerformanceCaveat: true }) ??
+        canvas.getContext("webgl", { failIfMajorPerformanceCaveat: true }),
+    );
+  } catch {
+    webgl = false;
+  }
+
+  return { pointerFine, webgl, saveData, enabled: pointerFine && webgl && !saveData };
+}
+
+function StaticHeroScene() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
+      <div className="absolute inset-0 overflow-hidden bg-[#04070c]">
+        <div className="pointer-events-none absolute inset-0 bg-emerald-400/[0.05]">
+          <div className="absolute left-[62%] top-[42%] size-[42vw] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]" />
+          <div className="absolute left-[62%] top-[42%] size-[26vw] max-w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/10" />
+          <div className="absolute left-[62%] top-[42%] size-[16vw] max-w-[160px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/[0.07]" />
+          <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-[#04070c] to-transparent" />
+        </div>
+      </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_66%_42%,transparent_8%,rgba(4,7,12,0.25)_50%,rgba(4,7,12,0.85)_100%)]" />
+      <div className="absolute inset-y-0 left-0 w-[62%] bg-gradient-to-r from-[#04070c] via-[#04070c]/80 to-transparent lg:w-[48%]" />
+    </div>
+  );
+}
+
 const HeroScene3D = dynamic(() => import("@/components/HeroScene3D"), {
   ssr: false,
-  loading: () => (
-    <div aria-hidden="true" className="absolute inset-0 bg-[#04070c]" />
-  ),
+  loading: () => <StaticHeroScene />,
 });
 
 /* ================= DATA ================= */
@@ -268,6 +312,17 @@ export const HeroSection = () => {
   const env = useEnvironment();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const [loadScene, setLoadScene] = useState(false);
+
+  useEffect(() => {
+    const capability = getHeroSceneCapability();
+    if (!hasLoggedHeroSceneCapability) {
+      console.info("[hero-3d] capability", capability);
+      hasLoggedHeroSceneCapability = true;
+    }
+    setLoadScene(capability.enabled);
+  }, []);
+
   /* scroll parallax — rAF-throttled DOM writes; detached once hero is off-screen */
   useEffect(() => {
     const el = contentRef.current;
@@ -306,7 +361,7 @@ export const HeroSection = () => {
       id="top"
       className="relative isolate h-[100svh] overflow-hidden bg-[#04070c]"
     >
-      <HeroScene3D />
+      {loadScene ? <HeroScene3D /> : <StaticHeroScene />}
 
       <div className="container relative z-10 mx-auto flex h-full w-full items-center px-6 py-16 lg:py-12">
         <div
