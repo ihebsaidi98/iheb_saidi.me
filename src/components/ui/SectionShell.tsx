@@ -26,6 +26,19 @@ const titleLineVariants = {
   },
 };
 
+function renderTitleLine(line: string) {
+  if (!line.endsWith(".")) {
+    return <>{line}</>;
+  }
+
+  return (
+    <>
+      {line.slice(0, -1)}
+      <span className="text-[#6ee7b7]">.</span>
+    </>
+  );
+}
+
 export function SectionHeader({
   label,
   title,
@@ -73,7 +86,7 @@ export function SectionHeader({
               variants={titleLineVariants}
               className={`block pb-[0.12em] ${index === 1 ? "text-[#6ee7b7]" : "text-white"}`}
             >
-              {line}
+              {renderTitleLine(line)}
             </motion.span>
           </span>
         ))}

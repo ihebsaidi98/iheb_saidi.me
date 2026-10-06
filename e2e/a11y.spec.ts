@@ -301,6 +301,18 @@ test("prod accessibility smoke + readiness gate", async ({ page }) => {
   expect(noHorizontalScroll, "The section header layout must not introduce horizontal overflow at small or large viewport widths.").toBeTruthy();
 });
 
+test("section h2s do not contain literal HTML entity text", async ({ page }) => {
+  await page.goto("/?a11y=1", { waitUntil: "domcontentloaded" });
+
+  const literalEntities = await page.locator("section h2").evaluateAll((nodes) =>
+    nodes
+      .map((node) => node.textContent ?? "")
+      .filter((text) => /&(?:apos|amp|#)/i.test(text)),
+  );
+
+  expect(literalEntities, `Unexpected HTML entity literals found in section h2 text: ${literalEntities.join(" | ")}`).toHaveLength(0);
+});
+
 test("section titles reveal and remain visible after scroll", async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1200 });

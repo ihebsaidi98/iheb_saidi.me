@@ -35,7 +35,7 @@ export function ContactSection() {
     <SectionShell
       id="contact"
       label="contact"
-      title={["Let&apos;s build something", "shipping-grade."]}
+      title={["Let’s build something", "shipping-grade."]}
       intro="Full-stack roles, backend-heavy teams, or anything where the system has to stay up. Currently based in Tunis, open to relocation."
     >
       <div className="mx-auto max-w-5xl text-center">
