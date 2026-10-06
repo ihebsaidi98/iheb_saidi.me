@@ -300,3 +300,38 @@ test("prod accessibility smoke + readiness gate", async ({ page }) => {
 
   expect(noHorizontalScroll, "The section header layout must not introduce horizontal overflow at small or large viewport widths.").toBeTruthy();
 });
+
+test("section titles reveal and remain visible after scroll", async ({ page }) => {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1200 });
+    await page.goto("/?a11y=1", { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+
+    const sections = page.locator("section[id]").filter({ has: page.locator("header h2") });
+    const count = await sections.count();
+
+    for (let index = 0; index < count; index++) {
+      const section = sections.nth(index);
+      const heading = section.locator("header h2").first();
+
+      await heading.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(550);
+
+      await expect(heading).toBeVisible();
+
+      const box = await heading.boundingBox();
+      expect(box, `Section ${index} title should have a bounding box at ${width}px.`).not.toBeNull();
+      expect(box!.width, `Section ${index} title width should be non-zero at ${width}px.`).toBeGreaterThan(0);
+      expect(box!.height, `Section ${index} title height should be non-zero at ${width}px.`).toBeGreaterThan(0);
+
+      const inViewport = await heading.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return rect.top < window.innerHeight && rect.bottom > 0 && rect.left < window.innerWidth && rect.right > 0;
+      });
+      expect(inViewport, `Section ${index} title should stay in viewport at ${width}px.`).toBeTruthy();
+
+      const transform = await heading.evaluate((node) => window.getComputedStyle(node).transform);
+      expect(transform, `Section ${index} title should not be translated out of its wrapper at ${width}px.`).toBe("none");
+    }
+  }
+});

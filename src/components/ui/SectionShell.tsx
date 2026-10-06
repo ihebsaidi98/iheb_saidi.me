@@ -5,6 +5,27 @@ import type { ReactNode } from "react";
 
 type SectionTitle = string | [string, string];
 
+const titleRevealWrapperVariants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const titleLineVariants = {
+  hidden: { y: "100%" },
+  show: {
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: "easeOut",
+    },
+  },
+};
+
 export function SectionHeader({
   label,
   title,
@@ -22,8 +43,8 @@ export function SectionHeader({
   return (
     <motion.header
       initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
+      whileInView={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="relative z-10 max-w-3xl"
     >
@@ -34,9 +55,13 @@ export function SectionHeader({
         </div>
       </div>
 
-      <h2
+      <motion.h2
         id={headingId}
-        className="font-display text-balance text-[clamp(1.875rem,4.5vw,3rem)] leading-[1.1] tracking-tight text-white"
+        initial={reducedMotion ? false : "hidden"}
+        whileInView={reducedMotion ? undefined : "show"}
+        viewport={{ once: true, amount: 0.2 }}
+        variants={titleRevealWrapperVariants}
+        className="relative block font-display text-balance text-[clamp(1.875rem,4.5vw,3rem)] leading-[1.1] tracking-tight text-white"
       >
         {titleLines.map((line, index) => (
           <span
@@ -45,21 +70,14 @@ export function SectionHeader({
             className="block overflow-hidden"
           >
             <motion.span
-              initial={reducedMotion ? false : { y: "100%" }}
-              whileInView={reducedMotion ? undefined : { y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{
-                duration: 0.5,
-                ease: "easeOut",
-                delay: index * 0.08,
-              }}
+              variants={titleLineVariants}
               className={`block pb-[0.12em] ${index === 1 ? "text-[#6ee7b7]" : "text-white"}`}
             >
               {line}
             </motion.span>
           </span>
         ))}
-      </h2>
+      </motion.h2>
 
       {intro ? (
         <p data-role="intro" className="mt-5 max-w-[56ch] text-base leading-6 text-white/60 md:text-[17px] md:leading-[1.65]">
