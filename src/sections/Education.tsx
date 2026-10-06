@@ -26,7 +26,7 @@ export function EducationSection() {
         initial={a11yMode ? false : "hidden"}
         whileInView={"show"}
         viewport={{ once: true, amount: 0.2 }}
-        className="max-w-4xl"
+        className="max-w-4xl border-t border-white/[0.07]"
       >
         {education.map((entry: EducationEntry) => {
           const courses = entry.courses ?? [];
@@ -38,13 +38,13 @@ export function EducationSection() {
               initial={a11yMode ? false : "hidden"}
               whileInView={"show"}
               viewport={{ once: true, amount: 0.2 }}
-              className="row-sweep group flex flex-col gap-3 border-b border-white/[0.07] py-7 sm:flex-row sm:items-start sm:gap-10"
+              className="row-sweep group flex flex-col gap-3 border-b border-white/[0.07] py-8 sm:flex-row sm:items-start sm:gap-10 sm:py-10"
             >
               <div className="min-w-0 flex-1">
-                <h3 className="font-serif text-xl tracking-[-0.02em] text-white transition-transform duration-300 group-hover:translate-x-1 sm:text-2xl">
+                <h3 className="font-serif text-2xl leading-[1.15] tracking-[-0.02em] text-white transition-transform duration-300 group-hover:translate-x-1 sm:text-[1.75rem]">
                   {entry.degree}
                 </h3>
-                <p className="mt-1 font-mono text-[12px] text-emerald-200/60">
+                <p className="mt-1 font-mono text-[13px] text-emerald-200/60">
                   {entry.school ?? entry.institution}
                 </p>
                 {(entry.description ?? entry.details) && (
@@ -60,7 +60,7 @@ export function EducationSection() {
               </div>
 
               <div className="order-first sm:w-44 sm:shrink-0 sm:text-left">
-                <div className="font-mono text-[11px] text-white/55 tabular-nums">
+                <div className="font-mono text-[13px] text-white/60 tabular-nums">
                   {entry.period}
                 </div>
                 {courses.length > 0 && (
