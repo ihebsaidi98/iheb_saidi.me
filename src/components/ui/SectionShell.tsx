@@ -26,29 +26,15 @@ export function SectionShell({
 
   return (
     <section id={id} className={`relative py-24 sm:py-32 ${className}`}>
-      <div
-        aria-hidden
-        data-decorative="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)",
-          backgroundSize: "56px 56px",
-          maskImage:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent)",
-        }}
-      />
       <div className="container relative mx-auto px-6">
-        <div className="relative lg:pl-16">
+        <div className="relative z-10 lg:pl-16">
           <div className="hidden lg:block">
             <motion.div
               initial={a11yMode ? false : { opacity: 0, y: -8 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-15% 0px" }}
               transition={{ duration: 0.65, ease: EASE }}
-              className="decorative-watermark pointer-events-none absolute left-0 top-0 flex h-40 flex-col items-center justify-start font-mono text-[10px] tracking-[0.34em] text-white/20"
+              className="decorative-watermark pointer-events-none absolute left-0 top-0 z-0 flex h-40 flex-col items-center justify-start font-mono text-[10px] tracking-[0.34em] text-white/20"
               aria-hidden
             >
               <span className="writing-mode-vertical">
@@ -71,7 +57,7 @@ export function SectionShell({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-15% 0px" }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="max-w-2xl pt-5"
+            className="relative z-10 max-w-2xl pt-5"
           >
             <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.22em] text-emerald-200/70">
               <span className="text-white/50">{index}</span>

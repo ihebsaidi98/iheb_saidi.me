@@ -32,12 +32,6 @@ export function ContactSection() {
 
   return (
     <section id="contact" className="relative overflow-hidden py-28 sm:py-40">
-      {/* ambient glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 size-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/[0.05] blur-[120px]"
-      />
-
       <div className="container relative mx-auto px-6 text-center">
         <motion.div
           initial={a11yMode ? false : { opacity: 0, y: 24 }}

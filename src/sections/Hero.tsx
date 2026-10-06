@@ -19,6 +19,9 @@ let hasLoggedHeroSceneCapability = false;
 
 function getHeroSceneCapability(): HeroSceneCapability {
   const pointerFine = window.matchMedia("(pointer: fine)").matches;
+  const hoverable = window.matchMedia("(hover: hover)").matches;
+  const wideViewport = window.matchMedia("(min-width: 1024px)").matches;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const saveData = (
     navigator as Navigator & { connection?: { saveData?: boolean } }
   ).connection?.saveData === true;
@@ -34,19 +37,23 @@ function getHeroSceneCapability(): HeroSceneCapability {
     webgl = false;
   }
 
-  return { pointerFine, webgl, saveData, enabled: pointerFine && webgl && !saveData };
+  // Touchscreen laptops may report a coarse primary pointer even when they are
+  // capable of hover; the large-viewport + hover fallback keeps the 3D scene on
+  // desktop-class displays without permitting phones/tablets to run the heavy hero.
+  const enabled =
+    (pointerFine || (hoverable && wideViewport)) && webgl && !saveData && !prefersReducedMotion;
+
+  return { pointerFine, webgl, saveData, enabled };
 }
 
 function StaticHeroScene() {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
       <div className="absolute inset-0 overflow-hidden bg-[#04070c]">
-        <div className="pointer-events-none absolute inset-0 bg-emerald-400/[0.05]">
-          <div className="absolute left-[62%] top-[42%] size-[42vw] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]" />
-          <div className="absolute left-[62%] top-[42%] size-[26vw] max-w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/10" />
-          <div className="absolute left-[62%] top-[42%] size-[16vw] max-w-[160px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/[0.07]" />
-          <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-[#04070c] to-transparent" />
-        </div>
+        <div className="absolute left-[62%] top-[42%] size-[42vw] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]" />
+        <div className="absolute left-[62%] top-[42%] size-[26vw] max-w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/10" />
+        <div className="absolute left-[62%] top-[42%] size-[16vw] max-w-[160px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/[0.07]" />
+        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-[#04070c] to-transparent" />
       </div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_66%_42%,transparent_8%,rgba(4,7,12,0.25)_50%,rgba(4,7,12,0.85)_100%)]" />
       <div className="absolute inset-y-0 left-0 w-[62%] bg-gradient-to-r from-[#04070c] via-[#04070c]/80 to-transparent lg:w-[48%]" />
@@ -317,7 +324,7 @@ export const HeroSection = () => {
 
   useEffect(() => {
     const capability = getHeroSceneCapability();
-    if (!hasLoggedHeroSceneCapability) {
+    if (process.env.NODE_ENV !== "production" && !hasLoggedHeroSceneCapability) {
       console.info("[hero-3d] capability", capability);
       hasLoggedHeroSceneCapability = true;
     }

@@ -265,10 +265,6 @@ function ExperiencePanel({
                 variants={metricItem}
                 className="min-w-0"
               >
-                <dt className="sr-only">
-                  {metric.label}
-                </dt>
-
                 <dd className="font-serif text-2xl tracking-[-0.03em] text-emerald-200 sm:text-[1.7rem]">
                   <MetricValue
                     value={metric.value}
@@ -276,9 +272,9 @@ function ExperiencePanel({
                   />
                 </dd>
 
-                <dd className="mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50">
+                <dt className="mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50">
                   {metric.label}
-                </dd>
+                </dt>
               </motion.div>
             ))}
         </motion.dl>
@@ -582,11 +578,6 @@ export function ProfessionalExperience({
                       priority={active === 0}
                     />
 
-                    {/* Soft dark overlay */}
-                    <div className="absolute inset-0 bg-black/20" />
-
-                    {/* Slight atmospheric layer */}
-                    <div className="absolute inset-0 bg-white/[0.025]" />
                   </div>
 
                   {/* =========================================

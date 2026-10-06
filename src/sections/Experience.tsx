@@ -80,18 +80,18 @@ export function ExperienceSection() {
       title="Where I've shipped."
       intro="Full-time engineering and internship work — every role below shipped to production."
     >
-      <div ref={listRef} className="relative">
+      <div ref={listRef} className="relative z-10">
         {/* timeline track + scroll progress line */}
-        <div aria-hidden className="absolute bottom-0 left-[7px] top-0 w-px bg-white/[0.08]" />
+        <div aria-hidden className="absolute bottom-0 left-[7px] top-0 z-0 w-px bg-white/[0.08]" />
         <motion.div
           aria-hidden
           style={{ scaleY }}
-          className="absolute bottom-0 left-[7px] top-0 w-px origin-top bg-gradient-to-b from-emerald-300/60 to-cyan-400/20"
+          className="absolute bottom-0 left-[7px] top-0 z-0 w-px origin-top bg-gradient-to-b from-emerald-300/60 to-cyan-400/20"
         />
 
-        <div className="space-y-10 pl-8 sm:pl-12">
+        <div className="relative z-10 space-y-10 pl-8 sm:pl-12">
           {experience.map((job) => (
-            <div key={`${job.organization}-${job.period}`} className="relative lg:grid lg:grid-cols-[140px_1fr] lg:gap-8">
+            <div key={`${job.organization}-${job.period}`} className="relative z-10 lg:grid lg:grid-cols-[140px_1fr] lg:gap-8">
               {/* node dot */}
               <span
                 aria-hidden
@@ -102,7 +102,7 @@ export function ExperienceSection() {
                 }`}
               />
               {/* sticky year column (desktop) */}
-              <div className="hidden lg:block">
+              <div className="relative z-10 hidden lg:block">
                 <div className="sticky top-28 pt-7">
                   <span className="font-mono text-xs tracking-wider text-white/50 tabular-nums">
                     {yearOf(job.period)}
