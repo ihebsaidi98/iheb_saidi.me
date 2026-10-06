@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { motion } from "framer-motion";
+import { staggeredCardItem } from "@/lib/motion";
 import type { AcademicProject } from "@/data/projects";
 
 /* =========================================================
@@ -104,10 +106,10 @@ export function AcademicProjectRow({
   index: number;
 }) {
   return (
-    <li>
+    <motion.li variants={staggeredCardItem}>
       <article aria-label={project.title} className={rowClass}>
         <RowBody project={project} index={index} />
       </article>
-    </li>
+    </motion.li>
   );
 }

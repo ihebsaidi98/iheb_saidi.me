@@ -5,6 +5,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { EASE } from "@/components/hero-motion";
 import { SectionHeader } from "@/components/ui/SectionShell";
 import { SKILL_GROUPS, type SkillGroup } from "@/data/about";
+import { staggeredCardItem, staggeredCardList } from "@/lib/motion";
 
 type Token = { text: string; className: string };
 
@@ -81,13 +82,14 @@ function StackFileCard({
 
   return (
     <motion.div
-      initial={shouldReduce ? false : { opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10% 0px" }}
+      variants={staggeredCardItem}
+      initial={shouldReduce ? false : "hidden"}
+      whileInView={shouldReduce ? "show" : "show"}
+      viewport={{ once: true, amount: 0.2 }}
       transition={
         shouldReduce
           ? { duration: 0 }
-          : { duration: 0.55, ease: EASE, delay: index * 0.09 }
+          : { duration: 0.5, ease: EASE }
       }
       className="group/card relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-colors duration-500 hover:border-emerald-300/20"
     >
@@ -175,7 +177,13 @@ export function TechStackFiles() {
         <CopyButton value={RAW_JSON}>copy json</CopyButton>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <motion.div
+        variants={staggeredCardList}
+        initial={"hidden"}
+        whileInView={"show"}
+        viewport={{ once: true, amount: 0.2 }}
+        className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2"
+      >
         {GROUPS.map((group, index) => (
           <StackFileCard
             key={group.file}
@@ -185,7 +193,7 @@ export function TechStackFiles() {
             isLast={index === GROUPS.length - 1}
           />
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { EASE } from "@/components/hero-motion";
 import { SectionHeader } from "@/components/ui/SectionShell";
 import type { AcademicProject } from "@/data/projects";
 import { AcademicProjectRow } from "@/components/projects/AcademicProjectRow";
+import { staggeredCardList } from "@/lib/motion";
 
 export function OtherBuilds({ projects }: { projects: readonly AcademicProject[] }) {
   const reduceMotion = useReducedMotion();
@@ -20,9 +21,10 @@ export function OtherBuilds({ projects }: { projects: readonly AcademicProject[]
       />
 
       <motion.ol
-        initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
+        variants={staggeredCardList}
+        initial={reduceMotion ? false : "hidden"}
+        whileInView={reduceMotion ? "show" : "show"}
+        viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.5, ease: EASE }}
         className="mt-12 border-b border-white/[0.07]"
       >

@@ -5,6 +5,7 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { useA11yMode } from "@/components/MotionProvider";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { experience, type ExperienceEntry } from "@/data/experience";
+import { staggeredCardItem, staggeredCardList } from "@/lib/motion";
 
 // DATA FIELDS USED per job:
 //   title? | role?, company, period ("Jul 2024 – Jan 2026"), description? | summary?,
@@ -25,10 +26,10 @@ function JobCard({ job, a11yMode }: { job: ExperienceEntry; a11yMode: boolean })
 
   return (
     <motion.article
-      initial={a11yMode ? false : { opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10% 0px" }}
-      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      variants={staggeredCardItem}
+      initial={a11yMode ? false : "hidden"}
+      whileInView={"show"}
+      viewport={{ once: true, amount: 0.2 }}
       className="relative rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition-colors duration-300 hover:border-white/20 sm:p-7"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -85,7 +86,13 @@ export function ExperienceSection() {
           className="absolute bottom-0 left-[7px] top-0 z-0 w-px origin-top bg-gradient-to-b from-emerald-300/60 to-cyan-400/20"
         />
 
-        <div className="relative z-10 space-y-10 pl-8 sm:pl-12">
+        <motion.div
+          variants={staggeredCardList}
+          initial={a11yMode ? false : "hidden"}
+          whileInView={"show"}
+          viewport={{ once: true, amount: 0.2 }}
+          className="relative z-10 space-y-10 pl-8 sm:pl-12"
+        >
           {experience.map((job) => (
             <div key={`${job.organization}-${job.period}`} className="relative z-10 lg:grid lg:grid-cols-[140px_1fr] lg:gap-8">
               {/* node dot */}
@@ -115,7 +122,7 @@ export function ExperienceSection() {
               <JobCard job={job} a11yMode={a11yMode} />
             </div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </SectionShell>
   );

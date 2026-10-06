@@ -5,6 +5,7 @@ import { useA11yMode } from "@/components/MotionProvider";
 import { Chip } from "@/components/ui/Chip";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { education, type EducationEntry } from "@/data/education";
+import { staggeredCardItem, staggeredCardList } from "@/lib/motion";
 
 // DATA FIELDS USED per entry:
 //   degree, school? | institution?, period, description? | details?, gpa?, courses?[]
@@ -20,17 +21,23 @@ export function EducationSection() {
       title="Foundations."
       intro="The fundamentals, systems thinking, and applied research behind the delivery work above."
     >
-      <div className="max-w-4xl">
-        {education.map((entry: EducationEntry, i: number) => {
+      <motion.div
+        variants={staggeredCardList}
+        initial={a11yMode ? false : "hidden"}
+        whileInView={"show"}
+        viewport={{ once: true, amount: 0.2 }}
+        className="max-w-4xl"
+      >
+        {education.map((entry: EducationEntry) => {
           const courses = entry.courses ?? [];
 
           return (
             <motion.div
               key={`${entry.degree}-${entry.period}`}
-              initial={a11yMode ? false : { opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-10% 0px" }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
+              variants={staggeredCardItem}
+              initial={a11yMode ? false : "hidden"}
+              whileInView={"show"}
+              viewport={{ once: true, amount: 0.2 }}
               className="row-sweep group flex flex-col gap-3 border-b border-white/[0.07] py-7 sm:flex-row sm:items-start sm:gap-8"
             >
               <div className="min-w-0 flex-1">
@@ -67,7 +74,7 @@ export function EducationSection() {
             </motion.div>
           );
         })}
-      </div>
+      </motion.div>
     </SectionShell>
   );
 }
