@@ -38,7 +38,7 @@ export function EducationSection() {
               initial={a11yMode ? false : "hidden"}
               whileInView={"show"}
               viewport={{ once: true, amount: 0.2 }}
-              className="row-sweep group flex flex-col gap-3 border-b border-white/[0.07] py-7 sm:flex-row sm:items-start sm:gap-8"
+              className="row-sweep group flex flex-col gap-3 border-b border-white/[0.07] py-7 sm:flex-row sm:items-start sm:gap-10"
             >
               <div className="min-w-0 flex-1">
                 <h3 className="font-serif text-xl tracking-[-0.02em] text-white transition-transform duration-300 group-hover:translate-x-1 sm:text-2xl">
@@ -59,12 +59,12 @@ export function EducationSection() {
                 )}
               </div>
 
-              <div className="sm:text-right">
+              <div className="order-first sm:w-44 sm:shrink-0 sm:text-left">
                 <div className="font-mono text-[11px] text-white/55 tabular-nums">
                   {entry.period}
                 </div>
                 {courses.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5 sm:justify-end">
+                  <div className="mt-3 flex flex-wrap gap-1.5 sm:justify-start">
                     {courses.map((c: string) => (
                       <Chip key={c}>{c}</Chip>
                     ))}
