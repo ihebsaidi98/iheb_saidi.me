@@ -35,9 +35,6 @@ export function EducationSection() {
             <motion.div
               key={`${entry.degree}-${entry.period}`}
               variants={staggeredCardItem}
-              initial={a11yMode ? false : "hidden"}
-              whileInView={"show"}
-              viewport={{ once: true, amount: 0.2 }}
               className="row-sweep group flex flex-col gap-3 border-b border-white/[0.07] py-8 sm:flex-row sm:items-start sm:gap-10 sm:py-10"
             >
               <div className="min-w-0 flex-1">
