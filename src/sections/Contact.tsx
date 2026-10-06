@@ -57,10 +57,12 @@ export function ContactSection() {
               <a
                 href={profile.cv}
                 download
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-200/25 bg-emerald-300/[0.08] px-7 py-3.5 text-xs font-semibold text-white transition-all duration-300 hover:bg-emerald-300/[0.14] hover:shadow-[0_8px_40px_rgba(16,185,129,0.25)]"
+                className="group inline-flex items-center gap-2 rounded-full border border-emerald-200/25 bg-emerald-300/[0.08] px-7 py-3.5 text-xs font-semibold text-white transition-all duration-300 hover:bg-emerald-300/[0.14] hover:shadow-[0_8px_40px_rgba(16,185,129,0.25)]"
               >
                 Download résumé
-                <span aria-hidden>↓</span>
+                <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">
+                  ↓
+                </span>
               </a>
             </Magnetic>
 

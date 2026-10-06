@@ -91,17 +91,63 @@
     width: 100%;
   }
 
-  :focus-visible {
-    outline: 2px solid var(--emerald);
-    outline-offset: 4px;
+  a,
+  button,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"]),
+  .group\/card,
+  .row-sweep,
+  .surface,
+  .surface-elevated {
+    transition:
+      transform 200ms ease-out,
+      border-color 200ms ease-out,
+      box-shadow 200ms ease-out,
+      outline-color 200ms ease-out;
+  }
+
+  a:hover,
+  button:hover,
+  [role="button"]:hover,
+  .group\/card:hover,
+  .row-sweep:hover,
+  .surface:hover,
+  .surface-elevated:hover {
+    transform: translateY(-2px);
+    border-color: rgba(110, 231, 183, 0.3);
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible,
+  .group\/card:focus-visible,
+  .row-sweep:focus-visible,
+  .surface:focus-visible,
+  .surface-elevated:focus-visible {
+    outline: 2px solid #6ee7b7;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    a,
+    button,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"]),
+    .group\/card,
+    .row-sweep,
+    .surface,
+    .surface-elevated {
+      transition: none;
+      transform: none;
+    }
   }
 
   /*
    * Better default anchor behavior for fixed navigation.
    */
-  section,
-  [id] {
-    scroll-margin-top: calc(var(--header-height) + 24px);
+  section[id] {
+    scroll-margin-top: 6rem;
   }
 
   /*
