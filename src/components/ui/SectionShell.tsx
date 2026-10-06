@@ -42,9 +42,21 @@ export function SectionHeader({
           <span
             key={`${headingId}-${index}`}
             data-role={index === 0 ? "title-line-1" : "title-line-2"}
-            className={`block ${index === 1 ? "text-[#6ee7b7]" : "text-white"}`}
+            className="block overflow-hidden"
           >
-            {line}
+            <motion.span
+              initial={reducedMotion ? false : { y: "100%" }}
+              whileInView={reducedMotion ? undefined : { y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{
+                duration: 0.5,
+                ease: "easeOut",
+                delay: index * 0.08,
+              }}
+              className={`block pb-[0.12em] ${index === 1 ? "text-[#6ee7b7]" : "text-white"}`}
+            >
+              {line}
+            </motion.span>
           </span>
         ))}
       </h2>
