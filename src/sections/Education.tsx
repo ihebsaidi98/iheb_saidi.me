@@ -16,9 +16,9 @@ export function EducationSection() {
   return (
     <SectionShell
       id="education"
-      index="04"
-      eyebrow="EDUCATION"
+      label="education"
       title="Foundations."
+      intro="The fundamentals, systems thinking, and applied research behind the delivery work above."
     >
       <div className="max-w-4xl">
         {education.map((entry: EducationEntry, i: number) => {

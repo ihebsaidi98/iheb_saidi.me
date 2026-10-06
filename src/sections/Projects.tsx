@@ -14,17 +14,9 @@ export function ProjectsSection() {
   return (
     <SectionShell
       id="projects"
-      index="02"
-      eyebrow="SELECTED WORK"
-      title={
-        <>
-          Professional experience &<br />
-          <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 bg-clip-text text-transparent">
-            production systems.
-          </span>
-        </>
-      }
-      intro="Industrial supervision, ITSM with AI integration, and full-stack delivery across five engagements — every item below shipped to production."
+      label="work"
+      title={["Professional experience &", "production systems."]}
+      intro="Industrial supervision, ITSM with AI integration, and full-stack delivery — every item below shipped to production."
     >
       <ProfessionalExperience items={professionalExperience} />
       <OtherBuilds projects={academicProjects} />

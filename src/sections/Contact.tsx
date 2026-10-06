@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { EASE } from "@/components/hero-motion";
 import { useA11yMode } from "@/components/MotionProvider";
 import { Magnetic } from "@/components/ui/Magnetic";
+import { SectionShell } from "@/components/ui/SectionShell";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { availability, locationShort } from "@/data/site";
 import { useLocalTime } from "@/hooks/useLocalTime";
@@ -31,8 +32,13 @@ export function ContactSection() {
   ].filter((s) => s.href);
 
   return (
-    <section id="contact" className="relative overflow-hidden py-28 sm:py-40">
-      <div className="container relative mx-auto px-6 text-center">
+    <SectionShell
+      id="contact"
+      label="contact"
+      title={["Let&apos;s build something", "shipping-grade."]}
+      intro="Full-stack roles, backend-heavy teams, or anything where the system has to stay up. Currently based in Tunis, open to relocation."
+    >
+      <div className="mx-auto max-w-5xl text-center">
         <motion.div
           initial={a11yMode ? false : { opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -46,21 +52,8 @@ export function ContactSection() {
             </span>
           </div>
 
-          <h2 className="mx-auto mt-6 max-w-3xl font-serif text-5xl leading-[0.95] tracking-[-0.05em] text-white sm:text-7xl">
-            Let&apos;s build something{" "}
-            <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 bg-clip-text text-transparent">
-              shipping-grade.
-            </span>
-          </h2>
-
-          <p className="mx-auto mt-6 max-w-md text-pretty text-base leading-7 text-white/50">
-            Full-stack roles, backend-heavy teams, or anything where the system
-            has to stay up. Currently based in Tunis, open to relocation.
-          </p>
-
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Magnetic>
-              {/* Download uses `profile.cv` to avoid a hardcoded filename */}
               <a
                 href={profile.cv}
                 download
@@ -114,6 +107,6 @@ export function ContactSection() {
           </p>
         </motion.div>
       </div>
-    </section>
+    </SectionShell>
   );
 }

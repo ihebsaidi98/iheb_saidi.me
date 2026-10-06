@@ -23,7 +23,9 @@ export const Header = () => {
   const [active, setActive] = useState("Home");
   const [hidden, setHidden] = useState(false);
 
-  const { scrollY } = useScroll();
+  const { scrollY } = useScroll({
+    offset: ["start start", "end end"],
+  });
 
   /*
    * ---------------------------------------------------------
@@ -118,6 +120,7 @@ export const Header = () => {
         duration: 0.5,
         ease: EASE,
       }}
+      style={{ position: "fixed" }}
       className="fixed inset-x-0 top-3 z-40 flex justify-center px-3 sm:top-4"
     >
       <nav

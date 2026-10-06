@@ -46,17 +46,9 @@ export function AboutSection() {
   return (
     <SectionShell
       id="about"
-      index="01"
-      eyebrow="ABOUT"
-      title={
-        <>
-          Engineer by training,
-          <br />
-          <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 bg-clip-text text-transparent">
-            builder by default.
-          </span>
-        </>
-      }
+      label="about"
+      title={["Engineer by training,", "builder by default."]}
+      intro="I’m a full-stack engineer focused on resilient systems, product delivery, and the technical decisions that keep software reliable in production."
     >
       <div ref={hostRef} className="relative">
         <NeuralMesh
@@ -68,13 +60,6 @@ export function AboutSection() {
           <IdentityCard />
 
           <div className="relative min-w-0">
-            <div
-              aria-hidden
-              className="decorative-watermark pointer-events-none absolute -top-10 right-0 hidden select-none font-serif text-[9rem] leading-none text-white/[0.03] sm:block lg:text-[12rem] xl:text-[15rem]"
-            >
-              01
-            </div>
-
             <div className="relative space-y-4 text-pretty text-base leading-7 text-white/55 sm:text-lg sm:leading-8">
               <RevealP reduce={shouldReduce} delay={0}>
                 <p>

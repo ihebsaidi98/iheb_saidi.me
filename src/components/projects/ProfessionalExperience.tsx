@@ -492,45 +492,6 @@ export function ProfessionalExperience({
           SECTION HEADER
           ===================================================== */}
 
-      <motion.div
-        initial={
-          reduceMotion
-            ? false
-            : {
-                opacity: 0,
-                y: 16,
-              }
-        }
-        whileInView={{
-          opacity: 1,
-          y: 0,
-        }}
-        viewport={{
-          once: true,
-          margin: "-8% 0px",
-        }}
-        transition={{
-          duration: 0.6,
-          ease: EASE,
-        }}
-      >
-        <div className="mb-5 flex items-center justify-between border-b border-white/[0.07] pb-3">
-          <span className="technical-label">
-            02 — SELECTED WORK
-          </span>
-
-          <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-white/50 tabular-nums">
-            <span
-              aria-hidden
-              className="signal-pulse inline-block size-1.5 rounded-full bg-emerald-300"
-            />
-
-            {pad2(active)} /{" "}
-            {pad2(items.length - 1)}
-          </span>
-        </div>
-      </motion.div>
-
       {/* =====================================================
           PROJECT STAGE
           ===================================================== */}

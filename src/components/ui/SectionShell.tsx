@@ -1,80 +1,85 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
-import { EASE } from "@/components/hero-motion";
-import { useA11yMode } from "@/components/MotionProvider";
+
+type SectionTitle = string | [string, string];
+
+export function SectionHeader({
+  label,
+  title,
+  intro,
+  headingId,
+}: {
+  label: string;
+  title: SectionTitle;
+  intro?: string;
+  headingId: string;
+}) {
+  const reducedMotion = useReducedMotion();
+  const titleLines = typeof title === "string" ? [title] : title;
+
+  return (
+    <motion.header
+      initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="relative z-10 max-w-3xl"
+    >
+      <div className="mb-4 flex items-center gap-3">
+        <span aria-hidden="true" className="pointer-events-none h-px w-6 bg-[#6ee7b7]" />
+        <div data-role="label" className="font-mono text-[12px] lowercase tracking-[0.14em] text-[#6ee7b7]">
+          {label}
+        </div>
+      </div>
+
+      <h2
+        id={headingId}
+        className="font-display text-balance text-[clamp(1.875rem,4.5vw,3rem)] leading-[1.1] tracking-tight text-white"
+      >
+        {titleLines.map((line, index) => (
+          <span
+            key={`${headingId}-${index}`}
+            data-role={index === 0 ? "title-line-1" : "title-line-2"}
+            className={`block ${index === 1 ? "text-[#6ee7b7]" : "text-white"}`}
+          >
+            {line}
+          </span>
+        ))}
+      </h2>
+
+      {intro ? (
+        <p data-role="intro" className="mt-5 max-w-[56ch] text-base leading-6 text-white/60 md:text-[17px] md:leading-[1.65]">
+          {intro}
+        </p>
+      ) : null}
+    </motion.header>
+  );
+}
 
 export function SectionShell({
   id,
-  index,
-  eyebrow,
+  label,
   title,
   intro,
   children,
   className = "",
 }: {
   id: string;
-  index: string;
-  eyebrow: string;
-  title: ReactNode;
+  label: string;
+  title: SectionTitle;
   intro?: string;
   children: ReactNode;
   className?: string;
 }) {
-  const a11yMode = useA11yMode();
+  const headingId = `${id}-title`;
 
   return (
-    <section id={id} className={`relative py-24 sm:py-32 ${className}`}>
-      <div className="container relative mx-auto px-6">
-        <div className="relative z-10 lg:pl-16">
-          <div className="hidden lg:block">
-            <motion.div
-              initial={a11yMode ? false : { opacity: 0, y: -8 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15% 0px" }}
-              transition={{ duration: 0.65, ease: EASE }}
-              className="decorative-watermark pointer-events-none absolute left-0 top-0 z-0 flex h-40 flex-col items-center justify-start font-mono text-[10px] tracking-[0.34em] text-white/20"
-              aria-hidden
-            >
-              <span className="writing-mode-vertical">
-                {index} — {eyebrow}
-              </span>
-            </motion.div>
-          </div>
-
-          <motion.div
-            initial={a11yMode ? false : { scaleX: 0, opacity: 0 }}
-            whileInView={{ scaleX: 1, opacity: 1 }}
-            viewport={{ once: true, margin: "-15% 0px" }}
-            transition={{ duration: 1.2, ease: EASE }}
-            className="h-px origin-left bg-gradient-to-r from-emerald-300/60 via-white/20 to-transparent"
-            aria-hidden
-          />
-
-          <motion.header
-            initial={a11yMode ? false : { opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15% 0px" }}
-            transition={{ duration: 0.7, ease: EASE }}
-            className="relative z-10 max-w-2xl pt-5"
-          >
-            <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.22em] text-emerald-200/70">
-              <span className="text-white/50">{index}</span>
-              <span className="h-px w-8 bg-emerald-300/40" />
-              {eyebrow}
-            </div>
-            <h2 className="mt-4 font-serif text-4xl tracking-[-0.04em] text-white sm:text-5xl">
-              {title}
-            </h2>
-            {intro && (
-              <p className="mt-4 text-pretty text-base leading-7 text-white/50">
-                {intro}
-              </p>
-            )}
-          </motion.header>
-        </div>
-        <div className="mt-14">{children}</div>
+    <section id={id} aria-labelledby={headingId} className={`relative py-24 md:py-32 ${className}`}>
+      <div className="mx-auto w-full max-w-6xl px-5 md:px-10">
+        <SectionHeader label={label} title={title} intro={intro} headingId={headingId} />
+        <div className="mt-12 md:mt-16">{children}</div>
       </div>
     </section>
   );

@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { CopyButton } from "@/components/CopyButton";
 import { EASE } from "@/components/hero-motion";
+import { SectionHeader } from "@/components/ui/SectionShell";
 import { SKILL_GROUPS, type SkillGroup } from "@/data/about";
 
 type Token = { text: string; className: string };
@@ -162,19 +163,16 @@ function StackFileCard({
 
 export function TechStackFiles() {
   return (
-    <div>
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/55">
-          <span aria-hidden className="mr-2 text-emerald-300/70">
-            ▸
-          </span>
-          ~/stack
-        </span>
-        <span aria-hidden className="h-px flex-1 bg-white/[0.07]" />
-        <span className="font-mono text-[10px] tracking-wider text-white/55">
-          {GROUPS.length} FILES
-        </span>
-        <CopyButton value={RAW_JSON}>copy</CopyButton>
+    <div className="mt-16">
+      <SectionHeader
+        label="stack"
+        title={["Stack", "inventory."]}
+        intro="The tools, patterns, and delivery surfaces behind the systems below."
+        headingId="stack-title"
+      />
+
+      <div className="mt-5 flex justify-end">
+        <CopyButton value={RAW_JSON}>copy json</CopyButton>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">

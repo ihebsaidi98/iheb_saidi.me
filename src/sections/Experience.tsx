@@ -1,7 +1,6 @@
 "use client";
 
 import { motion, useScroll, useSpring } from "framer-motion";
-import { useRef } from "react";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { useA11yMode } from "@/components/MotionProvider";
 import { SectionShell } from "@/components/ui/SectionShell";
@@ -65,9 +64,7 @@ function JobCard({ job, a11yMode }: { job: ExperienceEntry; a11yMode: boolean })
 
 export function ExperienceSection() {
   const a11yMode = useA11yMode();
-  const listRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
-    target: listRef,
     offset: ["start center", "end center"],
   });
   const scaleY = useSpring(scrollYProgress, { stiffness: 90, damping: 22 });
@@ -75,12 +72,11 @@ export function ExperienceSection() {
   return (
     <SectionShell
       id="experience"
-      index="03"
-      eyebrow="EXPERIENCE"
+      label="experience"
       title="Where I've shipped."
       intro="Full-time engineering and internship work — every role below shipped to production."
     >
-      <div ref={listRef} className="relative z-10">
+      <div className="relative z-10 min-h-full" style={{ position: "relative" }}>
         {/* timeline track + scroll progress line */}
         <div aria-hidden className="absolute bottom-0 left-[7px] top-0 z-0 w-px bg-white/[0.08]" />
         <motion.div
