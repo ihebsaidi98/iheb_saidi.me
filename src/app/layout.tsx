@@ -63,9 +63,20 @@ export default function RootLayout({
         className={twMerge(
           inter.variable,
           calistoga.variable,
-          "bg-[#070a0d] text-white antialiased font-sans"
+          "relative bg-[#070a0d] text-white antialiased font-sans"
         )}
       >
+        {/* A11y audit: decorative radial background moved to a dedicated sibling layer so axe does not treat the viewport glow as text background. */}
+        <div
+          aria-hidden="true"
+          data-decorative="true"
+          className="pointer-events-none fixed inset-0 -z-10"
+          style={{
+            background:
+              "radial-gradient(ellipse 80% 45% at 50% -10%, rgba(56, 189, 248, 0.085), transparent 66%), radial-gradient(ellipse 55% 35% at 15% 20%, rgba(110, 231, 183, 0.035), transparent 70%), #05070a",
+          }}
+        />
+
         {/* Skip link: first tab stop, visible only when focused */}
         <a
           href="#main-content"

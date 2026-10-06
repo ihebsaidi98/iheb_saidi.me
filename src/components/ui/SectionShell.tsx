@@ -28,6 +28,7 @@ export function SectionShell({
     <section id={id} className={`relative py-24 sm:py-32 ${className}`}>
       <div
         aria-hidden
+        data-decorative="true"
         className="pointer-events-none absolute inset-0 opacity-[0.35]"
         style={{
           backgroundImage:

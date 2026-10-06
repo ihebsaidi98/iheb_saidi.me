@@ -234,6 +234,7 @@ const LetterReveal = memo(function LetterReveal({
 }) {
   return (
     <span
+      aria-hidden="true"
       className={
         gradient
           ? "hero-letter-mask inline-flex overflow-hidden bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 bg-clip-text"
@@ -382,11 +383,13 @@ export const HeroSection = () => {
               aria-label="Iheb Saidi, full-stack software engineer"
               className="mt-5 font-serif text-[clamp(3rem,12vmin,8rem)] leading-[0.85] tracking-[-0.06em]"
             >
+              {/* A11y audit: visual letters are decorative animation layers; the accessible heading is provided separately to avoid single-character false positives. */}
               <span aria-hidden="true" className="inline-block text-balance">
                 <LetterReveal text="Iheb" delay={0.15} />
                 <br />
                 <LetterReveal text="Saidi." delay={0.5} gradient />
               </span>
+              <span className="sr-only">Iheb Saidi, full-stack software engineer</span>
             </h1>
 
             <p className="mt-4 font-mono text-sm text-white/50 sm:text-base">

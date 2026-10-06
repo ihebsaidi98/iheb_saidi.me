@@ -1,0 +1,1194 @@
+{
+  "violations": [],
+  "incomplete": [
+    {
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": [
+        {
+          "target": [
+            ".border-r.text-white\\/70.px-4"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\" relative hidden shrink-0 border-r border-white/[0.08] px-4 text-xs font-medium tracking-[-0.01em] text-white/70 lg:block \">Iheb Saidi</span>"
+        },
+        {
+          "target": [
+            "a[href$=\"#top\"] > .z-10.relative"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative z-10\">Home</span>"
+        },
+        {
+          "target": [
+            "a[href$=\"#about\"] > .z-10.relative"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative z-10\">About</span>"
+        },
+        {
+          "target": [
+            ".hover\\:text-white\\/90.focus-visible\\:text-white[href$=\"#projects\"] > .z-10.relative"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative z-10\">Work</span>"
+        },
+        {
+          "target": [
+            "a[href$=\"#stack\"] > .z-10.relative"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative z-10\">Stack</span>"
+        },
+        {
+          "target": [
+            "a[href$=\"#experience\"] > .z-10.relative"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative z-10\">Experience</span>"
+        },
+        {
+          "target": [
+            ".hover\\:text-white\\/90.focus-visible\\:text-white[href$=\"#contact\"] > .z-10.relative"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative z-10\">Contact</span>"
+        },
+        {
+          "target": [
+            ".gap-2\\.5.items-center.flex > .text-emerald-200\\/70.tracking-\\[0\\.22em\\].text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-[9px] font-medium tracking-[0.22em] text-emerald-200/70\">AVAILABLE FOR NEW OPPORTUNITIES</span>"
+        },
+        {
+          "target": [
+            ".hero-letter-mask.overflow-hidden.inline-flex:nth-child(1) > .hero-letter:nth-child(1)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter \" style=\"animation-delay: 0.15s;\">I</span>"
+        },
+        {
+          "target": [
+            ".hero-letter-mask.overflow-hidden.inline-flex:nth-child(1) > .hero-letter:nth-child(2)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter \" style=\"animation-delay: 0.195s;\">h</span>"
+        },
+        {
+          "target": [
+            ".hero-letter-mask.overflow-hidden.inline-flex:nth-child(1) > .hero-letter:nth-child(3)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter \" style=\"animation-delay: 0.24s;\">e</span>"
+        },
+        {
+          "target": [
+            ".hero-letter-mask.overflow-hidden.inline-flex:nth-child(1) > .hero-letter:nth-child(4)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter \" style=\"animation-delay: 0.285s;\">b</span>"
+        },
+        {
+          "target": [
+            ".text-transparent.hero-letter:nth-child(1)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter text-transparent\" style=\"animation-delay: 0.5s;\">S</span>"
+        },
+        {
+          "target": [
+            ".text-transparent.hero-letter:nth-child(2)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter text-transparent\" style=\"animation-delay: 0.545s;\">a</span>"
+        },
+        {
+          "target": [
+            ".text-transparent.hero-letter:nth-child(3)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter text-transparent\" style=\"animation-delay: 0.59s;\">i</span>"
+        },
+        {
+          "target": [
+            ".text-transparent.hero-letter:nth-child(4)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter text-transparent\" style=\"animation-delay: 0.635s;\">d</span>"
+        },
+        {
+          "target": [
+            ".text-transparent.hero-letter:nth-child(5)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"hero-letter text-transparent\" style=\"animation-delay: 0.68s;\">i</span>"
+        },
+        {
+          "target": [
+            ".sm\\:text-base.mt-4.text-sm"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-4 font-mono text-sm text-white/50 sm:text-base\">"
+        },
+        {
+          "target": [
+            "span[aria-hidden=\"true\"] > .text-white\\/85"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/85\">scalable Spring Boot backends</span>"
+        },
+        {
+          "target": [
+            ".max-w-lg"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-4 max-w-lg text-pretty text-base leading-7 text-white/50 sm:text-lg sm:leading-8\">Think deeply. Build simply. Ship reliably.</p>"
+        },
+        {
+          "target": [
+            ".hover\\:-translate-y-0\\.5"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<a href=\"#projects\" ...>"
+        },
+        {
+          "target": [
+            ".tracking-\\[0\\.1em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<a href=\"#contact\" class=\"px-2 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white/60 transition-colors hover:text-white\">Get in touch</a>"
+        },
+        {
+          "target": [
+            "pre > code"
+          ],
+          "message": "Element's background color could not be determined because it partially overlaps other elements",
+          "html": "<code>"
+        },
+        {
+          "target": [
+            ".tracking-\\[0\\.2em\\].text-\\[10px\\].text-white\\/50:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-[10px] tracking-[0.2em] text-white/50\">TUNIS / TN</span>"
+        },
+        {
+          "target": [
+            ".hover\\:text-white\\/80"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<a href=\"#projects\" class=\"group flex items-center gap-3 px-2 py-2 font-mono text-[10px] tracking-[0.2em] text-white/50 transition-colors hover:text-white/80\">SCROLL<span class=\"h-px w-10 origin-left bg-white/[0.15] transition-transform duration-500 group-hover:scale-x-150\"></span></a>"
+        },
+        {
+          "target": [
+            ".tracking-\\[0\\.2em\\].text-\\[10px\\].text-white\\/50:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-[10px] tracking-[0.2em] text-white/50\">2026</span>"
+        },
+        {
+          "target": [
+            ".from-black\\/80 > span"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>PORTRAIT — 2025</span>"
+        },
+        {
+          "target": [
+            ".pb-7 > .text-xl.text-white.font-serif"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<div class=\"font-serif text-xl text-white\">Iheb Saidi</div>"
+        },
+        {
+          "target": [
+            ".mt-0\\.5.tracking-wider.text-white\\/55"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<div class=\"mt-0.5 font-mono text-[10px] tracking-wider text-white/55\">Full Stack Software Engineer — Java · Spring Boot · Angular</div>"
+        },
+        {
+          "target": [
+            ".-top-10"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<div aria-hidden=\"true\" class=\"decorative-watermark pointer-events-none absolute -top-10 right-0 hidden select-none font-serif text-[9rem] leading-none text-white/[0.03] sm:block lg:text-[12rem] xl:text-[15rem]\">01</div>"
+        },
+        {
+          "target": [
+            ".space-y-4 > div:nth-child(1) > p"
+          ],
+          "message": "Element's background color could not be determined because it partially overlaps other elements",
+          "html": "<p>"
+        },
+        {
+          "target": [
+            "div:nth-child(1) > p > .text-emerald-300\\/90.relative.font-mono:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">Spring Boot<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            "div:nth-child(1) > p > .text-emerald-300\\/90.relative.font-mono:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">Angular<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            ".space-y-4 > div:nth-child(2) > p"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p>"
+        },
+        {
+          "target": [
+            "div:nth-child(2) > p > .text-emerald-300\\/90.relative.font-mono:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">clean architecture<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            "div:nth-child(2) > p > .text-emerald-300\\/90.relative.font-mono:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">event-driven microservices<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            "div:nth-child(3) > p"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p>"
+        },
+        {
+          "target": [
+            "div:nth-child(3) > p > .text-emerald-300\\/90.relative.font-mono:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">RAG<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            "div:nth-child(3) > p > .text-emerald-300\\/90.relative.font-mono:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">pgvector<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            ".text-emerald-300\\/90.relative.font-mono:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"relative font-mono text-emerald-300/90\">Spring AI<span aria-hidden=\"true\" class=\"absolute inset-x-0 -bottom-0.5 h-px bg-emerald-300/40\"></span></span>"
+        },
+        {
+          "target": [
+            ".ml-1.text-emerald-300\\/90.font-mono"
+          ],
+          "message": "Element content contains only non-text characters",
+          "html": "<span aria-hidden=\"true\" class=\"ml-1 font-mono text-emerald-300/90\">▍</span>"
+        },
+        {
+          "target": [
+            ".tracking-\\[0\\.22em\\].text-white\\/55.text-\\[10px\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-[10px] uppercase tracking-[0.22em] text-white/55\"><span aria-hidden=\"true\" class=\"mr-2 text-emerald-300/70\">▸</span>~/stack</span>"
+        },
+        {
+          "target": [
+            ".mr-2"
+          ],
+          "message": "Element content contains only non-text characters",
+          "html": "<span aria-hidden=\"true\" class=\"mr-2 text-emerald-300/70\">▸</span>"
+        },
+        {
+          "target": [
+            ".gap-3.items-center.flex > .tracking-wider.text-white\\/55.text-\\[10px\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-[10px] tracking-wider text-white/55\">4 FILES</span>"
+        },
+        {
+          "target": [
+            ".rounded-md > span"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>copy</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .px-3\\.5.border-b.py-2\\.5 > .group-hover\\/card\\:text-emerald-200\\/70.ml-1.tracking-wider"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-1 font-mono text-[10px] tracking-wider text-white/55 transition-colors duration-300 group-hover/card:text-emerald-200/70\">backend.json</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"Java / Spring Boot\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// since 2019 · daily</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"REST / Microservices\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// event-driven lately</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"PostgreSQL / Redis\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(1) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// schemas &amp; tuning</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .px-3\\.5.border-b.py-2\\.5 > .group-hover\\/card\\:text-emerald-200\\/70.ml-1.tracking-wider"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-1 font-mono text-[10px] tracking-wider text-white/55 transition-colors duration-300 group-hover/card:text-emerald-200/70\">frontend.json</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"Angular / RxJS\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// since 2020</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"TypeScript\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// strict mode, always</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"Tailwind CSS\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(2) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// design systems</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .px-3\\.5.border-b.py-2\\.5 > .group-hover\\/card\\:text-emerald-200\\/70.ml-1.tracking-wider"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-1 font-mono text-[10px] tracking-wider text-white/55 transition-colors duration-300 group-hover/card:text-emerald-200/70\">ai-llm.json</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"Spring AI / LangChain4j\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// prod RAG pipelines</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"OpenAI / Anthropic APIs\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// streaming · tools</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"pgvector / embeddings\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(3) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// semantic search</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .px-3\\.5.border-b.py-2\\.5 > .group-hover\\/card\\:text-emerald-200\\/70.ml-1.tracking-wider"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-1 font-mono text-[10px] tracking-wider text-white/55 transition-colors duration-300 group-hover/card:text-emerald-200/70\">devops-cloud.json</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"Docker / CI-CD\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(2) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// GitHub Actions</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"AWS\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(3) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// ECS · S3 · RDS</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-amber-200\\/80.group-hover\\/line\\:text-amber-100.duration-300"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-amber-200/80 transition-colors duration-300 group-hover/line:text-amber-100\">  \"Observability\"</span>"
+        },
+        {
+          "target": [
+            ".shadow-\\[0_16px_40px_-16px_rgba\\(0\\,0\\,0\\,0\\.6\\)\\].group\\/card.hover\\:border-emerald-300\\/20:nth-child(4) > .overflow-x-auto.px-3\\.5.py-3 > .sm\\:text-\\[12px\\].text-\\[11px\\].leading-6 > .group\\/line.whitespace-pre.flex:nth-child(4) > code > .text-white\\/55:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"text-white/55\">// Grafana stack</span>"
+        },
+        {
+          "target": [
+            "code > .ml-1.text-emerald-300\\/90[aria-hidden=\"true\"]"
+          ],
+          "message": "Element content contains only non-text characters",
+          "html": "<span aria-hidden=\"true\" class=\"ml-1 text-emerald-300/90\">▍</span>"
+        },
+        {
+          "target": [
+            ".mb-5 > .technical-label"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<span class=\"technical-label\">02 — SELECTED WORK</span>"
+        },
+        {
+          "target": [
+            ".text-\\[11px\\].tracking-\\[0\\.14em\\].gap-2"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-white/50 tabular-nums\"><span aria-hidden=\"true\" class=\"signal-pulse inline-block size-1.5 rounded-full bg-emerald-300\"></span>01 / 06</span>"
+        },
+        {
+          "target": [
+            ".left-4"
+          ],
+          "message": "Element's background color could not be determined due to a pseudo element",
+          "html": "<span aria-hidden=\"true\" class=\"absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/50\">01</span>"
+        },
+        {
+          "target": [
+            ".text-white\\/75"
+          ],
+          "message": "Element's background color could not be determined due to a pseudo element",
+          "html": "<span class=\"block truncate font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-white/75\">AgroRetail OS</span>"
+        },
+        {
+          "target": [
+            ".mt-0\\.5.truncate.block"
+          ],
+          "message": "Element's background color could not be determined due to a pseudo element",
+          "html": "<span class=\"mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/50\">Tunis, Tunisia</span>"
+        },
+        {
+          "target": [
+            ".ml-4"
+          ],
+          "message": "Element's background color could not be determined due to a pseudo element",
+          "html": "<span class=\"ml-4 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-white/50\">2026 – Present</span>"
+        },
+        {
+          "target": [
+            ".mt-0"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<h3 class=\"mt-0 font-serif text-3xl leading-[1.05] tracking-[-0.03em] text-white sm:text-4xl xl:text-[2.7rem]\" style=\"opacity: 1; transform: none;\">Multi-tenant SaaS for Agricultural Retail</h3>"
+        },
+        {
+          "target": [
+            ".text-\\[15px\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-6 max-w-xl text-[15px] leading-7 text-white/60\" style=\"opacity: 1; transform: none;\">connecting cooperatives, cashiers and farmers through secure POS, B2B and farmer-facing workflows.</p>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(1) > .sm\\:text-\\[1\\.7rem\\].text-emerald-200.tracking-\\[-0\\.03em\\] > .tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"tabular-nums\">50</span>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(1) > .leading-4.tracking-\\[0\\.13em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<dd class=\"mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50\">concurrent cashiers — load test</dd>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(2) > .sm\\:text-\\[1\\.7rem\\].text-emerald-200.tracking-\\[-0\\.03em\\] > .tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"tabular-nums\">1000</span>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(2) > .leading-4.tracking-\\[0\\.13em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<dd class=\"mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50\">sales/min — load test</dd>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(3) > .sm\\:text-\\[1\\.7rem\\].text-emerald-200.tracking-\\[-0\\.03em\\] > .tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"tabular-nums\">100</span>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(3) > .leading-4.tracking-\\[0\\.13em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<dd class=\"mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50\">ms product search target</dd>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(4) > .sm\\:text-\\[1\\.7rem\\].text-emerald-200.tracking-\\[-0\\.03em\\] > .tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"tabular-nums\">500</span>"
+        },
+        {
+          "target": [
+            ".min-w-0:nth-child(4) > .leading-4.tracking-\\[0\\.13em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<dd class=\"mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50\">ms dashboard target</dd>"
+        },
+        {
+          "target": [
+            ".text-\\[13px\\].leading-5:nth-child(1) > span:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>Engineered a multi-tenant SaaS platform with tenant-isolated data, role-based access and secure workflows for cooperatives, cashiers and farmers</span>"
+        },
+        {
+          "target": [
+            ".text-\\[13px\\].leading-5:nth-child(2) > span:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>Built the Angular 17 Farmer Portal and POS experiences with secure authentication, responsive dashboards and offline-first transaction handling</span>"
+        },
+        {
+          "target": [
+            ".text-\\[13px\\].leading-5:nth-child(3) > span:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>Implemented regulatory and document workflows including Certiphyto validation, asynchronous DRE generation and transactional Outbox processing</span>"
+        },
+        {
+          "target": [
+            ".text-\\[13px\\].leading-5:nth-child(4) > span:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>Hardened the platform for production with OpenAPI APIs, API-key security, Resilience4j, observability, load testing and OWASP ZAP security auditing</span>"
+        },
+        {
+          "target": [
+            ".text-emerald-200.mb-1\\.5.tracking-\\[0\\.14em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums text-emerald-200\">01<span class=\"ml-2 hidden truncate uppercase sm:inline\">AgroRetail OS</span></span>"
+        },
+        {
+          "target": [
+            ".text-emerald-200.mb-1\\.5.tracking-\\[0\\.14em\\] > .ml-2.sm\\:inline.truncate"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-2 hidden truncate uppercase sm:inline\">AgroRetail OS</span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(2) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums text-white/60 hover:text-white\">02<span class=\"ml-2 hidden truncate uppercase sm:inline\">Novatek</span></span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(2) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white > .ml-2.sm\\:inline.truncate"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-2 hidden truncate uppercase sm:inline\">Novatek</span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(3) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums text-white/60 hover:text-white\">03<span class=\"ml-2 hidden truncate uppercase sm:inline\">Tunisair</span></span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(3) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white > .ml-2.sm\\:inline.truncate"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-2 hidden truncate uppercase sm:inline\">Tunisair</span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(4) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums text-white/60 hover:text-white\">04<span class=\"ml-2 hidden truncate uppercase sm:inline\">Xtensus</span></span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(4) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white > .ml-2.sm\\:inline.truncate"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-2 hidden truncate uppercase sm:inline\">Xtensus</span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(5) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums text-white/60 hover:text-white\">05<span class=\"ml-2 hidden truncate uppercase sm:inline\">World Soft Group</span></span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(5) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white > .ml-2.sm\\:inline.truncate"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-2 hidden truncate uppercase sm:inline\">World Soft Group</span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(6) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums text-white/60 hover:text-white\">06<span class=\"ml-2 hidden truncate uppercase sm:inline\">ISIMS</span></span>"
+        },
+        {
+          "target": [
+            ".py-2.outline-none.focus-visible\\:outline:nth-child(6) > .mb-1\\.5.tracking-\\[0\\.14em\\].hover\\:text-white > .ml-2.sm\\:inline.truncate"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"ml-2 hidden truncate uppercase sm:inline\">ISIMS</span>"
+        },
+        {
+          "target": [
+            ".eyebrow"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"eyebrow\">03 — OTHER BUILDS</p>"
+        },
+        {
+          "target": [
+            ".sm\\:text-4xl.text-3xl.mt-6"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<h3 class=\"mt-6 font-serif text-3xl tracking-[-0.03em] text-white sm:text-4xl\">Notable academic projects</h3>"
+        },
+        {
+          "target": [
+            ".sm\\:text-base.mt-3.max-w-xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-3 max-w-xl text-sm leading-6 text-white/50 sm:text-base\">Experiments and engineering builds from ESPRIT and Hôpital Charles Nicolle — technical breadth outside professional work.</p>"
+        },
+        {
+          "target": [
+            ".pb-1"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"technical-label hidden pb-1 sm:block\">3 PROJECTS</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .pt-1\\.5.text-lg.motion-safe\\:group-hover\\:-translate-y-1"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span aria-hidden=\"true\" class=\"pt-1.5 font-serif text-lg tabular-nums text-white/50 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl\">01</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .leading-tight.motion-safe\\:group-hover\\:translate-x-2.sm\\:text-3xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<h3 class=\"font-serif text-2xl leading-tight tracking-[-0.02em] text-white/85 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 sm:text-3xl lg:text-4xl\">Real-Time Auction Platform</h3>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .mt-1\\.5.tracking-\\[0\\.18em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50\">ESPRIT, Ariana&nbsp;&nbsp;·&nbsp;&nbsp;Sep 2023 – Nov 2023</p>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[72px\\].mt-3.max-w-xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-3 min-h-[72px] max-w-xl text-sm leading-6 text-white/50\">Distributed microservices auction system with automated CI/CD and enforced quality gates.</p>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Spring Boot</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Angular</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Microservices</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(4)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Eureka</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(5)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">API Gateway</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(6)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Docker</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Real-Time Auction Platform\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .py-1.tracking-\\[0\\.12em\\].px-2:nth-child(7)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/55\">+2</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .pt-1\\.5.text-lg.motion-safe\\:group-hover\\:-translate-y-1"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span aria-hidden=\"true\" class=\"pt-1.5 font-serif text-lg tabular-nums text-white/50 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl\">02</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .leading-tight.motion-safe\\:group-hover\\:translate-x-2.sm\\:text-3xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<h3 class=\"font-serif text-2xl leading-tight tracking-[-0.02em] text-white/85 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 sm:text-3xl lg:text-4xl\">Medical Sample Management</h3>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .mt-1\\.5.tracking-\\[0\\.18em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50\">Hôpital Charles Nicolle, Tunis&nbsp;&nbsp;·&nbsp;&nbsp;Feb 2023 – May 2023</p>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[72px\\].mt-3.max-w-xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-3 min-h-[72px] max-w-xl text-sm leading-6 text-white/50\">Medical sample management platform combining Angular and Spring Boot workflows with Python and R data-analytics modules.</p>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Spring Boot</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Angular</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Python</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(4)"
+          ],
+          "message": "Element content is too short to determine if it is actual text content",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">R</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(5)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">MySQL</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Medical Sample Management\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(6)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Data Mining</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .pt-1\\.5.text-lg.motion-safe\\:group-hover\\:-translate-y-1"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span aria-hidden=\"true\" class=\"pt-1.5 font-serif text-lg tabular-nums text-white/50 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl\">03</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .leading-tight.motion-safe\\:group-hover\\:translate-x-2.sm\\:text-3xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<h3 class=\"font-serif text-2xl leading-tight tracking-[-0.02em] text-white/85 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 sm:text-3xl lg:text-4xl\">Fitness Center Digitalization</h3>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .mt-1\\.5.tracking-\\[0\\.18em\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50\">ESPRIT, Ariana&nbsp;&nbsp;·&nbsp;&nbsp;Jan 2022 – May 2022</p>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[72px\\].mt-3.max-w-xl"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<p class=\"mt-3 min-h-[72px] max-w-xl text-sm leading-6 text-white/50\">Full-stack fitness center management and e-commerce platform covering administration modules and an online store.</p>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Java</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">JavaFX</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">Symfony</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(4)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">MySQL</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(5)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">JavaScript</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .text-emerald-200\\/75.py-1.tracking-\\[0\\.12em\\]:nth-child(6)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75\">TypeScript</span>"
+        },
+        {
+          "target": [
+            "article[aria-label=\"Fitness Center Digitalization\"] > .lg\\:grid-cols-\\[minmax\\(0\\,1\\.1fr\\)_minmax\\(0\\,0\\.9fr\\)\\].lg\\:gap-10.lg\\:items-stretch > .sm\\:gap-8.items-start.min-w-0 > .lg\\:min-h-\\[280px\\].lg\\:flex-col.lg\\:justify-center > .min-h-\\[76px\\].gap-1\\.5.flex-wrap > .py-1.tracking-\\[0\\.12em\\].px-2:nth-child(7)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/55\">+2</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Java</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(2)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Spring Boot</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(3)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Angular</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(4)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>TypeScript</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(5)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Microservices</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(6)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>PostgreSQL</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(7)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Docker</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(8)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>AI</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(9)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>CQRS</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(10)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Java</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(11)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Spring Boot</span>"
+        },
+        {
+          "target": [
+            ".whitespace-nowrap.tracking-\\[\\.16em\\].gap-5:nth-child(12)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"inline-flex items-center gap-5 whitespace-nowrap text-[10px] font-medium uppercase tracking-[.16em] text-white/50\"><i aria-hidden=\"true\" class=\"size-1 rounded-full bg-emerald-300/70\"></i>Angular</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(1) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .text-xs.tracking-wider.tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-xs tracking-wider text-white/50 tabular-nums\">2026</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(1) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .tracking-\\[0\\.2em\\].mt-1.text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<div class=\"mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50\">2026 – Present</div>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(2) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .text-xs.tracking-wider.tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-xs tracking-wider text-white/50 tabular-nums\">2024</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(2) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .tracking-\\[0\\.2em\\].mt-1.text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<div class=\"mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50\">Jul 2024 – Jan 2026</div>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(3) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .text-xs.tracking-wider.tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"font-mono text-xs tracking-wider text-white/50 tabular-nums\">2024</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(3) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .tracking-\\[0\\.2em\\].mt-1.text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<div class=\"mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50\">Jan 2024 – Jul 2024</div>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(4) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .text-xs.tracking-wider.tabular-nums"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<span class=\"font-mono text-xs tracking-wider text-white/50 tabular-nums\">2023</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(4) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .tracking-\\[0\\.2em\\].mt-1.text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<div class=\"mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50\">Jul 2023 – Aug 2023</div>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(5) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .text-xs.tracking-wider.tabular-nums"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<span class=\"font-mono text-xs tracking-wider text-white/50 tabular-nums\">2022</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(5) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .tracking-\\[0\\.2em\\].mt-1.text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<div class=\"mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50\">Jul 2022 – Sep 2022</div>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(6) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .text-xs.tracking-wider.tabular-nums"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<span class=\"font-mono text-xs tracking-wider text-white/50 tabular-nums\">2021</span>"
+        },
+        {
+          "target": [
+            ".lg\\:grid-cols-\\[140px_1fr\\].lg\\:gap-8.lg\\:grid:nth-child(6) > .lg\\:block.hidden > .sticky.top-28.pt-7 > .tracking-\\[0\\.2em\\].mt-1.text-\\[9px\\]"
+          ],
+          "message": "Element's background color could not be determined because it is overlapped by another element",
+          "html": "<div class=\"mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50\">Feb 2021 – Jun 2021</div>"
+        },
+        {
+          "target": [
+            ".tracking-\\[0\\.15em\\] > span:nth-child(1)"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span>© 2026 IHEB SAIDI</span>"
+        },
+        {
+          "target": [
+            ".tracking-\\[0\\.15em\\] > .tabular-nums"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<span class=\"tabular-nums\">TUNIS, TN — 14:14:56</span>"
+        },
+        {
+          "target": [
+            ".hover\\:text-white\\/60"
+          ],
+          "message": "Element's background color could not be determined due to a background gradient",
+          "html": "<button class=\"px-2 py-2 tracking-[0.2em] transition-colors hover:text-white/60\">BACK TO TOP ↑</button>"
+        }
+      ]
+    }
+  ]
+}

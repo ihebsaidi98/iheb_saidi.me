@@ -134,9 +134,10 @@ export const Header = () => {
           no-scrollbar
         "
       >
-        {/* Ambient border glow */}
+        {/* A11y audit: gradient glass underlay is decorative and intentionally kept behind the actual text-bearing nav layer. */}
         <div
           aria-hidden="true"
+          data-decorative="true"
           className="
             pointer-events-none absolute inset-0
             rounded-full
