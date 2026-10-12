@@ -5,6 +5,7 @@ import { twMerge } from "tailwind-merge";
 import { MotionProvider } from "@/components/MotionProvider";
 import { profile } from "@/data/profile";
 import { SmoothScroll } from "@/components/SmoothScroll";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const calistoga = Calistoga({
@@ -88,6 +89,9 @@ export default function RootLayout({
         <MotionProvider>
           <SmoothScroll>{children}</SmoothScroll>
         </MotionProvider>
+
+        {/* Portfolio chatbot — fixed FAB, mounted at root to persist across pages */}
+        <ChatWidget />
 
         <script
           type="application/ld+json"
