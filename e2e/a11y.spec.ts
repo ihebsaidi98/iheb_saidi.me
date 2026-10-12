@@ -189,13 +189,14 @@ test("prod accessibility smoke + readiness gate", async ({ page }) => {
     const luminance = ({ r, g, b }: { r: number; g: number; b: number }) =>
       0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 
-    const composite = (
+       const composite = (
       base: { r: number; g: number; b: number; a: number },
       overlay: { r: number; g: number; b: number; a: number },
     ) => ({
       r: Math.round(base.r * (1 - overlay.a) + overlay.r * overlay.a),
       g: Math.round(base.g * (1 - overlay.a) + overlay.g * overlay.a),
       b: Math.round(base.b * (1 - overlay.a) + overlay.b * overlay.a),
+      a: 1,
     });
 
     const navBackground = parseColor(navBg);
@@ -270,7 +271,7 @@ test("prod accessibility smoke + readiness gate", async ({ page }) => {
   const gradientText = await page.evaluate(() => {
     const selectors = ["section h2", "section [data-role='label']", "section [data-role='intro']"];
     return selectors.some((selector) => {
-      const elements = [...document.querySelectorAll(selector)];
+const elements = Array.from(document.querySelectorAll(selector));
       return elements.some((element) => {
         const style = window.getComputedStyle(element);
         return style.backgroundImage.includes("gradient") || style.backgroundClip === "text";
