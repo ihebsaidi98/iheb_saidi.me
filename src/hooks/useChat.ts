@@ -12,6 +12,8 @@
  *   - Exposes retry on the last question
  *   - Handles network errors, API errors, and timeouts gracefully
  *   - AbortController cancels in-flight requests on unmount / new send
+ *   - Guards against double-send race conditions with an in-flight ref
+ *   - Preserves failed placeholders on error and reuses them on retry
  */
 
 "use client";
@@ -32,6 +34,8 @@ export type ChatMessageItem = {
   sources?: ChatSource[];
   /** True while streaming / waiting (shows skeleton). */
   pending?: boolean;
+  /** True when request failed for this turn. */
+  failed?: boolean;
 };
 
 export type ChatStatus = "idle" | "loading" | "error";
@@ -43,20 +47,22 @@ export type ChatState = {
   errorMessage: string | null;
   /** The last question asked, used for retry. */
   lastQuestion: string | null;
+  /** The message ID of the active/last assistant placeholder. */
+  lastMsgId: string | null;
 };
 
-type Action =
+export type ChatAction =
   | { type: "SEND"; question: string; msgId: string }
   | { type: "SUCCESS"; msgId: string; answer: string; sources: ChatSource[] }
   | { type: "ERROR"; msgId: string; message: string }
-  | { type: "RETRY" }
+  | { type: "RETRY"; msgId: string }
   | { type: "CLEAR" };
 
 // ============================================================
 // REDUCER
 // ============================================================
 
-function reducer(state: ChatState, action: Action): ChatState {
+export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "SEND": {
       const userMsg: ChatMessageItem = {
@@ -69,12 +75,14 @@ function reducer(state: ChatState, action: Action): ChatState {
         role: "assistant",
         content: "",
         pending: true,
+        failed: false,
       };
       return {
         messages: [...state.messages, userMsg, pendingMsg],
         status: "loading",
         errorMessage: null,
         lastQuestion: action.question,
+        lastMsgId: action.msgId,
       };
     }
 
@@ -83,7 +91,7 @@ function reducer(state: ChatState, action: Action): ChatState {
         ...state,
         messages: state.messages.map((m) =>
           m.id === `assistant-${action.msgId}`
-            ? { ...m, content: action.answer, sources: action.sources, pending: false }
+            ? { ...m, content: action.answer, sources: action.sources, pending: false, failed: false }
             : m,
         ),
         status: "idle",
@@ -94,19 +102,33 @@ function reducer(state: ChatState, action: Action): ChatState {
     case "ERROR": {
       return {
         ...state,
-        // Remove the pending placeholder on error
-        messages: state.messages.filter((m) => m.id !== `assistant-${action.msgId}`),
+        // Keep the placeholder and mark it failed so the user bubble is never orphaned
+        messages: state.messages.map((m) =>
+          m.id === `assistant-${action.msgId}`
+            ? { ...m, pending: false, failed: true }
+            : m,
+        ),
         status: "error",
         errorMessage: action.message,
       };
     }
 
     case "RETRY": {
-      return { ...state, status: "idle", errorMessage: null };
+      return {
+        ...state,
+        // Reuse existing assistant placeholder: mark pending again, clear failed flag
+        messages: state.messages.map((m) =>
+          m.id === `assistant-${action.msgId}`
+            ? { ...m, pending: true, failed: false, content: "" }
+            : m,
+        ),
+        status: "loading",
+        errorMessage: null,
+      };
     }
 
     case "CLEAR": {
-      return { messages: [], status: "idle", errorMessage: null, lastQuestion: null };
+      return { messages: [], status: "idle", errorMessage: null, lastQuestion: null, lastMsgId: null };
     }
 
     default:
@@ -114,11 +136,12 @@ function reducer(state: ChatState, action: Action): ChatState {
   }
 }
 
-const INITIAL_STATE: ChatState = {
+export const INITIAL_CHAT_STATE: ChatState = {
   messages: [],
   status: "idle",
   errorMessage: null,
   lastQuestion: null,
+  lastMsgId: null,
 };
 
 // ============================================================
@@ -126,25 +149,33 @@ const INITIAL_STATE: ChatState = {
 // ============================================================
 
 export function useChat() {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [state, dispatch] = useReducer(chatReducer, INITIAL_CHAT_STATE);
   const abortRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
 
-  const send = useCallback(
-    async (question: string) => {
-      const trimmed = question.trim();
-      if (!trimmed || state.status === "loading") return;
-
-      // Cancel any in-flight request
+  const performRequest = useCallback(
+    async (question: string, msgId: string, isRetry: boolean) => {
+      // Cancel any previous in-flight request
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const msgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      dispatch({ type: "SEND", question: trimmed, msgId });
+      // Dispatch action to update UI state
+      if (isRetry) {
+        dispatch({ type: "RETRY", msgId });
+      } else {
+        dispatch({ type: "SEND", question, msgId });
+      }
 
-      // Build history from current messages (exclude the placeholder we just added)
+      // Build history from current messages:
+      // Exclude the current turn (by msgId) and any pending/failed turns
       const history = state.messages
-        .filter((m) => !m.pending && m.content)
+        .filter((m) => {
+          if (isRetry && (m.id === `user-${msgId}` || m.id === `assistant-${msgId}`)) {
+            return false;
+          }
+          return !m.pending && !m.failed && Boolean(m.content);
+        })
         .map((m) => ({ role: m.role, content: m.content }))
         .slice(-10); // max 10 turns sent
 
@@ -152,7 +183,7 @@ export function useChat() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed, history }),
+          body: JSON.stringify({ message: question, history }),
           signal: controller.signal,
         });
 
@@ -196,16 +227,39 @@ export function useChat() {
         });
       }
     },
-    [state.messages, state.status],
+    [state.messages],
   );
 
-  const retry = useCallback(() => {
-    if (!state.lastQuestion) return;
-    dispatch({ type: "RETRY" });
-    void send(state.lastQuestion);
-  }, [state.lastQuestion, send]);
+  const send = useCallback(
+    async (question: string) => {
+      const trimmed = question.trim();
+      if (!trimmed || inFlightRef.current || state.status === "loading") return;
+
+      // Set before dispatch to prevent rapid click race conditions
+      inFlightRef.current = true;
+      try {
+        const msgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await performRequest(trimmed, msgId, false);
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [performRequest, state.status],
+  );
+
+  const retry = useCallback(async () => {
+    if (!state.lastQuestion || !state.lastMsgId || inFlightRef.current || state.status === "loading") return;
+
+    inFlightRef.current = true;
+    try {
+      await performRequest(state.lastQuestion, state.lastMsgId, true);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [performRequest, state.lastQuestion, state.lastMsgId, state.status]);
 
   const clear = useCallback(() => {
+    inFlightRef.current = false;
     abortRef.current?.abort();
     dispatch({ type: "CLEAR" });
   }, []);

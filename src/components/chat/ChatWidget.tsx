@@ -283,7 +283,7 @@ export function ChatWidget() {
               >
                 {/* Welcome screen */}
                 {!hasMessages && (
-                  <WelcomeScreen onSelect={(q) => handleSend(q)} />
+                  <WelcomeScreen onSelect={(q) => handleSend(q)} disabled={isLoading} />
                 )}
 
                 {/* Messages */}
@@ -304,6 +304,7 @@ export function ChatWidget() {
                           <AssistantBubble
                             content={msg.content}
                             sources={msg.sources}
+                            failed={msg.failed}
                           />
                         )}
                       </motion.div>
@@ -443,7 +444,13 @@ export function ChatWidget() {
 // ============================================================
 // WELCOME SCREEN
 // ============================================================
-function WelcomeScreen({ onSelect }: { onSelect: (q: string) => void }) {
+function WelcomeScreen({
+  onSelect,
+  disabled = false,
+}: {
+  onSelect: (q: string) => void;
+  disabled?: boolean;
+}) {
   return (
     <div className="flex flex-col items-center py-4">
       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-400 text-2xl">
@@ -460,12 +467,15 @@ function WelcomeScreen({ onSelect }: { onSelect: (q: string) => void }) {
         {SUGGESTED.map((q) => (
           <button
             key={q}
+            disabled={disabled}
             onClick={() => onSelect(q)}
             className={twMerge(
               "w-full rounded-xl border border-white/8 px-3.5 py-2.5 text-left",
               "text-[0.78rem] leading-snug text-white/60",
               "transition-all duration-200",
-              "hover:border-emerald-400/20 hover:bg-emerald-400/[0.06] hover:text-white/85",
+              disabled
+                ? "cursor-not-allowed opacity-40"
+                : "hover:border-emerald-400/20 hover:bg-emerald-400/[0.06] hover:text-white/85",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/50",
             )}
           >
@@ -499,20 +509,33 @@ function UserBubble({ content }: { content: string }) {
 function AssistantBubble({
   content,
   sources,
+  failed,
 }: {
   content: string;
   sources?: import("@/lib/chat").ChatSource[];
+  failed?: boolean;
 }) {
   return (
     <div className="flex items-start gap-2.5">
       <span
         aria-hidden
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400/70"
+        className={twMerge(
+          "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          failed
+            ? "bg-red-400/10 text-red-400"
+            : "bg-emerald-400/10 text-emerald-400/70",
+        )}
       >
         <IconBot />
       </span>
       <div className="min-w-0 flex-1">
-        <ChatMarkdown content={content} />
+        {failed ? (
+          <p className="text-[0.825rem] italic text-red-300/80">
+            Failed to generate response.
+          </p>
+        ) : (
+          <ChatMarkdown content={content} />
+        )}
         {sources && sources.length > 0 && (
           <SourceChips sources={sources} />
         )}
