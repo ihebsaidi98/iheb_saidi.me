@@ -165,20 +165,7 @@ export const Header = () => {
           "
         />
 
-        {/* Brand */}
-        <span
-          className="
-            relative hidden shrink-0
-            border-r border-white/[0.08]
-            px-4
-            text-xs font-medium
-            tracking-[-0.01em]
-            text-white/70
-            lg:block
-          "
-        >
-          Iheb Saidi
-        </span>
+       
 
         {/* Navigation */}
         <div className="relative flex items-center gap-0.5">
