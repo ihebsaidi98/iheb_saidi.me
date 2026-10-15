@@ -7,10 +7,17 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/lib/knowledge-base.test.ts src/lib/rag.test.ts src/lib/chat.test.ts src/lib/tech-news.test.ts src/hooks/useChat.test.ts",
-    "test:e2e": "playwright test"
+    "test": "tsx --test src/lib/knowledge-base.test.ts src/lib/rag.test.ts src/lib/chat.test.ts src/lib/tech-news.test.ts src/hooks/useChat.test.ts src/lib/ai-service-client.test.ts",
+    "test:py": "npm run ai:test",
+    "test:all": "npm test && npm run test:py",
+    "test:e2e": "playwright test",
+    "index:kb": "tsx scripts/index-knowledge.ts",
+    "ai:dev": "cd ai-service && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001",
+    "ai:test": "cd ai-service && PATH=\"$HOME/.local/bin:$PATH\" uv run pytest",
+    "ai:lint": "cd ai-service && PATH=\"$HOME/.local/bin:$PATH\" uv run ruff check . && PATH=\"$HOME/.local/bin:$PATH\" uv run ruff format --check ."
   },
   "dependencies": {
+    "@google/genai": "^2.29.0",
     "@react-three/fiber": "^8.17.10",
     "framer-motion": "^11.3.21",
     "lenis": "^1.3.26",

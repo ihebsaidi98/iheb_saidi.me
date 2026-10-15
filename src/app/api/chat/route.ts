@@ -7,35 +7,38 @@
  *   1. Rate limit (per IP, in-memory, 10 req/min)
  *   2. Parse + validate request body
  *   3. Sanitise inputs
- *   4. RAG: embed question → retrieve top-K portfolio chunks
- *   5. Build grounded, injection-resistant prompt
- *   6. Call OpenAI Chat Completions (with timeout)
+ *   4. RAG: embed question → retrieve top-K portfolio chunks from precomputed index
+ *   5. Build grounded, injection-resistant prompt payload for Google Gemini
+ *   6. Call Google Gemini (@google/genai) with timeout
  *   7. Return { reply, sources } — answer grounded in retrieved docs
  *
  * Security invariants:
- *   - OPENAI_API_KEY stays server-side; never sent to the client.
+ *   - GEMINI_API_KEY stays server-side; never sent to the client.
  *   - Retrieved chunks are treated as untrusted; see chat.ts SYSTEM_PROMPT.
  *   - LLM is never given raw PII beyond what is already in public portfolio docs.
  *   - Timeout prevents hanging requests from exhausting function budget.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
 import { searchPortfolioKnowledge } from "@/lib/rag";
 import {
   InMemoryRateLimiter,
   validateChatRequest,
   sanitizeText,
-  buildChatMessages,
+  buildGeminiChatPayload,
+  extractGeminiResponseText,
   formatSources,
   extractClientIp,
   type ChatResponse,
   type ChatErrorResponse,
-  type ChatApiMessage,
+  type GeminiChatPayload,
 } from "@/lib/chat";
 
 // ---- Configuration (env vars — all server-side) ----
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_CHAT_MODEL =
+  process.env.GEMINI_CHAT_MODEL ?? "gemini-3.5-flash-lite";
 const CHAT_RATE_LIMIT = parseInt(process.env.CHAT_RATE_LIMIT ?? "10", 10);
 const CHAT_RATE_WINDOW_MS = parseInt(
   process.env.CHAT_RATE_WINDOW_MS ?? "60000",
@@ -110,8 +113,8 @@ export async function POST(
   }));
 
   // 5. Guard: API key must exist before any external call
-  if (!OPENAI_API_KEY) {
-    console.error("[chat/route] OPENAI_API_KEY is not set.");
+  if (!GEMINI_API_KEY) {
+    console.error("[chat/route] GEMINI_API_KEY is not set.");
     return NextResponse.json(
       {
         error: "The chat service is not configured. Please contact the site owner.",
@@ -139,15 +142,21 @@ export async function POST(
     );
   }
 
-  // 7. Build grounded prompt
-  const messages = buildChatMessages(question, chunks, history);
+  // 7. Build grounded Gemini payload
+  const payload = buildGeminiChatPayload(question, chunks, history);
 
-  // 8. Call LLM with timeout
+  // 8. Call Gemini with timeout
   let reply: string;
   try {
-    reply = await callOpenAI(messages, OPENAI_API_KEY, OPENAI_CHAT_MODEL);
+    reply = await callGemini(payload, GEMINI_API_KEY, GEMINI_CHAT_MODEL);
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
+    const isTimeout =
+      err instanceof Error &&
+      (err.name === "AbortError" ||
+        err.message.toLowerCase().includes("aborted") ||
+        err.message.toLowerCase().includes("timed out"));
+
+    if (isTimeout) {
       console.error("[chat/route] LLM request timed out.");
       return NextResponse.json(
         {
@@ -157,7 +166,10 @@ export async function POST(
         { status: 504, headers: rlHeaders },
       );
     }
-    console.error("[chat/route] LLM call failed:", err instanceof Error ? err.message : err);
+    const safeError = redactSecrets(
+      err instanceof Error ? err.message : String(err),
+    );
+    console.error("[chat/route] LLM call failed:", safeError);
     return NextResponse.json(
       {
         error: "Failed to generate a response. Please try again.",
@@ -184,59 +196,134 @@ export async function GET(): Promise<NextResponse> {
   );
 }
 
+function redactSecrets(msg: string): string {
+  return msg
+    .replace(/key=[^&\s]+/gi, "key=[REDACTED]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [REDACTED]");
+}
+
+function isRetryableModelError(err: unknown): boolean {
+  if (
+    err instanceof Error &&
+    (err.name === "AbortError" || err.message.toLowerCase().includes("aborted"))
+  ) {
+    return false;
+  }
+  const status =
+    typeof (err as { status?: number })?.status === "number"
+      ? (err as { status?: number }).status
+      : undefined;
+
+  // Permanent client errors: bad request, invalid API key, permission denied
+  if (status === 400 || status === 401 || status === 403) {
+    return false;
+  }
+
+  const rawMsg = err instanceof Error ? err.message : String(err);
+  if (
+    rawMsg.includes("API_KEY_INVALID") ||
+    rawMsg.includes("PERMISSION_DENIED") ||
+    rawMsg.includes("INVALID_ARGUMENT")
+  ) {
+    return false;
+  }
+
+  // Retryable errors: model not found/retired (404), rate limit (429), server overloaded (503), internal error (500)
+  if (status === 404 || status === 429 || status === 500 || status === 503) {
+    return true;
+  }
+
+  return (
+    rawMsg.includes("404") ||
+    rawMsg.includes("NOT_FOUND") ||
+    rawMsg.includes("is no longer available") ||
+    rawMsg.includes("429") ||
+    rawMsg.includes("RESOURCE_EXHAUSTED") ||
+    rawMsg.includes("503") ||
+    rawMsg.includes("UNAVAILABLE") ||
+    rawMsg.includes("high demand") ||
+    rawMsg.includes("500") ||
+    rawMsg.includes("INTERNAL")
+  );
+}
+
 // ============================================================
-// LLM CLIENT
+// GEMINI CLIENT
 // Non-streaming, with AbortController timeout.
 // The API key is accepted as a parameter (not captured from closure)
 // so the function signature makes the dependency explicit.
 // ============================================================
 
-async function callOpenAI(
-  messages: ChatApiMessage[],
+async function callGemini(
+  payload: GeminiChatPayload,
   apiKey: string,
   model: string,
+  options: { client?: GoogleGenAI; timeoutMs?: number } = {},
 ): Promise<string> {
+  const timeoutMs = options.timeoutMs ?? LLM_TIMEOUT_MS;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  let response: Response;
+  const ai = options.client ?? new GoogleGenAI({ apiKey });
+
   try {
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // API key is server-side only — never exposed in client bundles.
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.1,   // Low temperature = factual, grounded
-        max_tokens: 600,
-        // Instruct the model not to loop on the same phrase
-        frequency_penalty: 0.1,
-      }),
-      signal: controller.signal,
-    });
+    const runGeneration = async (targetModel: string) => {
+      return ai.models.generateContent({
+        model: targetModel,
+        contents: payload.contents,
+        config: {
+          systemInstruction: payload.systemInstruction,
+          temperature: 0.1, // Low temperature = factual, grounded
+          maxOutputTokens: 600,
+          abortSignal: controller.signal,
+        },
+      });
+    };
+
+    const candidates = [
+      model,
+      "gemini-3.5-flash-lite",
+      "gemini-3.5-flash",
+      "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+    ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+
+    let lastError: unknown;
+    for (const candidate of candidates) {
+      if (controller.signal.aborted) {
+        const abortErr = new Error("Request timed out");
+        abortErr.name = "AbortError";
+        throw abortErr;
+      }
+
+      try {
+        const response = await runGeneration(candidate);
+        if (candidate !== model) {
+          console.warn(`[chat/route] Fallback to ${candidate} succeeded`);
+        }
+        return extractGeminiResponseText(response);
+      } catch (err) {
+        lastError = err;
+        if (controller.signal.aborted) {
+          const abortErr = new Error("Request timed out");
+          abortErr.name = "AbortError";
+          throw abortErr;
+        }
+
+        if (!isRetryableModelError(err)) {
+          throw err;
+        }
+
+        const safeErrMsg = redactSecrets(
+          err instanceof Error ? err.message : String(err),
+        );
+        console.warn(
+          `[chat/route] Model ${candidate} unavailable or overloaded (${safeErrMsg}), attempting next fallback...`,
+        );
+      }
+    }
+    throw lastError;
   } finally {
     clearTimeout(timer);
   }
-
-  if (!response.ok) {
-    // Do NOT include raw OpenAI error text in user-facing responses
-    // (it may reveal model identifiers or billing details).
-    const status = response.status;
-    throw new Error(`OpenAI API returned status ${status}`);
-  }
-
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  const content = data.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || content.trim().length === 0) {
-    throw new Error("OpenAI returned an empty or missing response.");
-  }
-
-  return content.trim();
 }

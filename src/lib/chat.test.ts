@@ -24,6 +24,8 @@ import {
   sanitizeText,
   validateChatRequest,
   buildChatMessages,
+  buildGeminiChatPayload,
+  extractGeminiResponseText,
   formatSources,
   extractClientIp,
   SYSTEM_PROMPT,
@@ -595,5 +597,101 @@ describe("extractClientIp", () => {
   it("returns 'unknown' for empty x-forwarded-for", () => {
     const ip = extractClientIp({ headers: makeFakeHeaders({ "x-forwarded-for": "" }) });
     assert.equal(ip, "unknown");
+  });
+});
+
+// ============================================================
+// Google Gemini Chat Payload & Response Extraction Tests
+// ============================================================
+
+describe("buildGeminiChatPayload — Gemini request construction", () => {
+  it("includes systemInstruction with SYSTEM_PROMPT", () => {
+    const payload = buildGeminiChatPayload("Hello", [], []);
+    assert.equal(payload.systemInstruction, SYSTEM_PROMPT);
+  });
+
+  it("converts chat history to user and model roles", () => {
+    const history = [
+      { role: "user" as const, content: "What is your stack?" },
+      { role: "assistant" as const, content: "Java, Spring Boot, and TypeScript." },
+    ];
+    const payload = buildGeminiChatPayload("Where did you work?", [], history);
+
+    assert.equal(payload.contents.length, 3);
+    assert.equal(payload.contents[0]?.role, "user");
+    assert.equal(payload.contents[0]?.parts[0]?.text, "What is your stack?");
+    assert.equal(payload.contents[1]?.role, "model");
+    assert.equal(payload.contents[1]?.parts[0]?.text, "Java, Spring Boot, and TypeScript.");
+    assert.equal(payload.contents[2]?.role, "user");
+    assert.ok(payload.contents[2]?.parts[0]?.text.includes("Where did you work?"));
+  });
+
+  it("embeds retrieved context inside XML tags in final user turn", () => {
+    const chunk = makeChunk({
+      title: "AgroRetail OS",
+      type: "project",
+      text: "Multi-tenant SaaS platform built with Spring Boot.",
+    });
+    const payload = buildGeminiChatPayload("Tell me about AgroRetail", [chunk], []);
+    const lastTurn = payload.contents[payload.contents.length - 1];
+
+    assert.equal(lastTurn?.role, "user");
+    const text = lastTurn?.parts[0]?.text ?? "";
+    assert.ok(text.includes("<retrieved_context>"));
+    assert.ok(text.includes("</retrieved_context>"));
+    assert.ok(text.includes("Multi-tenant SaaS platform built with Spring Boot."));
+    assert.ok(text.includes("Question: Tell me about AgroRetail"));
+  });
+
+  it("respects MAX_HISTORY_TURNS_IN_PROMPT limit", () => {
+    const longHistory = Array.from({ length: 10 }, (_, i) => ({
+      role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
+      content: `Message ${i}`,
+    }));
+    const payload = buildGeminiChatPayload("Current message", [], longHistory);
+    // 6 history turns + 1 current user turn = 7 turns total
+    assert.equal(payload.contents.length, 7);
+  });
+});
+
+describe("extractGeminiResponseText — Gemini response handling", () => {
+  it("extracts text when response.text is a string", () => {
+    const response = { text: "  Hello from Gemini!  " };
+    assert.equal(extractGeminiResponseText(response), "Hello from Gemini!");
+  });
+
+  it("extracts text when response.text is a getter function", () => {
+    const response = { text: () => "Function response text" };
+    assert.equal(extractGeminiResponseText(response), "Function response text");
+  });
+
+  it("extracts text from candidates parts array", () => {
+    const response = {
+      candidates: [
+        {
+          content: {
+            parts: [{ text: "First part. " }, { text: "Second part." }],
+          },
+        },
+      ],
+    };
+    assert.equal(extractGeminiResponseText(response), "First part. Second part.");
+  });
+
+  it("throws error when response is null or invalid object", () => {
+    assert.throws(() => extractGeminiResponseText(null), /invalid or empty/);
+    assert.throws(() => extractGeminiResponseText("string"), /invalid or empty/);
+  });
+
+  it("throws error when response has empty text", () => {
+    assert.throws(() => extractGeminiResponseText({ text: "   " }), /empty or missing/);
+    assert.throws(() => extractGeminiResponseText({ text: "" }), /empty or missing/);
+    assert.throws(
+      () =>
+        extractGeminiResponseText({
+          candidates: [{ content: { parts: [{ text: "" }] } }],
+        }),
+      /empty or missing/,
+    );
   });
 });

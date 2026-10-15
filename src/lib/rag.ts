@@ -2,21 +2,47 @@
  * src/lib/rag.ts
  *
  * Retrieval-Augmented Generation (RAG) pipeline for the portfolio chatbot.
+ * Powered by Google Gemini embeddings with cosine similarity.
  *
  * Exports:
  *   - Types: EmbeddingFunction, VectorStore, KnowledgeChunk, SearchResult,
- *            PortfolioSearchOptions, PortfolioSearchResponse
+ *            PortfolioSearchOptions, PortfolioSearchResponse, SerializedVectorIndex
  *   - chunkKnowledgeDocuments — split documents into overlapping chunks
- *   - InMemoryVectorStore     — cosine-similarity vector store (no DB needed)
- *   - PgVectorStore           — optional Postgres/pgvector backend
+ *   - validateEmbeddingVector — enforce vector dimension and finite number checks
+ *   - InMemoryVectorStore     — cosine-similarity vector store with load/export
+ *   - PgVectorStore           — optional Postgres/pgvector backend (768 dims)
+ *   - getDefaultEmbeddingFunction — Gemini embedContent with RETRIEVAL_QUERY/RETRIEVAL_DOCUMENT
  *   - indexPortfolioKnowledge — embed + upsert all public portfolio docs
- *   - searchPortfolioKnowledge — one-shot: embed query + retrieve top-K chunks
- *   - getDefaultEmbeddingFunction — OpenAI text-embedding-3-small via fetch
+ *   - searchPortfolioKnowledge — search against precomputed/cached index without re-indexing
+ *   - PortfolioIndexManager   — manages persistent index cache and concurrent init
  */
 
-import { portfolioKnowledgeBase, portfolioPublicDocuments, type KnowledgeDocument, type KnowledgeDocumentType } from "./knowledge-base";
+import fs from "node:fs";
+import path from "node:path";
+import { GoogleGenAI } from "@google/genai";
+import {
+  portfolioPublicDocuments,
+  type KnowledgeDocument,
+  type KnowledgeDocumentType,
+} from "./knowledge-base";
 
-export type EmbeddingFunction = (text: string) => Promise<number[]>;
+// ============================================================
+// CONSTANTS & TYPES
+// ============================================================
+
+export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001";
+export const DEFAULT_EMBEDDING_DIMENSIONS = 768;
+
+export type EmbeddingOptions = {
+  taskType?: "RETRIEVAL_QUERY" | "RETRIEVAL_DOCUMENT";
+  title?: string;
+  outputDimensionality?: number;
+};
+
+export type EmbeddingFunction = (
+  text: string,
+  options?: EmbeddingOptions,
+) => Promise<number[]>;
 
 export type VectorSearchOptions = {
   limit?: number;
@@ -44,12 +70,22 @@ export type SearchResult = KnowledgeChunk & {
   score: number;
 };
 
+export type StoredRecord = KnowledgeChunk & {
+  vector: number[];
+};
+
 export type VectorStore = {
   upsert(chunks: KnowledgeChunk[], embedder: EmbeddingFunction): Promise<void>;
-  search(query: string, options: VectorSearchOptions, embedder: EmbeddingFunction): Promise<SearchResult[]>;
+  search(
+    query: string,
+    options: VectorSearchOptions,
+    embedder: EmbeddingFunction,
+  ): Promise<SearchResult[]>;
   remove(documentId: string): Promise<void>;
   list(): Promise<SearchResult[]>;
   clear(): Promise<void>;
+  loadRecords?(records: StoredRecord[]): void;
+  exportRecords?(): StoredRecord[];
 };
 
 export type PortfolioSearchOptions = {
@@ -66,12 +102,49 @@ export type PortfolioSearchResponse = {
   warning: string | null;
 };
 
-type StoredRecord = KnowledgeChunk & {
-  vector: number[];
+export type SerializedVectorIndex = {
+  version: number;
+  kbVersion?: string;
+  model: string;
+  dimensions: number;
+  createdAt: string;
+  recordsCount?: number;
+  records: StoredRecord[];
 };
 
 function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+// ============================================================
+// VECTOR VALIDATION
+// Reject empty, malformed, non-finite, or dimension-mismatched vectors.
+// ============================================================
+
+export function validateEmbeddingVector(
+  vector: unknown,
+  expectedDimensions?: number,
+): number[] {
+  if (!Array.isArray(vector) || vector.length === 0) {
+    throw new Error("Invalid embedding: vector is empty or not an array.");
+  }
+
+  if (expectedDimensions !== undefined && vector.length !== expectedDimensions) {
+    throw new Error(
+      `Invalid embedding dimension: expected ${expectedDimensions}, got ${vector.length}.`,
+    );
+  }
+
+  for (let i = 0; i < vector.length; i++) {
+    const val = vector[i];
+    if (typeof val !== "number" || !Number.isFinite(val)) {
+      throw new Error(
+        `Invalid embedding value at index ${i}: value is non-finite or not a number.`,
+      );
+    }
+  }
+
+  return vector as number[];
 }
 
 // ============================================================
@@ -173,20 +246,38 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 // ============================================================
 // IN-MEMORY VECTOR STORE
-// Suitable for development and small portfolios.
-// State is per-process (rebuilt on cold start).
 // ============================================================
 
 export class InMemoryVectorStore implements VectorStore {
   private readonly records = new Map<string, StoredRecord>();
 
-  async upsert(chunks: KnowledgeChunk[], embedder: EmbeddingFunction): Promise<void> {
-    await Promise.all(
-      chunks.map(async (chunk) => {
-        const vector = await embedder(chunk.text);
-        this.records.set(chunk.id, { ...chunk, vector });
-      }),
-    );
+  async upsert(
+    chunks: KnowledgeChunk[],
+    embedder: EmbeddingFunction,
+  ): Promise<void> {
+    for (const chunk of chunks) {
+      const vector = await embedder(chunk.text, {
+        taskType: "RETRIEVAL_DOCUMENT",
+        title: chunk.title,
+      });
+      validateEmbeddingVector(vector);
+      this.records.set(chunk.id, { ...chunk, vector });
+    }
+  }
+
+  loadRecords(records: StoredRecord[]): void {
+    for (const record of records) {
+      validateEmbeddingVector(record.vector, DEFAULT_EMBEDDING_DIMENSIONS);
+      this.records.set(record.id, record);
+    }
+  }
+
+  exportRecords(): StoredRecord[] {
+    const list: StoredRecord[] = [];
+    this.records.forEach((record) => {
+      list.push(record);
+    });
+    return list;
   }
 
   async search(
@@ -196,7 +287,10 @@ export class InMemoryVectorStore implements VectorStore {
   ): Promise<SearchResult[]> {
     const limit = options.limit ?? 5;
     const threshold = options.threshold ?? 0;
-    const queryVector = await embedder(query);
+    const queryVector = await embedder(query, {
+      taskType: "RETRIEVAL_QUERY",
+    });
+    validateEmbeddingVector(queryVector);
 
     const results: SearchResult[] = [];
     this.records.forEach((record) => {
@@ -231,18 +325,22 @@ export class InMemoryVectorStore implements VectorStore {
   async clear(): Promise<void> {
     this.records.clear();
   }
+
+  size(): number {
+    return this.records.size;
+  }
 }
 
 // ============================================================
 // PG VECTOR STORE
-// Optional Postgres/pgvector backend. Only activated when
-// the caller passes an instance — never imported at module load.
-// The `pg` module is dynamically imported so it does not affect
-// builds or runtimes that don't have it installed.
+// Optional Postgres/pgvector backend. Dimensions updated to 768.
 // ============================================================
 
 type PgClientLike = {
-  query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+  query(
+    sql: string,
+    params?: unknown[],
+  ): Promise<{ rows: Record<string, unknown>[] }>;
 };
 
 export class PgVectorStore implements VectorStore {
@@ -252,20 +350,21 @@ export class PgVectorStore implements VectorStore {
 
   constructor(options: { table?: string; dimensions?: number } = {}) {
     this.table = options.table ?? "portfolio_chunks";
-    this.dimensions = options.dimensions ?? 1536;
+    this.dimensions = options.dimensions ?? DEFAULT_EMBEDDING_DIMENSIONS;
   }
 
   private async getClient(): Promise<PgClientLike> {
     if (!this.clientPromise) {
       this.clientPromise = (async () => {
-        // Use an indirect require so TypeScript does not attempt to resolve
-        // the "pg" module statically — it may not be installed in all envs.
         // eslint-disable-next-line no-new-func
-        const pg = await (new Function('m', 'return import(m)'))('pg') as { default?: { Client: new () => unknown }; Client?: new () => unknown };
+        const pg = (await new Function("m", "return import(m)")("pg")) as {
+          default?: { Client: new () => unknown };
+          Client?: new () => unknown;
+        };
         const Client = pg.default?.Client ?? pg.Client;
         if (!Client) throw new Error("pg module did not export a Client constructor.");
         const client = new Client() as PgClientLike;
-        // @ts-expect-error — dynamic pg client type
+        // @ts-expect-error dynamic pg client
         await (client as { connect(): Promise<void> }).connect();
         await client.query(`
           CREATE EXTENSION IF NOT EXISTS vector;
@@ -290,34 +389,39 @@ export class PgVectorStore implements VectorStore {
     return this.clientPromise;
   }
 
-  async upsert(chunks: KnowledgeChunk[], embedder: EmbeddingFunction): Promise<void> {
+  async upsert(
+    chunks: KnowledgeChunk[],
+    embedder: EmbeddingFunction,
+  ): Promise<void> {
     const client = await this.getClient();
-    await Promise.all(
-      chunks.map(async (chunk) => {
-        const vector = await embedder(chunk.text);
-        await client.query(
-          `INSERT INTO ${this.table}
-             (id, document_id, source, type, title, summary, text, tags, metadata, vector)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           ON CONFLICT (id) DO UPDATE SET
-             text = EXCLUDED.text,
-             vector = EXCLUDED.vector,
-             metadata = EXCLUDED.metadata`,
-          [
-            chunk.id,
-            chunk.documentId,
-            chunk.source,
-            chunk.type,
-            chunk.title,
-            chunk.summary,
-            chunk.text,
-            chunk.tags,
-            JSON.stringify(chunk.metadata),
-            `[${vector.join(",")}]`,
-          ],
-        );
-      }),
-    );
+    for (const chunk of chunks) {
+      const vector = await embedder(chunk.text, {
+        taskType: "RETRIEVAL_DOCUMENT",
+        title: chunk.title,
+      });
+      validateEmbeddingVector(vector, this.dimensions);
+      await client.query(
+        `INSERT INTO ${this.table}
+           (id, document_id, source, type, title, summary, text, tags, metadata, vector)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (id) DO UPDATE SET
+           text = EXCLUDED.text,
+           vector = EXCLUDED.vector,
+           metadata = EXCLUDED.metadata`,
+        [
+          chunk.id,
+          chunk.documentId,
+          chunk.source,
+          chunk.type,
+          chunk.title,
+          chunk.summary,
+          chunk.text,
+          chunk.tags,
+          JSON.stringify(chunk.metadata),
+          `[${vector.join(",")}]`,
+        ],
+      );
+    }
   }
 
   async search(
@@ -328,7 +432,8 @@ export class PgVectorStore implements VectorStore {
     const client = await this.getClient();
     const limit = options.limit ?? 5;
     const threshold = options.threshold ?? 0;
-    const queryVector = await embedder(query);
+    const queryVector = await embedder(query, { taskType: "RETRIEVAL_QUERY" });
+    validateEmbeddingVector(queryVector, this.dimensions);
 
     const response = await client.query(
       `SELECT *, 1 - (vector <=> $1::vector) AS score
@@ -363,10 +468,9 @@ export class PgVectorStore implements VectorStore {
 
   async remove(documentId: string): Promise<void> {
     const client = await this.getClient();
-    await client.query(
-      `DELETE FROM ${this.table} WHERE document_id = $1`,
-      [documentId],
-    );
+    await client.query(`DELETE FROM ${this.table} WHERE document_id = $1`, [
+      documentId,
+    ]);
   }
 
   async list(): Promise<SearchResult[]> {
@@ -403,58 +507,231 @@ export class PgVectorStore implements VectorStore {
 }
 
 // ============================================================
-// OPENAI EMBEDDING
-// Uses text-embedding-3-small (1536 dims).
-// Only called server-side — key is never exposed to the client.
+// GOOGLE GEMINI EMBEDDING FUNCTION
+// Uses Google Gen AI SDK (@google/genai) embedContent.
+// Validates return dimensions, non-empty, and finite numbers.
 // ============================================================
 
-export function getDefaultEmbeddingFunction(): EmbeddingFunction {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+export function getDefaultEmbeddingFunction(config: {
+  apiKey?: string;
+  model?: string;
+  outputDimensionality?: number;
+  client?: GoogleGenAI;
+} = {}): EmbeddingFunction {
+  const apiKey = config.apiKey ?? process.env.GEMINI_API_KEY;
+  const model =
+    config.model ??
+    process.env.GEMINI_EMBEDDING_MODEL ??
+    DEFAULT_EMBEDDING_MODEL;
+  const outputDimensionality =
+    config.outputDimensionality ?? DEFAULT_EMBEDDING_DIMENSIONS;
 
-  return async (text: string): Promise<number[]> => {
-    if (!apiKey) {
+  let ai = config.client;
+  if (!ai && apiKey) {
+    ai = new GoogleGenAI({ apiKey });
+  }
+
+  return async (
+    text: string,
+    options: EmbeddingOptions = {},
+  ): Promise<number[]> => {
+    if (!ai) {
       throw new Error(
-        "OPENAI_API_KEY is not set. Cannot embed text without an API key.",
+        "GEMINI_API_KEY is not set. Cannot embed text without a Gemini API key.",
       );
     }
 
-    const response = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ input: text, model }),
-    });
+    try {
+      const response = await ai.models.embedContent({
+        model,
+        contents: text,
+        config: {
+          taskType: options.taskType ?? "RETRIEVAL_QUERY",
+          title: options.title,
+          outputDimensionality,
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI Embeddings API error: ${response.status}`);
+      const values = response.embeddings?.[0]?.values;
+
+      if (!values || !Array.isArray(values) || values.length === 0) {
+        throw new Error("Gemini returned an empty or missing embedding vector.");
+      }
+
+      return validateEmbeddingVector(values, outputDimensionality);
+    } catch (err) {
+      if (err instanceof Error) {
+        // Redact any raw query strings or key echoes if present
+        const cleanMsg = err.message.replace(/key=[^&\s]+/gi, "key=REDACTED");
+        throw new Error(`Gemini Embeddings error: ${cleanMsg}`);
+      }
+      throw new Error("Gemini Embeddings error: Unknown failure.");
     }
-
-    const data = (await response.json()) as {
-      data?: Array<{ embedding?: number[] }>;
-    };
-    const embedding = data?.data?.[0]?.embedding;
-
-    if (!Array.isArray(embedding) || embedding.length === 0) {
-      throw new Error("OpenAI returned an empty embedding.");
-    }
-
-    return embedding;
   };
 }
 
 // ============================================================
+// PERSISTENT INDEX CACHE & LIFECYCLE MANAGER
+//
+// Solves Critical Requirement #6:
+// - Does NOT re-embed knowledge chunks on every user message.
+// - Reuses precomputed index file (src/data/rag-index.json).
+// - Protects concurrent requests with initialization mutex.
+// ============================================================
+
+export const INDEX_FILE_PATH = path.join(
+  process.cwd(),
+  "src",
+  "data",
+  "rag-index.json",
+);
+
+export class PortfolioIndexManager {
+  private static instance: PortfolioIndexManager | null = null;
+  private readonly store: InMemoryVectorStore;
+  private initialized = false;
+  private initPromise: Promise<void> | null = null;
+
+  constructor() {
+    this.store = new InMemoryVectorStore();
+  }
+
+  static getInstance(): PortfolioIndexManager {
+    if (!PortfolioIndexManager.instance) {
+      PortfolioIndexManager.instance = new PortfolioIndexManager();
+    }
+    return PortfolioIndexManager.instance;
+  }
+
+  getStore(): InMemoryVectorStore {
+    return this.store;
+  }
+
+  isInitialized(): boolean {
+    return this.initialized && this.store.size() > 0;
+  }
+
+  /**
+   * Initialize the vector store from precomputed file or on-demand embedder.
+   * Concurrency-safe: multiple parallel calls share the same Promise.
+   */
+  async initialize(options: {
+    force?: boolean;
+    embedder?: EmbeddingFunction;
+    filePath?: string;
+  } = {}): Promise<void> {
+    if (this.isInitialized() && !options.force) {
+      return;
+    }
+
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = (async () => {
+      try {
+        const filePath = options.filePath ?? INDEX_FILE_PATH;
+
+        const expectedModel =
+          process.env.GEMINI_EMBEDDING_MODEL ?? DEFAULT_EMBEDDING_MODEL;
+        const expectedDimensions = DEFAULT_EMBEDDING_DIMENSIONS;
+
+        // 1. Try loading from persistent file
+        if (!options.force && fs.existsSync(filePath)) {
+          let parsed: SerializedVectorIndex | null = null;
+          try {
+            const raw = fs.readFileSync(filePath, "utf8");
+            parsed = JSON.parse(raw) as SerializedVectorIndex;
+          } catch (readErr) {
+            console.warn(
+              `[rag] Failed to parse vector index at ${filePath}:`,
+              readErr,
+            );
+          }
+
+          if (parsed) {
+            const isModelMatch = parsed.model === expectedModel;
+            const isDimMatch = parsed.dimensions === expectedDimensions;
+            const hasRecords =
+              Array.isArray(parsed.records) && parsed.records.length > 0;
+
+            if (isModelMatch && isDimMatch && hasRecords) {
+              this.store.clear();
+              this.store.loadRecords(parsed.records);
+              this.initialized = true;
+              return;
+            }
+
+            const reason = !isModelMatch
+              ? `model mismatch (expected: ${expectedModel}, found: ${parsed.model})`
+              : !isDimMatch
+                ? `dimensions mismatch (expected: ${expectedDimensions}, found: ${parsed.dimensions})`
+                : "index contains no valid records";
+
+            console.warn(
+              `[rag] Incompatible or stale vector index at ${filePath}: ${reason}. Run 'npm run index:kb' to rebuild the index.`,
+            );
+
+            // If no embedder or API key is available to recompute on-demand, throw actionable error
+            if (!options.embedder && !process.env.GEMINI_API_KEY) {
+              throw new Error(
+                `Incompatible vector index at ${filePath} (${reason}). Please run 'npm run index:kb' to rebuild the knowledge base index.`,
+              );
+            }
+          }
+        }
+
+        // 2. Build on-demand if embedder or API key is available
+        const embedder = options.embedder ?? getDefaultEmbeddingFunction();
+        const chunks = chunkKnowledgeDocuments(portfolioPublicDocuments);
+
+        this.store.clear();
+        await this.store.upsert(chunks, embedder);
+        this.initialized = true;
+
+        // 3. Try to save to file for subsequent invocations
+        try {
+          const serialized: SerializedVectorIndex = {
+            version: 1,
+            kbVersion: "2026.1",
+            model: expectedModel,
+            dimensions: expectedDimensions,
+            createdAt: new Date().toISOString(),
+            recordsCount: this.store.size(),
+            records: this.store.exportRecords(),
+          };
+          const dir = path.dirname(filePath);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(filePath, JSON.stringify(serialized, null, 2), "utf8");
+        } catch {
+          // If filesystem is read-only (e.g. serverless edge), in-memory store is still active
+        }
+      } finally {
+        this.initPromise = null;
+      }
+    })();
+
+    return this.initPromise;
+  }
+
+  reset(): void {
+    this.store.clear();
+    this.initialized = false;
+    this.initPromise = null;
+  }
+}
+
+// ============================================================
 // HIGH-LEVEL API
-// These are the primary entry points used by route.ts.
 // ============================================================
 
 /**
  * Embed and upsert all public portfolio documents into a vector store.
- * Returns the list of chunks that were indexed.
+ * Used by scripts/index-knowledge.ts or custom vector store setups.
  */
-export async function indexPortfolioKnowledge(options: PortfolioSearchOptions = {}): Promise<KnowledgeChunk[]> {
+export async function indexPortfolioKnowledge(
+  options: PortfolioSearchOptions = {},
+): Promise<KnowledgeChunk[]> {
   const vectorStore = options.vectorStore ?? new InMemoryVectorStore();
   const embedder = options.embedder ?? getDefaultEmbeddingFunction();
   const documents = options.documents ?? portfolioPublicDocuments;
@@ -468,8 +745,10 @@ export async function indexPortfolioKnowledge(options: PortfolioSearchOptions = 
 }
 
 /**
- * One-shot search: embed the query, retrieve top-K relevant chunks.
- * Handles empty queries and zero-result cases with a warning string.
+ * One-shot search:
+ * - If a custom vectorStore is provided (e.g. in tests), queries it.
+ * - Otherwise, queries the pre-indexed PortfolioIndexManager singleton.
+ * - Embeds ONLY the user query (never regenerates the whole index on user queries).
  */
 export async function searchPortfolioKnowledge(
   query: string,
@@ -481,20 +760,42 @@ export async function searchPortfolioKnowledge(
     return { results: [], warning: "No question was provided." };
   }
 
-  const vectorStore = options.vectorStore ?? new InMemoryVectorStore();
-  const embedder = options.embedder ?? getDefaultEmbeddingFunction();
   const limit = options.limit ?? 5;
 
-  try {
-    await vectorStore.upsert(
-      chunkKnowledgeDocuments(options.documents ?? portfolioPublicDocuments, {
-        maxChunkChars: options.maxChunkChars ?? 700,
-        overlapChars: options.overlapChars ?? 100,
-      }),
+  // Custom vector store passed (e.g., in unit tests)
+  if (options.vectorStore) {
+    const embedder = options.embedder ?? getDefaultEmbeddingFunction();
+    const results = await options.vectorStore.search(
+      trimmed,
+      { limit, threshold: 0.1 },
       embedder,
     );
 
-    const results = await vectorStore.search(trimmed, { limit, threshold: 0.1 }, embedder);
+    if (results.length === 0) {
+      return {
+        results: [],
+        warning: "No relevant portfolio information was found for this query.",
+      };
+    }
+
+    return { results, warning: null };
+  }
+
+  // Production flow: Use persistent/singleton index manager
+  const indexManager = PortfolioIndexManager.getInstance();
+  if (!indexManager.isInitialized()) {
+    await indexManager.initialize({ embedder: options.embedder });
+  }
+
+  const store = indexManager.getStore();
+  const embedder = options.embedder ?? getDefaultEmbeddingFunction();
+
+  try {
+    const results = await store.search(
+      trimmed,
+      { limit, threshold: 0.1 },
+      embedder,
+    );
 
     if (results.length === 0) {
       return {
