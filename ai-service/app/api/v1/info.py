@@ -13,7 +13,7 @@ router = APIRouter(tags=["Internal V1"])
 class ServiceInfoResponse(BaseModel):
     service: str = "portfolio-ai-service"
     version: str = "0.1.0"
-    phase: int = 1
+    phase: int = 2
     environment: str
     active_chat_model: str
     active_embedding_model: str
@@ -42,5 +42,10 @@ async def get_service_info(
             "payload_size_limits",
             "structured_errors",
             "bounded_retries",
+            "rag_vector_search",
+            "rag_grounded_chat",
+            "agentic_rag",
+            "career_copilot",
+            "interview_simulator",
         ],
     )

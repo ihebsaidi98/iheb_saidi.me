@@ -17,9 +17,7 @@ const nextConfig = {
           },
           {
             key: "Content-Security-Policy-Report-Only",
-            // Next.js emits inline bootstrap scripts and layout.tsx emits JSON-LD.
-            // A nonce middleware is disproportionate for this static portfolio; keep
-            // unsafe-inline while Report-Only telemetry is reviewed.
+            // VULN-02 Option B: Active telemetry enabled via /api/csp-report
             value: [
               "default-src 'self'",
               "base-uri 'self'",
@@ -33,7 +31,13 @@ const nextConfig = {
               `connect-src ${connectSrc}`,
               "worker-src 'self' blob:",
               "upgrade-insecure-requests",
+              "report-uri /api/csp-report",
+              "report-to csp-endpoint",
             ].join("; "),
+          },
+          {
+            key: "Reporting-Endpoints",
+            value: 'csp-endpoint="/api/csp-report"',
           },
         ],
       },

@@ -59,7 +59,19 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<ChatResponse | ChatErrorResponse>> {
   // 1. Rate limit
-  const ip = extractClientIp(request);
+  let ip: string;
+  try {
+    ip = extractClientIp(request);
+  } catch (err) {
+    console.error("[chat/route] Client IP verification failed:", err);
+    return NextResponse.json(
+      {
+        error: "Unable to process request: client IP cannot be verified safely.",
+        code: "IP_VERIFICATION_FAILED",
+      },
+      { status: 500 },
+    );
+  }
   const rl = rateLimiter.check(ip);
 
   const rlHeaders: Record<string, string> = {

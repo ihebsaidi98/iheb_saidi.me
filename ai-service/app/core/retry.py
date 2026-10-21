@@ -5,6 +5,8 @@ import logging
 import random
 from collections.abc import Awaitable, Callable
 
+from app.core.safe_errors import redact_secrets
+
 logger = logging.getLogger("ai_service.retry")
 
 
@@ -41,7 +43,7 @@ async def with_retry[T](
                     max_retries,
                     operation_name,
                     type(exc).__name__,
-                    str(exc),
+                    redact_secrets(str(exc)),
                 )
                 raise
 

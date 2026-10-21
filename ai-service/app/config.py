@@ -1,10 +1,16 @@
 """Configuration management using Pydantic Settings."""
 
+import logging
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("ai_service.config")
+
+_DEFAULT_DEV_TOKEN = "dev-internal-token-change-in-production"
 
 
 class Settings(BaseSettings):
@@ -24,7 +30,7 @@ class Settings(BaseSettings):
 
     # Security & Internal Authentication
     ai_service_token: SecretStr = Field(
-        default=SecretStr("dev-internal-token-change-in-production"),
+        default=SecretStr(_DEFAULT_DEV_TOKEN),
         description="Internal shared secret for server-to-server Next.js proxy calls",
     )
     allowed_origins: Annotated[
@@ -49,6 +55,36 @@ class Settings(BaseSettings):
     gemini_embedding_model: str = Field(default="gemini-embedding-001")
     gemini_embedding_dimensions: int = Field(default=768)
 
+    # RAG Vector Store & Retrieval Configuration
+    rag_index_path: Path | None = Field(
+        default=None,
+        description="Explicit path to rag-index.json. If None, auto-resolved from repo root.",
+    )
+    default_search_limit: int = Field(default=5, ge=1, le=20)
+    max_search_limit: int = Field(default=20, ge=1, le=100)
+    default_search_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
+
+    # Agentic RAG Configuration (Phase 3)
+    agentic_rag_enabled: bool = Field(
+        default=True,
+        description="Feature flag to enable or disable the Agentic RAG orchestration endpoint",
+    )
+    agent_max_subqueries: int = Field(default=3, ge=1, le=5)
+    agent_max_retrieval_calls: int = Field(default=6, ge=1, le=10)
+    agent_max_context_chunks: int = Field(default=10, ge=1, le=20)
+
+    # Career Copilot Configuration (Phase 3 Stage 2)
+    career_copilot_enabled: bool = Field(
+        default=True,
+        description="Feature flag to enable or disable Career Copilot endpoints",
+    )
+
+    # Adaptive Interview Simulator Configuration (Phase 3 Stage 3)
+    interview_simulator_enabled: bool = Field(
+        default=True,
+        description="Feature flag to enable or disable Adaptive Interview Simulator endpoints",
+    )
+
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def parse_allowed_origins(cls, v: object) -> list[str]:
@@ -58,6 +94,39 @@ class Settings(BaseSettings):
         if isinstance(v, list):
             return [str(origin).strip() for origin in v if str(origin).strip()]
         return ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    @field_validator("allowed_origins", mode="after")
+    @classmethod
+    def reject_wildcard_origins(cls, v: list[str]) -> list[str]:
+        """Reject wildcard '*' in allowed_origins.
+
+        The combination allow_origins=['*'] + allow_credentials=True is forbidden
+        by the CORS specification and causes Starlette to raise a runtime error.
+        Fail at configuration time with a clear message instead.
+        """
+        if "*" in v:
+            raise ValueError(
+                "Wildcard '*' is not permitted in allowed_origins when "
+                "allow_credentials=True.  Specify explicit origin URLs."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def warn_on_default_token_outside_test(self) -> "Settings":
+        """Emit a WARNING when the default dev token is used outside a test context.
+
+        The production lifespan raises RuntimeError for this case, but defence in
+        depth: warn at settings-instantiation time so misconfigured staging/dev
+        deployments are visible in logs even if the lifespan check is bypassed.
+        """
+        if self.environment not in ("test",):
+            token = self.ai_service_token.get_secret_value()
+            if token == _DEFAULT_DEV_TOKEN or len(token) < 32:
+                logger.warning(
+                    "AI_SERVICE_TOKEN appears weak or is the default development "
+                    "placeholder.  Set a strong secret before exposing this service."
+                )
+        return self
 
     def is_production(self) -> bool:
         return self.environment == "production"

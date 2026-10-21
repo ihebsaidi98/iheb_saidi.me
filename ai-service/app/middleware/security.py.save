@@ -1,0 +1,140 @@
+"""Security middleware enforcing payload limits and security headers."""
+
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Enforce standard security headers on all responses."""
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
+
+class RequestSizeLimitMiddleware:
+    """Enforce the actual HTTP request body size using bounded buffering."""
+
+    def __init__(self, app, max_size_bytes: int) -> None:
+        self.app = app
+        if max_size_bytes <= 0:
+            raise ValueError("max_size_bytes must be positive")
+        self.max_size_bytes = max_size_bytes
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = {
+            key.decode("latin-1").lower(): value.decode("latin-1")
+            for key, value in scope.get("headers", [])
+        }
+
+        async def reject_request() -> None:
+            from starlette.responses import JSONResponse
+
+            request_id = scope.get("state", {}).get("request_id", "unknown")
+            response = JSONResponse(
+                status_code=413,
+                content={
+                    "error": {
+                        "code": "PAYLOAD_TOO_LARGE",
+                        "message": (
+                            "Request body exceeds maximum allowed size "
+                            f"of {self.max_size_bytes} bytes."
+                        ),
+                        "request_id": request_id,
+                    }
+                },
+                headers={
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Options": "DENY",
+                    "Referrer-Policy": "no-referrer",
+                },
+            )
+            await response(scope, receive, send)
+
+        # Fast rejection when the declared size already exceeds the limit.
+        content_length = headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > self.max_size_bytes:
+                    await reject_request()
+                    return
+            except ValueError:
+                # The actual body size is still checked below.
+                pass
+
+        # Buffer at most max_size_bytes before passing the request onward.
+        messages = []
+        total_size = 0
+
+        while True:
+            message = await receive()
+
+            if message["type"] == "http.disconnect":
+                return
+
+            if message["type"] != "http.request":
+                continue
+
+            total_size += len(message.get("body", b""))
+
+            if total_size > self.max_size_bytes:
+                await reject_request()
+                return
+
+            messages.append(message)
+
+            if not message.get("more_body", False):
+                break
+
+        # Replay the buffered request body for the downstream application.
+        index = 0
+
+        async def replay_receive():
+            nonlocal index
+            if index < len(messages):
+                message = messages[index]
+                index += 1
+                return message
+            return await receive()
+
+        await self.app(scope, replay_receive, send)
+
+    """Reject request bodies exceeding the configured maximum size in bytes."""
+
+    def __init__(self, app, max_size_bytes: int):  # type: ignore[no-untyped-def]
+        super().__init__(app)
+        self.max_size_bytes = max_size_bytes
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                length = int(content_length)
+                if length > self.max_size_bytes:
+                    req_id = getattr(request.state, "request_id", "unknown")
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "error": {
+                                "code": "PAYLOAD_TOO_LARGE",
+                                "message": f"Request body exceeds maximum allowed size of {self.max_size_bytes} bytes.",
+                                "request_id": req_id,
+                            }
+                        },
+                    )
+            except ValueError:
+                pass
+
+        return await call_next(request)

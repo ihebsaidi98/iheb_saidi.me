@@ -7,6 +7,11 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 
+from app.core.safe_errors import (
+    exc_info_for_log,
+    format_validation_errors,
+    redact_secrets,
+)
 from app.middleware.request_id import get_current_request_id
 
 logger = logging.getLogger("ai_service.errors")
@@ -38,6 +43,9 @@ def register_exception_handlers(app: FastAPI) -> None:
         elif exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
             code = "RATE_LIMITED"
 
+        # Ensure no credential leaks in client-facing messages
+        message = redact_secrets(message)
+
         headers = exc.headers or {}
         headers["X-Request-ID"] = req_id
 
@@ -59,19 +67,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         req_id = getattr(request.state, "request_id", None) or get_current_request_id()
 
-        # Extract concise error messages without echoing unvalidated raw payloads
-        details = []
-        for err in exc.errors():
-            loc = ".".join(str(item) for item in err.get("loc", []))
-            msg = err.get("msg", "Invalid field")
-            details.append(f"{loc}: {msg}" if loc else msg)
+        validation_message = format_validation_errors(list(exc.errors()))
 
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={
                 "error": {
                     "code": "VALIDATION_ERROR",
-                    "message": "; ".join(details) or "Request validation failed.",
+                    "message": validation_message,
                     "request_id": req_id,
                 }
             },
@@ -84,15 +87,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         req_id = getattr(request.state, "request_id", None) or get_current_request_id()
 
-        # Log exception type and request ID, masking any user payload or credentials
         logger.error(
             "Unhandled server exception on %s %s [req_id=%s]: %s: %s",
             request.method,
             request.url.path,
             req_id,
             type(exc).__name__,
-            str(exc),
-            exc_info=True,
+            redact_secrets(str(exc)),
+            exc_info=exc_info_for_log(exc),
         )
 
         return JSONResponse(

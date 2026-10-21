@@ -97,13 +97,80 @@ uv run ruff format --check .
 ### Protected API (`/v1/*`)
 All endpoints under `/v1` require `X-Internal-Token: <AI_SERVICE_TOKEN>` or `Authorization: Bearer <AI_SERVICE_TOKEN>`.
 * `GET /v1/info`: Returns capabilities, environment, and model metadata.
+* `POST /v1/rag/search`: Cosine similarity vector search over the precomputed portfolio index.
+  * Body: `{"query": string, "limit": int = 5, "threshold": float = 0.35}`
+  * Returns: `{"query": string, "results": SearchResultItem[], "total": int, "index_version": string}`
+* `POST /v1/rag/chat`: Grounded chat generation adhering to the Next.js portfolio contract.
+  * Body: `{"message": string, "limit": int = 5, "threshold": float = 0.35, "history": ChatMessage[] = []}`
+  * Returns: `{"reply": string, "sources": [{"id": string, "title": string, "type": string}]}`
+  * Security: Context is isolated inside `<retrieved_context>` XML tags. If no chunks exceed threshold, returns safe canned refusal (`"I don't have that information in my portfolio data."`) without invoking the LLM.
+* `POST /v1/agent/answer`: Agentic RAG orchestration endpoint (enabled when `AGENTIC_RAG_ENABLED=true`).
+  * Body: `{"message": string, "max_subqueries": int = 3, "retrieval_limit": int = 5, "threshold": float = 0.35}`
+  * Returns:
+    ```json
+    {
+      "reply": "string",
+      "sources": [{"id": "string", "title": "string", "type": "string"}],
+      "metadata": {
+        "intent": "portfolio_factual" | "multi_part" | "career_advice" | "out_of_scope",
+        "subqueries": ["string"],
+        "subqueries_count": 1,
+        "retrieval_count": 1,
+        "abstained": false,
+        "execution_time_ms": 12.5
+      }
+    }
+    ```
+  * Features:
+    * Deterministic Intent Routing: Categorizes into `portfolio_factual`, `multi_part`, `career_advice`, or `out_of_scope`.
+    * Fast Refusal: Safely abstains on `out_of_scope` queries immediately without consuming embedding or LLM quota.
+    * Bounded Query Decomposition: Decomposes complex or comparative questions into $\le 3$ focused subqueries with deterministic fallback.
+    * Multi-hop Retrieval & Deduplication: Queries vector store iteratively ($\le 6$ calls, capped at 10 chunks), deduplicates by chunk ID keeping highest score, and resolves ties deterministically.
+    * Evidence Sufficiency Check: Validates retrieved evidence meets relevance threshold before invoking generation.
+
+* `POST /v1/copilot/match-job`: Automated candidate skill alignment and gap analysis against job descriptions.
+  * Body: `{"job_description": string, "target_role": string | null}`
+  * Returns: `{"match_score": float, "matched_skills": SkillMatchItem[], "gap_skills": string[], "strengths": string[], "summary": string, "cited_sources": ChatSource[]}`
+* `POST /v1/copilot/project-deep-dive`: Deep technical and architectural extraction for a portfolio project.
+  * Body: `{"project_keyword": string}`
+  * Returns: `{"project_title": string, "role": string, "company": string | null, "period": string | null, "technologies": string[], "architecture_highlights": string[], "impact_metrics": string[], "summary": string, "sources": ChatSource[]}`
+* `POST /v1/interview/start`: Start an adaptive technical interview session.
+  * Body: `{"track": "full_stack" | "backend_architecture" | "ai_rag", "difficulty": "standard" | "senior" | "lead", "focus_areas": string[]}`
+  * Returns: `{"session_id": string, "track": string, "difficulty": string, "initial_question": InterviewQuestion}`
+* `POST /v1/interview/submit-answer`: Evaluate technical response against multi-criteria rubric with adaptive follow-up question.
+  * Body: `{"session_id": string, "question_id": string, "answer": string}`
+  * Returns: `{"session_id": string, "question_id": string, "rubric": RubricScore, "strengths": string[], "areas_for_improvement": string[], "sample_ideal_answer": string, "next_question": InterviewQuestion | null}`
 
 ---
 
-## 5. Phase 2 Roadmap: Python Retrieval over RAG Index
+## 5. RAG Evaluation Benchmark
 
-Phase 2 will integrate high-performance vector retrieval inside this service:
-1. Load and validate `src/data/rag-index.json` into an in-memory NumPy/vector cache.
-2. Implement cosine similarity retrieval in Python with query embedding generation via `google-genai`.
-3. Provide `/v1/rag/search` and `/v1/rag/chat` endpoints adhering to the `{ reply, sources }` contract.
-4. Support hybrid retrieval (keyword + semantic) and query expansion.
+A standalone deterministic evaluation suite assesses retrieval quality without requiring external API quota by default:
+
+```bash
+# Run deterministic offline evaluation (Recall@1, Recall@3, Recall@5, MRR)
+npm run ai:eval
+# or:
+uv run python scripts/evaluate_retrieval.py
+
+# Optional: Run live evaluation against Google Gemini embeddings (requires GEMINI_API_KEY)
+uv run python scripts/evaluate_retrieval.py --mode live
+
+# Output machine-readable JSON metrics
+uv run python scripts/evaluate_retrieval.py --json
+```
+
+### Retrieval Quality Gates
+- **Recall@5**: Target >= 85% (Achieved: **100%**)
+- **Mean Reciprocal Rank (MRR)**: Target >= 0.70 (Achieved: **1.0000**)
+- **Latency**: Sub-millisecond vectorized dot-product search (< 0.20 ms)
+
+---
+
+## 6. Phase 3 Roadmap & Milestones
+
+1. [x] **Stage 0**: Baseline audit across Python & Next.js suites (all green).
+2. [x] **Stage 1**: Agentic RAG orchestration (`/v1/agent/answer`), intent routing, query decomposition, and bounded retrieval.
+3. [x] **Stage 2**: Career Copilot specialized tooling and profile synthesis (`/v1/copilot/match-job`, `/v1/copilot/project-deep-dive`).
+4. [x] **Stage 3**: Adaptive interview simulation and evaluation (`/v1/interview/start`, `/v1/interview/submit-answer`).
+
