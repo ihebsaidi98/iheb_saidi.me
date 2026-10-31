@@ -137,6 +137,43 @@ async def test_docs_url_disabled_in_production() -> None:
 
 
 @pytest.mark.asyncio
+async def test_docs_url_disabled_in_staging() -> None:
+    """GET /docs must return 404 in staging (docs_url=None)."""
+    staging_settings = Settings(
+        environment="staging",
+        ai_service_token=SecretStr("a-strong-staging-token-with-enough-chars"),
+        gemini_api_key=SecretStr("AIzaSy-SENTINEL-GEMINI-KEY"),
+        allowed_origins=["https://staging.portfolio.dev"],  # type: ignore[arg-type]
+    )
+    app = create_app(settings=staging_settings)
+    app.router.lifespan_context = _null_lifespan  # type: ignore[attr-defined]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as c:
+        response = await c.get("/docs")
+        assert response.status_code == 404
+
+        response = await c.get("/openapi.json")
+        assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_staging_startup_fails_with_default_token() -> None:
+    """Default dev token must cause RuntimeError on staging startup."""
+    staging_settings = Settings(
+        environment="staging",
+        ai_service_token=SecretStr("dev-internal-token-change-in-production"),
+        gemini_api_key=SecretStr("AIzaSy-SENTINEL-GEMINI-KEY"),
+        allowed_origins=["https://staging.portfolio.dev"],  # type: ignore[arg-type]
+    )
+    app = create_app(settings=staging_settings)
+
+    with pytest.raises(RuntimeError, match="strong AI_SERVICE_TOKEN"):
+        async with lifespan(app):
+            pass
+
+
+@pytest.mark.asyncio
 async def test_docs_url_available_in_development() -> None:
     """GET /openapi.json must return 200 in development (openapi_url='/openapi.json')."""
     dev_settings = Settings(

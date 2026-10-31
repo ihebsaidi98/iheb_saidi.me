@@ -531,6 +531,7 @@ export function extractClientIp(
     headers: { get(name: string): string | null };
   },
   trustedProxyOverride?: boolean,
+  trustedProxyHeaderOverride?: string,
 ): string {
   const isTrustedProxy =
     trustedProxyOverride !== undefined
@@ -538,35 +539,88 @@ export function extractClientIp(
       : process.env.TRUSTED_PROXY === "true";
 
   if (isTrustedProxy) {
-    // When TRUSTED_PROXY=true, assume the reverse proxy (e.g. Vercel, Cloudflare, Nginx)
-    // strictly appends or rewrites X-Forwarded-For.
-    // Read the LAST segment (closest hop added by the trusted proxy chain),
-    // ignoring any untrusted client-forged prefix.
-    const forwarded = request.headers.get("x-forwarded-for");
-    if (forwarded) {
-      const segments = forwarded
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (segments.length > 0) {
-        return segments[segments.length - 1]!;
+    // When TRUSTED_PROXY=true, trust ONLY the specific header guaranteed by the reverse proxy.
+    // Loose fallback chains across multiple headers (e.g. cf-connecting-ip -> x-real-ip -> x-forwarded-for)
+    // are strictly prohibited because an attacker could inject an untrusted secondary header
+    // to hijack the rate-limit identity if the proxy only rewrites the primary header.
+    const trustedHeader = (
+      trustedProxyHeaderOverride ??
+      process.env.TRUSTED_PROXY_HEADER ??
+      "x-forwarded-for"
+    ).toLowerCase();
+
+    if (trustedHeader === "cf-connecting-ip") {
+      const ip = request.headers.get("cf-connecting-ip");
+      if (ip && ip.trim().length > 0) {
+        return ip.trim();
       }
+    } else if (trustedHeader === "x-real-ip") {
+      const ip = request.headers.get("x-real-ip");
+      if (ip && ip.trim().length > 0) {
+        return ip.trim();
+      }
+    } else if (trustedHeader === "x-forwarded-for") {
+      const forwarded = request.headers.get("x-forwarded-for");
+      if (forwarded) {
+        const segments = forwarded
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (segments.length > 0) {
+          // Read the last segment added by the closest trusted reverse proxy hop.
+          return segments[segments.length - 1]!;
+        }
+      }
+    } else {
+      throw new ProxyConfigurationError(
+        `Invalid TRUSTED_PROXY_HEADER '${trustedHeader}'. Must be 'x-forwarded-for', 'x-real-ip', or 'cf-connecting-ip'.`,
+      );
     }
+
+    // Direct socket IP fallback if securely provided by the runtime (e.g. Edge runtime or test mock)
+    if (request.ip && request.ip.trim().length > 0) {
+      return request.ip.trim();
+    }
+
+    // If the expected trusted header was not provided by the proxy, fail closed.
+    throw new ProxyConfigurationError(
+      `Rate limiter cannot operate: expected trusted proxy header '${trustedHeader}' was not provided by the upstream proxy.`,
+    );
+  } else {
+    // When TRUSTED_PROXY=false (direct client / non-proxied mode):
+    // All client-supplied headers (X-Forwarded-For, X-Real-IP, CF-Connecting-IP)
+    // are untrusted external input and MUST NEVER be read as rate-limit identity.
+    // In Next.js 14 App Router running in Node.js mode, the server uses `??=` on
+    // x-forwarded-for, meaning client-sent headers cannot be distinguished from
+    // the socket remoteAddress. Therefore, headers are strictly ignored.
+
+    // 1. Direct socket IP if provided securely by the runtime (e.g. Edge runtime or test mock)
+    if (request.ip && request.ip.trim().length > 0) {
+      return request.ip.trim();
+    }
+
+    // 2. Safe loopback fallback strictly in local development and test environments
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.NODE_ENV === "test"
+    ) {
+      return "127.0.0.1";
+    }
+
+    // 3. In production with TRUSTED_PROXY=false and no runtime request.ip:
+    // A trustworthy socket IP cannot be obtained from Next.js 14 App Router headers
+    // without risk of client spoofing. Fail closed with an explicit configuration error.
+    throw new ProxyConfigurationError(
+      "Rate limiter cannot operate safely: direct socket IP is unavailable in this runtime " +
+        "and client-supplied IP headers cannot be trusted. A trusted reverse proxy " +
+        "(e.g., Cloudflare, Nginx, AWS ALB) that sanitizes and overwrites IP headers is required. " +
+        "Deploy behind a trusted proxy and set TRUSTED_PROXY=true.",
+    );
   }
 
-  // When TRUSTED_PROXY=false (default): ignore X-Forwarded-For to prevent client spoofing.
-  // Use Next.js direct request.ip or fallback to X-Real-IP if provided by direct gateway.
-  if (request.ip && request.ip.trim().length > 0) {
-    return request.ip.trim();
-  }
-
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp && realIp.trim().length > 0) {
-    return realIp.trim();
-  }
-
-  // If neither is available when TRUSTED_PROXY is false, raise an explicit error.
+  // If client IP cannot be determined safely, reject to fail closed.
   throw new ProxyConfigurationError(
-    "Rate limiter cannot operate: client IP could not be determined safely. Enable TRUSTED_PROXY=true behind a verified reverse proxy or configure direct client IP.",
+    "Rate limiter cannot operate: client IP could not be determined safely. " +
+      "Enable TRUSTED_PROXY=true behind a verified reverse proxy or configure direct client IP.",
   );
 }

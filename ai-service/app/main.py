@@ -39,12 +39,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     # Startup validation
-    if settings.is_production():
+    if settings.is_production() or settings.environment == "staging":
         token = settings.ai_service_token.get_secret_value()
         api_key = settings.gemini_api_key.get_secret_value()
 
         if not api_key:
-            raise RuntimeError("GEMINI_API_KEY is missing in production configuration.")
+            raise RuntimeError(
+                f"GEMINI_API_KEY is missing in {settings.environment} configuration."
+            )
 
         if (
             not token
@@ -52,7 +54,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             or len(token) < 32
         ):
             raise RuntimeError(
-                "A strong AI_SERVICE_TOKEN must be configured in production."
+                f"A strong AI_SERVICE_TOKEN must be configured in {settings.environment}."
             )
 
     # Hydrate and validate the vector store at startup
@@ -71,9 +73,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "Failed to hydrate vector store at startup [%s]",
             type(exc).__name__,
         )
-        if settings.is_production():
+        if settings.is_production() or settings.environment == "staging":
             raise RuntimeError(
-                "FATAL: Vector store failed to initialize in production."
+                f"FATAL: Vector store failed to initialize in {settings.environment}."
             ) from exc
 
     yield
@@ -89,9 +91,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Portfolio AI Service",
         description="Unified Python AI Service for Agentic RAG, Career Copilot, and Interview Simulator",
         version="0.1.0",
-        docs_url="/docs" if not app_settings.is_production() else None,
+        docs_url="/docs" if app_settings.is_docs_enabled() else None,
         redoc_url=None,
-        openapi_url="/openapi.json" if not app_settings.is_production() else None,
+        openapi_url="/openapi.json" if app_settings.is_docs_enabled() else None,
         lifespan=lifespan,
     )
     app.state.settings = app_settings

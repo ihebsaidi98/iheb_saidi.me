@@ -982,9 +982,6 @@ export function InterviewSimulatorSection() {
       label="interview simulator"
       title={["Practice technical", "interviews."]}
       intro="10-question mixed-format technical assessment across 4 tracks: Full Stack, Backend, Frontend, and AI/ML. Sourced from official web specifications and documentation."
-      eyebrow="interview simulator"
-      lead="Practice technical"
-      tail="interviews."
     >
       <Announcer message={announcement} politeness={state.phase === "error" ? "assertive" : "polite"} />
 

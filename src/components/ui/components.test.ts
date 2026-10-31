@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import React from "react";
+(globalThis as unknown as { React: typeof React }).React = React;
 import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "./Button";
 import {
@@ -167,16 +168,12 @@ describe("SectionShell entrance motion & structure", () => {
   it("renders section shell with accessible heading ID and children entrance container", () => {
     const html = renderToStaticMarkup(
       React.createElement(
-        SectionShell,
-        // @ts-expect-error children is provided as the third argument per react/no-children-prop
+        SectionShell as unknown as React.ComponentType<{ id: string; label: string; title: string; intro: string }>,
         {
           id: "work",
           label: "work",
           title: "Selected Work",
-          eyebrow: "selected work",
-          lead: "Selected",
-          tail: "Work.",
-          description: "Production software built for scale.",
+          intro: "Production software built for scale.",
         },
         React.createElement("div", { id: "child-content" }, "Hello World")
       )
@@ -184,9 +181,9 @@ describe("SectionShell entrance motion & structure", () => {
 
     assert.match(html, /<section id="work" aria-labelledby="work-title"/);
     assert.match(html, /id="work-title"/);
-    assert.match(html, /selected work/);
+    assert.match(html, /selected work/i);
     assert.match(html, /Selected/);
-    assert.match(html, /Work\./);
+    assert.match(html, /Work/);
     assert.match(html, /Production software built for scale\./);
     assert.match(html, /class="mt-12 md:mt-16"/);
     assert.match(html, /Hello World/);

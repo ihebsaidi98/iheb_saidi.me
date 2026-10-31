@@ -92,6 +92,18 @@ public class OpportunityController {
   }
 }`;
 
+/*
+ * The terminal types the code in over time. Without reserved space the
+ * <pre> grows line by line and the vertically-centred hero grid reflows
+ * underneath it (reproducible CLS regression on desktop). Reserving the
+ * full height of the final snippet keeps the layout stable from the
+ * first paint.
+ *
+ * 24px = `leading-6` (1.5rem) per line, 32px = `py-4` (1rem top+bottom).
+ */
+const TYPED_CODE_LINES = TYPED_CODE.split("\n").length;
+const TYPED_CODE_HEIGHT = TYPED_CODE_LINES * 24 + 32;
+
 /* ================= TERMINAL TOKENIZER (one-time, module scope) ================= */
 
 type TokenKind = "plain" | "anno" | "str" | "kw";
@@ -282,8 +294,8 @@ function TerminalCard() {
   const len = useTypedCode(TYPED_CODE, !reduceMotion);
 
   return (
-    <div aria-hidden="true" className="hidden lg:block">
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#070b11] shadow-[0_0_80px_rgba(16,185,129,0.07)]">
+    <div aria-hidden="true" className="hidden min-w-0 lg:block">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#070b11] shadow-[0_0_80px_rgba(16,185,129,0.07)]">
         <div className="flex items-center gap-2 border-b border-white/[0.07] px-4 py-2.5">
           <span className="size-2.5 rounded-full bg-[#ff5f57]/70" />
           <span className="size-2.5 rounded-full bg-[#febc2e]/70" />
@@ -294,7 +306,10 @@ function TerminalCard() {
           <span className="ml-auto font-mono text-[10px] text-white/50">UTF-8</span>
         </div>
 
-        <pre className="min-h-[280px] overflow-hidden bg-[#070b11] px-5 py-4 font-mono text-[12.5px] leading-6 text-white/60 lg:min-h-[320px]">
+        <pre
+          className="min-h-[280px] overflow-hidden bg-[#070b11] px-5 py-4 font-mono text-[12.5px] leading-6 text-white/60 lg:min-h-[320px]"
+          style={{ minHeight: TYPED_CODE_HEIGHT }}
+        >
           <code>
             <TypedCode len={len} />
           </code>
@@ -377,7 +392,7 @@ export const HeroSection = () => {
           className="grid w-full items-center gap-14 will-change-transform lg:grid-cols-[1.05fr_0.95fr]"
         >
           {/* LEFT */}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2.5">
               <StatusDot size={8} className="shrink-0" />
               <span className="font-mono text-[9px] font-medium tracking-[0.22em] text-emerald-200/70">
@@ -399,7 +414,11 @@ export const HeroSection = () => {
               <span className="sr-only">Iheb Saidi, full-stack software engineer</span>
             </h1>
 
-            <p className="mt-4 font-mono text-sm text-white/50 sm:text-base">
+            {/* min-h reserves space for the longest role string so the vertically-centered
+                hero content does not shift as the typewriter cycles through shorter
+                words. Without it the grid grows 1->2 lines and every element below
+                the centered content reflows (reproducible CLS regression at 412px). */}
+            <p className="mt-4 min-h-[3lh] font-mono text-sm text-white/50 sm:min-h-[2lh] sm:text-base">
               <span className="text-emerald-300/80">&gt;_</span> I build{" "}
               {/* static sentence for screen readers; animated copy hidden from AT */}
               <span className="sr-only">

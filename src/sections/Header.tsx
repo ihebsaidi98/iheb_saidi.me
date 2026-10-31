@@ -6,6 +6,7 @@ import {
   useScroll,
 } from "framer-motion";
 import { useEffect, useState } from "react";
+import { twMerge } from "tailwind-merge";
 import { EASE } from "@/components/hero-motion";
 import { useA11yMode } from "@/components/MotionProvider";
 
@@ -15,6 +16,7 @@ const navItems = [
   { name: "Work", href: "#projects" },
   { name: "Stack", href: "#stack" },
   { name: "Experience", href: "#experience" },
+  { name: "Interview", href: "#interview" },
   { name: "Tech", href: "#tech-news" },
   { name: "Contact", href: "#contact" },
 ] as const;
@@ -178,20 +180,10 @@ export const Header = () => {
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => handleNavigation(item.name)}
-                className="
-                  relative shrink-0
-                  rounded-full
-px-3 py-2.5
-                  text-xs
-                  font-medium
-                  tracking-[-0.01em]
-                  text-white/50
-                  transition-colors
-                  duration-200
-                  hover:text-white/90
-                  focus-visible:text-white
-                  sm:px-4
-                "
+                className={twMerge(
+                  "relative shrink-0 rounded-full px-3 py-2.5 text-xs font-medium tracking-[-0.01em] transition-colors duration-200 hover:text-white/90 focus-visible:text-white sm:px-4",
+                  isActive ? "text-white" : "text-white/70",
+                )}
               >
                 {isActive && (
                   <motion.span

@@ -232,6 +232,31 @@ def _build_interview_question(q_data: dict, question_number: int) -> InterviewQu
     )
 
 
+def sanitize_candidate_answer(answer: str) -> str:
+    """Sanitize candidate answer to prevent XML delimiter escape and prompt injection.
+
+    Neutralizes:
+    - Any case, whitespace, or attribute variations of opening/closing candidate_answer tags
+    - Structural pseudo-instruction tags (<instructions>, <system>, etc.)
+    Preserves legitimate text and mathematical comparisons (e.g. 'x < 10').
+    """
+    # 1. Escape any case/whitespace/attribute variations of <candidate_answer> and </candidate_answer>
+    cleaned = re.sub(
+        r"<\s*/?\s*candidate_answer(?:\s+[^>]*)?>",
+        lambda m: m.group(0).replace("<", "&lt;").replace(">", "&gt;"),
+        answer,
+        flags=re.IGNORECASE,
+    )
+    # 2. Escape pseudo-instruction boundaries that attackers use for prompt injection
+    cleaned = re.sub(
+        r"<\s*/?\s*(?:system|instructions?|system_instructions?|prompt|evaluation|rubric)\b(?:\s+[^>]*)?>",
+        lambda m: m.group(0).replace("<", "&lt;").replace(">", "&gt;"),
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned
+
+
 class InterviewSimulatorService:
     """Service managing 10-question mixed-format interview sessions."""
 
@@ -740,9 +765,7 @@ class InterviewSimulatorService:
         # LLM enrichment for feedback quality
         if self.gemini_client is not None and coverage > 0:
             try:
-                safe_answer = submitted_answer.replace(
-                    "</candidate_answer>", "&lt;/candidate_answer&gt;"
-                )
+                safe_answer = sanitize_candidate_answer(submitted_answer)
                 prompt = (
                     f"Evaluate this technical interview answer.\n"
                     f"Question: {q_data['question_text']}\n"

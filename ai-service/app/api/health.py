@@ -66,5 +66,3 @@ async def readiness(
         index_loaded=is_loaded,
         index_records=record_count,
     )
-
-

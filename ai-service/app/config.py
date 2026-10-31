@@ -134,6 +134,9 @@ class Settings(BaseSettings):
     def is_test(self) -> bool:
         return self.environment == "test"
 
+    def is_docs_enabled(self) -> bool:
+        return self.environment not in ("staging", "production")
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -36,11 +36,11 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /** Colour scheme per category. Stays within the emerald/cyan dark-mode palette. */
 const CAT_STYLE: Record<string, { pill: string; badge: string }> = {
-  "ai-llm":       { pill: "border-emerald-400/25 bg-emerald-400/8 text-emerald-300",  badge: "text-emerald-400/70" },
-  "java-spring":  { pill: "border-cyan-400/25 bg-cyan-400/8 text-cyan-300",           badge: "text-cyan-400/70" },
-  "angular-ts":   { pill: "border-rose-400/25 bg-rose-400/8 text-rose-300",           badge: "text-rose-400/70" },
-  "backend":      { pill: "border-violet-400/25 bg-violet-400/8 text-violet-300",     badge: "text-violet-400/70" },
-  "cloud-devops": { pill: "border-sky-400/25 bg-sky-400/8 text-sky-300",              badge: "text-sky-400/70" },
+  "ai-llm":       { pill: "border-emerald-400/30 bg-emerald-400/12 text-emerald-200",  badge: "text-emerald-300" },
+  "java-spring":  { pill: "border-cyan-400/30 bg-cyan-400/12 text-cyan-200",           badge: "text-cyan-300" },
+  "angular-ts":   { pill: "border-rose-400/30 bg-rose-400/12 text-rose-200",           badge: "text-rose-300" },
+  "backend":      { pill: "border-violet-400/30 bg-violet-400/12 text-violet-200",     badge: "text-violet-300" },
+  "cloud-devops": { pill: "border-sky-400/30 bg-sky-400/12 text-sky-200",              badge: "text-sky-300" },
 };
 
 // ============================================================
@@ -104,6 +104,7 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
       href={article.url}
       target="_blank"
       rel="noopener noreferrer"
+      role="listitem"
       aria-label={`${article.title} — ${article.publisher}`}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
@@ -127,7 +128,7 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
         </span>
         <time
           dateTime={article.publishedAt}
-          className="shrink-0 font-mono text-[10px] tabular-nums text-white/30"
+          className="shrink-0 font-mono text-[10px] tabular-nums text-white/55"
         >
           {fmtDate(article.publishedAt)}
         </time>
@@ -140,7 +141,7 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
 
       {/* Description */}
       {article.description ? (
-        <p className="mt-2 flex-1 line-clamp-3 text-xs leading-relaxed text-white/45">
+        <p className="mt-2 flex-1 line-clamp-3 text-xs leading-relaxed text-white/60">
           {article.description}
         </p>
       ) : (
@@ -158,13 +159,13 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
           >
             {sourceLabel}
           </span>
-          <span className="truncate font-mono text-[10px] text-white/35">
+          <span className="truncate font-mono text-[10px] text-white/60">
             {article.publisher}
           </span>
         </div>
         <span
           aria-hidden
-          className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-white/35 transition-colors duration-200 group-hover:text-white/65"
+          className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-white/60 transition-colors duration-200 group-hover:text-white/85"
         >
           Read <span>↗</span>
         </span>
@@ -253,7 +254,7 @@ function CategoryPills({
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/50",
               isActive
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                : "border-white/[0.08] text-white/45 hover:border-white/15 hover:text-white/75",
+                : "border-white/[0.08] text-white/65 hover:border-white/15 hover:text-white/85",
             )}
           >
             {cat.label}
@@ -373,9 +374,10 @@ export function TechNewsSection() {
         {/* Loading */}
         {status === "loading" && (
           <div
+            role="status"
             className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            aria-busy="true"
             aria-label="Loading articles"
+            aria-busy="true"
           >
             {Array.from({ length: INITIAL_COUNT }).map((_, i) => (
               <SkeletonCard key={i} />
@@ -403,7 +405,11 @@ export function TechNewsSection() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
-                  role="feed"
+                  // NOTE: `role="feed"` requires each child to be an `article`
+                  // (aria-required-children, axe critical). These children are
+                  // links to external articles, not feed entries, so the feed
+                  // pattern does not apply here.
+                  role="list"
                   aria-label="Tech news articles"
                   className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
                 >
@@ -426,7 +432,7 @@ export function TechNewsSection() {
                   )}
                 >
                   Load more
-                  <span className="font-mono text-[10px] text-white/30 transition-colors group-hover:text-white/55">
+                  <span className="font-mono text-[10px] text-white/55 transition-colors group-hover:text-white/75">
                     ({remaining} remaining)
                   </span>
                 </button>

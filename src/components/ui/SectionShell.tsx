@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 type SectionTitle = string | [string, string];
@@ -50,13 +50,17 @@ export function SectionHeader({
   intro?: string;
   headingId: string;
 }) {
-  const reducedMotion = useReducedMotion();
   const titleLines = typeof title === "string" ? [title] : title;
 
   return (
     <motion.header
-      initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-      whileInView={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+      // NOTE: do NOT branch initial/whileInView on useReducedMotion() here.
+      // SSR sees false, a reduced-motion client sees true on first render,
+      // producing different serialized styles → React hydration error #418.
+      // The root MotionConfig reducedMotion="user" already makes framer
+      // instant-finish these reveals for reduced-motion users.
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="relative z-10 max-w-3xl"
@@ -70,8 +74,10 @@ export function SectionHeader({
 
       <motion.h2
         id={headingId}
-        initial={reducedMotion ? false : "hidden"}
-        whileInView={reducedMotion ? undefined : "show"}
+        // See the hydration note above: keep initial deterministic across
+        // server and client; MotionConfig reducedMotion handles the rest.
+        initial="hidden"
+        whileInView="show"
         viewport={{ once: true, amount: 0.2 }}
         variants={titleRevealWrapperVariants}
         className="relative block font-display text-balance text-[clamp(1.875rem,4.5vw,3rem)] leading-[1.1] tracking-tight text-white"

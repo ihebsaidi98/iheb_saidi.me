@@ -11,7 +11,7 @@ export default defineConfig({
     // global `npm` shim is unavailable; identical to `npm run start`.
     command: "node node_modules/next/dist/bin/next start",
     port: 3000,
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 60_000,
   },
 });

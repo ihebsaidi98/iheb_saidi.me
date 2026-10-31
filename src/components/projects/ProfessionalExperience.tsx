@@ -663,15 +663,21 @@ export function ProfessionalExperience({
 
       {/* =====================================================
           PROJECT NAVIGATION
+
+          Below `sm` the deck stacks: the six selectors become a
+          3-column grid (2 rows) and the prev/next arrows move to
+          their own row. This keeps every control at or above the
+          44x44 CSS px target size (WCAG 2.5.5 / 2.5.8) at a
+          320px viewport without introducing horizontal overflow.
           ===================================================== */}
 
-      <div className="mt-7 flex items-center gap-4 sm:gap-6">
+      <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
         {/* PROJECT SELECTOR */}
 
         <div
           role="group"
           aria-label="Choose experience"
-          className="flex flex-1 items-stretch gap-2 sm:gap-3"
+          className="grid grid-cols-3 gap-2 sm:flex sm:flex-1 sm:items-stretch sm:gap-3"
         >
           {items.map((experience, index) => {
             const isActive = index === active;
@@ -692,7 +698,7 @@ export function ProfessionalExperience({
                     ? "true"
                     : undefined
                 }
-                className={`flex-1 py-2 ${FOCUS_RING}`}
+                className={`flex min-h-[44px] min-w-[44px] flex-col justify-center rounded-lg px-2 py-2 sm:flex-1 sm:px-3 ${FOCUS_RING}`}
               >
                 {/* NUMBER + COMPANY */}
 
@@ -745,7 +751,7 @@ export function ProfessionalExperience({
             }
             disabled={active === 0}
             aria-label="Previous experience"
-            className={`grid size-10 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
           >
             <svg
               viewBox="0 0 24 24"
@@ -773,7 +779,7 @@ export function ProfessionalExperience({
               active === items.length - 1
             }
             aria-label="Next experience"
-            className={`grid size-10 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
           >
             <svg
               viewBox="0 0 24 24"
@@ -797,8 +803,10 @@ export function ProfessionalExperience({
           ===================================================== */}
 
       <p
-        className="sr-only"
+        role="status"
         aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
       >
         Experience {active + 1} of{" "}
         {items.length}: {current.company}

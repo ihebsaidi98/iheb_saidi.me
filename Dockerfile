@@ -1,5 +1,5 @@
 # Stage 1: Install full dependencies for building the Next.js application
-FROM node:18-alpine AS deps
+FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # Stage 2: Install production dependencies only for runtime
-FROM node:18-alpine AS prod-deps
+FROM node:22-alpine AS prod-deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY --from=deps /app/node_modules/@next/bundle-analyzer ./node_modules/@next/bu
 COPY --from=deps /app/node_modules/webpack-bundle-analyzer ./node_modules/webpack-bundle-analyzer
 
 # Stage 3: Build the application assets
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -30,7 +30,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 4: Production runtime
-FROM node:18-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -47,6 +47,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./next.config.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/src/data/rag-index.json ./src/data/rag-index.json
 
 USER nextjs
 

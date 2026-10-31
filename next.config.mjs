@@ -1,9 +1,20 @@
 /** @type {import('next').NextConfig} */
 import nextBundleAnalyzer from "@next/bundle-analyzer";
 
-const connectSrc = process.env.NODE_ENV === "development" ? "'self' ws: http: https:" : "'self'";
+const isDev = process.env.NODE_ENV === "development";
+const connectSrc = isDev ? "'self' ws: http: https:" : "'self'";
+const scriptSrc = isDev
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  : "script-src 'self' 'unsafe-inline'";
+
 const nextConfig = {
   async headers() {
+    const isDev = process.env.NODE_ENV === "development";
+    const connectSrc = isDev ? "'self' ws: http: https:" : "'self'";
+    const scriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self' 'unsafe-inline'";
+
     return [
       {
         source: "/:path*",
@@ -16,21 +27,21 @@ const nextConfig = {
             value: "camera=(), microphone=(), geolocation=()",
           },
           {
-            key: "Content-Security-Policy-Report-Only",
-            // VULN-02 Option B: Active telemetry enabled via /api/csp-report
+            key: "Content-Security-Policy",
+            // Enforced policy with active violation telemetry via /api/csp-report.
             value: [
               "default-src 'self'",
               "base-uri 'self'",
               "object-src 'none'",
               "frame-ancestors 'none'",
               "form-action 'self'",
-              "script-src 'self' 'unsafe-inline'",
+              scriptSrc,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self'",
               `connect-src ${connectSrc}`,
               "worker-src 'self' blob:",
-              "upgrade-insecure-requests",
+              ...(isDev ? [] : ["upgrade-insecure-requests"]),
               "report-uri /api/csp-report",
               "report-to csp-endpoint",
             ].join("; "),

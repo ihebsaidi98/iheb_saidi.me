@@ -587,7 +587,83 @@ describe("extractClientIp — VULN-01 trusted proxy and spoofing protection", ()
     assert.equal(ip, "10.0.0.1");
   });
 
-  it("ignores x-forwarded-for completely when TRUSTED_PROXY=false", () => {
+  it("trusts x-forwarded-for by default when TRUSTED_PROXY=true and ignores spoofed cf-connecting-ip", () => {
+    // When the reverse proxy guarantees x-forwarded-for, unverified cf-connecting-ip must be ignored
+    const ip = extractClientIp(
+      {
+        headers: makeFakeHeaders({
+          "cf-connecting-ip": "attacker.spoofed.ip",
+          "x-forwarded-for": "198.51.100.1",
+        }),
+      },
+      true, // TRUSTED_PROXY=true (default header is x-forwarded-for)
+    );
+    assert.equal(ip, "198.51.100.1", "Must use x-forwarded-for and ignore spoofed cf-connecting-ip");
+  });
+
+  it("trusts x-forwarded-for by default when TRUSTED_PROXY=true and ignores spoofed x-real-ip", () => {
+    // When the reverse proxy guarantees x-forwarded-for, unverified x-real-ip must be ignored
+    const ip = extractClientIp(
+      {
+        headers: makeFakeHeaders({
+          "x-real-ip": "attacker.spoofed.ip",
+          "x-forwarded-for": "198.51.100.1, 10.0.0.1",
+        }),
+      },
+      true,
+    );
+    assert.equal(ip, "10.0.0.1", "Must use x-forwarded-for last segment and ignore spoofed x-real-ip");
+  });
+
+  it("trusts cf-connecting-ip when TRUSTED_PROXY_HEADER=cf-connecting-ip and ignores x-forwarded-for", () => {
+    const ip = extractClientIp(
+      {
+        headers: makeFakeHeaders({
+          "cf-connecting-ip": "203.0.113.195",
+          "x-forwarded-for": "attacker.spoofed.ip",
+        }),
+      },
+      true,
+      "cf-connecting-ip",
+    );
+    assert.equal(ip, "203.0.113.195", "Must use cf-connecting-ip when explicitly configured for Cloudflare");
+  });
+
+  it("trusts x-real-ip when TRUSTED_PROXY_HEADER=x-real-ip and ignores x-forwarded-for", () => {
+    const ip = extractClientIp(
+      {
+        headers: makeFakeHeaders({
+          "x-real-ip": "198.51.100.77",
+          "x-forwarded-for": "attacker.spoofed.ip",
+        }),
+      },
+      true,
+      "x-real-ip",
+    );
+    assert.equal(ip, "198.51.100.77", "Must use x-real-ip when explicitly configured");
+  });
+
+  it("throws ProxyConfigurationError when TRUSTED_PROXY=true and the configured header is missing", () => {
+    assert.throws(
+      () =>
+        extractClientIp(
+          {
+            headers: makeFakeHeaders({
+              "x-real-ip": "1.2.3.4",
+            }),
+          },
+          true,
+          "cf-connecting-ip", // configured for Cloudflare but cf-connecting-ip is missing
+        ),
+      (err: unknown) => {
+        assert.ok(err instanceof ProxyConfigurationError);
+        assert.ok((err as Error).message.includes("cf-connecting-ip"));
+        return true;
+      },
+    );
+  });
+
+  it("strictly ignores spoofed x-forwarded-for when TRUSTED_PROXY=false", () => {
     const ip = extractClientIp(
       {
         ip: "192.168.1.50",
@@ -597,20 +673,50 @@ describe("extractClientIp — VULN-01 trusted proxy and spoofing protection", ()
       },
       false, // TRUSTED_PROXY=false
     );
-    assert.equal(ip, "192.168.1.50", "Must ignore x-forwarded-for and use request.ip");
+    assert.equal(ip, "192.168.1.50", "Must ignore x-forwarded-for and use socket request.ip");
   });
 
-  it("falls back to x-real-ip when TRUSTED_PROXY=false and request.ip is absent", () => {
+  it("strictly ignores spoofed x-real-ip when TRUSTED_PROXY=false", () => {
     const ip = extractClientIp(
       {
+        ip: "192.168.1.50",
         headers: makeFakeHeaders({
-          "x-forwarded-for": "1.2.3.4",
-          "x-real-ip": "172.16.0.5",
+          "x-real-ip": "attacker.spoofed.ip",
+          "x-forwarded-for": "attacker.spoofed.ip",
         }),
       },
       false,
     );
-    assert.equal(ip, "172.16.0.5", "Must ignore x-forwarded-for and use x-real-ip");
+    assert.equal(ip, "192.168.1.50", "Must ignore x-real-ip when TRUSTED_PROXY=false");
+  });
+
+  it("prevents rate limiter bypass via alternating x-real-ip when TRUSTED_PROXY=false", () => {
+    const limiter = new InMemoryRateLimiter(2, 60_000);
+
+    const req1 = {
+      ip: "192.168.1.100",
+      headers: makeFakeHeaders({ "x-real-ip": "1.1.1.1" }),
+    };
+    const req2 = {
+      ip: "192.168.1.100",
+      headers: makeFakeHeaders({ "x-real-ip": "2.2.2.2" }),
+    };
+    const req3 = {
+      ip: "192.168.1.100",
+      headers: makeFakeHeaders({ "x-real-ip": "3.3.3.3" }),
+    };
+
+    const ip1 = extractClientIp(req1, false);
+    const ip2 = extractClientIp(req2, false);
+    const ip3 = extractClientIp(req3, false);
+
+    assert.equal(ip1, "192.168.1.100");
+    assert.equal(ip2, "192.168.1.100");
+    assert.equal(ip3, "192.168.1.100");
+
+    assert.equal(limiter.check(ip1).allowed, true);
+    assert.equal(limiter.check(ip2).allowed, true);
+    assert.equal(limiter.check(ip3).allowed, false, "3rd request must be blocked despite different X-Real-IP");
   });
 
   it("changes returned value depending on TRUSTED_PROXY", () => {
@@ -628,23 +734,154 @@ describe("extractClientIp — VULN-01 trusted proxy and spoofing protection", ()
     assert.notEqual(ipUntrusted, ipTrusted);
   });
 
-  it("throws ProxyConfigurationError when TRUSTED_PROXY=false and no valid IP is available", () => {
-    assert.throws(
-      () =>
-        extractClientIp(
-          {
-            headers: makeFakeHeaders({
-              "x-forwarded-for": "1.2.3.4", // Must be ignored
-            }),
-          },
-          false,
-        ),
-      (err: unknown) => {
-        assert.ok(err instanceof ProxyConfigurationError);
-        assert.ok((err as Error).message.includes("Rate limiter cannot operate"));
-        return true;
+  it("strictly ignores single-value spoofed x-forwarded-for when TRUSTED_PROXY=false", () => {
+    const ip = extractClientIp(
+      {
+        ip: "192.168.1.50",
+        headers: makeFakeHeaders({
+          "x-forwarded-for": "203.0.113.195",
+        }),
       },
+      false, // TRUSTED_PROXY=false
     );
+    assert.equal(ip, "192.168.1.50", "Must ignore single-value x-forwarded-for and use socket request.ip");
+  });
+
+  it("strictly ignores multi-value spoofed x-forwarded-for when TRUSTED_PROXY=false", () => {
+    const ip = extractClientIp(
+      {
+        ip: "192.168.1.50",
+        headers: makeFakeHeaders({
+          "x-forwarded-for": "203.0.113.195, 198.51.100.1",
+        }),
+      },
+      false,
+    );
+    assert.equal(ip, "192.168.1.50", "Must ignore multi-value x-forwarded-for and use socket request.ip");
+  });
+
+  it("prevents quota rotation via alternating single-value x-forwarded-for when TRUSTED_PROXY=false", () => {
+    const limiter = new InMemoryRateLimiter(2, 60_000);
+
+    const req1 = {
+      ip: "192.168.1.100",
+      headers: makeFakeHeaders({ "x-forwarded-for": "100.0.0.1" }),
+    };
+    const req2 = {
+      ip: "192.168.1.100",
+      headers: makeFakeHeaders({ "x-forwarded-for": "100.0.0.2" }),
+    };
+    const req3 = {
+      ip: "192.168.1.100",
+      headers: makeFakeHeaders({ "x-forwarded-for": "100.0.0.3" }),
+    };
+
+    const ip1 = extractClientIp(req1, false);
+    const ip2 = extractClientIp(req2, false);
+    const ip3 = extractClientIp(req3, false);
+
+    assert.equal(ip1, "192.168.1.100");
+    assert.equal(ip2, "192.168.1.100");
+    assert.equal(ip3, "192.168.1.100");
+
+    assert.equal(limiter.check(ip1).allowed, true);
+    assert.equal(limiter.check(ip2).allowed, true);
+    assert.equal(limiter.check(ip3).allowed, false, "3rd request must be blocked despite different single-value XFF");
+  });
+
+  it("falls back to 127.0.0.1 in development/test when TRUSTED_PROXY=false and request.ip is absent (ignores spoofed headers)", () => {
+    const envObj = process.env as Record<string, string | undefined>;
+    const origEnv = envObj.NODE_ENV;
+    try {
+      envObj.NODE_ENV = "test";
+      const ip = extractClientIp(
+        {
+          headers: makeFakeHeaders({
+            "x-forwarded-for": "203.0.113.195",
+            "x-real-ip": "203.0.113.195",
+            "cf-connecting-ip": "203.0.113.195",
+          }),
+        },
+        false,
+      );
+      assert.equal(ip, "127.0.0.1", "In test/dev, loopback fallback applies and spoofed headers are ignored");
+    } finally {
+      envObj.NODE_ENV = origEnv;
+    }
+  });
+
+  it("throws ProxyConfigurationError in production when TRUSTED_PROXY=false even if single-value x-forwarded-for is sent", () => {
+    const envObj = process.env as Record<string, string | undefined>;
+    const origEnv = envObj.NODE_ENV;
+    try {
+      envObj.NODE_ENV = "production";
+      assert.throws(
+        () =>
+          extractClientIp(
+            {
+              headers: makeFakeHeaders({
+                "x-forwarded-for": "203.0.113.195",
+              }),
+            },
+            false,
+          ),
+        (err: unknown) => {
+          assert.ok(err instanceof ProxyConfigurationError);
+          assert.ok((err as Error).message.includes("Rate limiter cannot operate safely"));
+          return true;
+        },
+      );
+    } finally {
+      envObj.NODE_ENV = origEnv;
+    }
+  });
+
+  it("throws ProxyConfigurationError in production when TRUSTED_PROXY=false even if multi-value x-forwarded-for is sent", () => {
+    const envObj = process.env as Record<string, string | undefined>;
+    const origEnv = envObj.NODE_ENV;
+    try {
+      envObj.NODE_ENV = "production";
+      assert.throws(
+        () =>
+          extractClientIp(
+            {
+              headers: makeFakeHeaders({
+                "x-forwarded-for": "1.2.3.4, 5.6.7.8",
+              }),
+            },
+            false,
+          ),
+        (err: unknown) => {
+          assert.ok(err instanceof ProxyConfigurationError);
+          assert.ok((err as Error).message.includes("Rate limiter cannot operate safely"));
+          return true;
+        },
+      );
+    } finally {
+      envObj.NODE_ENV = origEnv;
+    }
+  });
+
+  it("throws ProxyConfigurationError in production when TRUSTED_PROXY=false and missing IP information", () => {
+    const envObj = process.env as Record<string, string | undefined>;
+    const origEnv = envObj.NODE_ENV;
+    try {
+      envObj.NODE_ENV = "production";
+      assert.throws(
+        () =>
+          extractClientIp(
+            { headers: makeFakeHeaders({}) },
+            false,
+          ),
+        (err: unknown) => {
+          assert.ok(err instanceof ProxyConfigurationError);
+          assert.ok((err as Error).message.includes("Rate limiter cannot operate safely"));
+          return true;
+        },
+      );
+    } finally {
+      envObj.NODE_ENV = origEnv;
+    }
   });
 });
 

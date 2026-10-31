@@ -44,7 +44,7 @@ const CHAT_RATE_WINDOW_MS = parseInt(
   process.env.CHAT_RATE_WINDOW_MS ?? "60000",
   10,
 );
-const LLM_TIMEOUT_MS = 15_000;
+const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS ?? "45000", 10);
 const RAG_TOP_K = 5;
 
 // Module-level singleton — persists across requests in the same process.
