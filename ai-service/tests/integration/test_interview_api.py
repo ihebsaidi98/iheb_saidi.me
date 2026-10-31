@@ -1,4 +1,4 @@
-"""Integration tests for Adaptive Interview Simulator endpoints (/v1/interview/*)."""
+"""Integration tests for Mixed-Format Interview Simulator endpoints (/v1/interview/*)."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -9,9 +9,9 @@ from app.config import Settings, get_settings
 from app.dependencies import get_interview_service
 from app.interview.schemas import (
     InterviewQuestion,
-    RubricScore,
+    SessionCompletionReport,
     StartInterviewResponse,
-    SubmitAnswerResponse,
+    SubmitAnswerAck,
 )
 from app.interview.service import InterviewSimulatorService
 from app.main import create_app
@@ -23,6 +23,7 @@ def mock_interview_service() -> MagicMock:
     mock = MagicMock(spec=InterviewSimulatorService)
     mock.start_interview = AsyncMock()
     mock.submit_answer = AsyncMock()
+    mock.complete_session = AsyncMock()
     return mock
 
 
@@ -62,9 +63,21 @@ async def test_interview_submit_unauthorized(interview_client: AsyncClient) -> N
         "/v1/interview/submit-answer",
         json={
             "session_id": "session-1",
-            "question_id": "fs-01",
-            "answer": "A detailed technical answer about microservices.",
+            "session_token": "token-1",
+            "question_id": "fs-mcq-01",
+            "answer": "201 Created",
         },
+    )
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
+async def test_interview_complete_unauthorized(interview_client: AsyncClient) -> None:
+    """Calling complete without internal token returns 401 Unauthorized."""
+    resp = await interview_client.post(
+        "/v1/interview/complete",
+        json={"session_id": "session-1", "session_token": "token-1"},
     )
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "UNAUTHORIZED"
@@ -77,14 +90,15 @@ async def test_interview_submit_unauthorized(interview_client: AsyncClient) -> N
 async def test_interview_submit_validation_error(
     interview_client: AsyncClient,
 ) -> None:
-    """Rejects answer shorter than 10 characters."""
+    """Rejects empty answer."""
     headers = {"X-Internal-Token": "valid-test-internal-token"}
     resp = await interview_client.post(
         "/v1/interview/submit-answer",
         json={
             "session_id": "session-1",
-            "question_id": "fs-01",
-            "answer": "Too short",
+            "session_token": "token-1",
+            "question_id": "fs-mcq-01",
+            "answer": "",
         },
         headers=headers,
     )
@@ -123,51 +137,51 @@ async def test_interview_disabled_by_feature_flag(
 async def test_interview_start_success(
     interview_client: AsyncClient, mock_interview_service: MagicMock
 ) -> None:
-    """Successful start returns 200 with initial question."""
+    """Successful start returns 200 with initial question and session token."""
     headers = {"X-Internal-Token": "valid-test-internal-token"}
     mock_interview_service.start_interview.return_value = StartInterviewResponse(
         session_id="session-test-123",
+        session_token="token-abc-123",
         track="full_stack",
-        difficulty="senior",
+        total_questions=10,
         initial_question=InterviewQuestion(
-            question_id="fs-01",
-            question_text="How did you architect AgroRetail OS?",
+            question_id="fs-mcq-01",
+            question_number=1,
+            total_questions=10,
+            question_text="Which status code?",
+            question_type="mcq",
             track="full_stack",
-            difficulty="senior",
-            expected_talking_points=["multi-tenancy", "JWT"],
+            topic="HTTP",
+            options=["200", "201", "204", "301"],
         ),
     )
 
     resp = await interview_client.post(
         "/v1/interview/start",
-        json={"track": "full_stack", "difficulty": "senior"},
+        json={"track": "full_stack"},
         headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["session_id"] == "session-test-123"
-    assert data["initial_question"]["question_id"] == "fs-01"
+    assert data["session_token"] == "token-abc-123"
+    assert data["total_questions"] == 10
+    assert data["initial_question"]["question_id"] == "fs-mcq-01"
 
 
 @pytest.mark.asyncio
 async def test_interview_submit_success(
     interview_client: AsyncClient, mock_interview_service: MagicMock
 ) -> None:
-    """Successful submit-answer returns 200 with rubric scores and feedback."""
+    """Successful submit-answer returns 200 with blind acknowledgement."""
     headers = {"X-Internal-Token": "valid-test-internal-token"}
-    mock_interview_service.submit_answer.return_value = SubmitAnswerResponse(
+    mock_interview_service.submit_answer.return_value = SubmitAnswerAck(
         session_id="session-test-123",
-        question_id="fs-01",
-        rubric=RubricScore(
-            technical_depth=4.5,
-            architecture_accuracy=4.0,
-            clarity=4.2,
-            portfolio_relevance=4.5,
-            overall_score=4.3,
-        ),
-        strengths=["Accurately addressed tenant isolation"],
-        areas_for_improvement=["Could mention database migration tooling"],
-        sample_ideal_answer="Ideal reference response.",
+        question_id="fs-mcq-01",
+        question_number=1,
+        answered_count=1,
+        total_questions=10,
+        is_complete=False,
         next_question=None,
     )
 
@@ -175,13 +189,48 @@ async def test_interview_submit_success(
         "/v1/interview/submit-answer",
         json={
             "session_id": "session-test-123",
-            "question_id": "fs-01",
-            "answer": "In AgroRetail OS, tenant isolation is maintained via tenant-aware headers and JWT claims.",
+            "session_token": "token-abc-123",
+            "question_id": "fs-mcq-01",
+            "answer": "201 Created",
         },
         headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["rubric"]["overall_score"] == 4.3
-    assert len(data["strengths"]) == 1
-    assert data["sample_ideal_answer"] == "Ideal reference response."
+    assert data["session_id"] == "session-test-123"
+    assert data["answered_count"] == 1
+    assert data["is_complete"] is False
+
+
+@pytest.mark.asyncio
+async def test_interview_complete_success(
+    interview_client: AsyncClient, mock_interview_service: MagicMock
+) -> None:
+    """Successful complete returns 200 with complete report."""
+    headers = {"X-Internal-Token": "valid-test-internal-token"}
+    mock_interview_service.complete_session.return_value = SessionCompletionReport(
+        session_id="session-test-123",
+        track="full_stack",
+        score_out_of_100=90.0,
+        mcq_score=45.0,
+        written_score=45.0,
+        mcq_results=[],
+        written_results=[],
+        topic_breakdown=[],
+        overall_strengths=["Great work"],
+        overall_improvements=[],
+        total_questions=10,
+    )
+
+    resp = await interview_client.post(
+        "/v1/interview/complete",
+        json={
+            "session_id": "session-test-123",
+            "session_token": "token-abc-123",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["score_out_of_100"] == 90.0
+    assert data["session_id"] == "session-test-123"

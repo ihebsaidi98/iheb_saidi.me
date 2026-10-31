@@ -1,43 +1,90 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Announcer } from "@/components/ui/Announcer";
 
 export function CopyButton({
   value,
-  children,
+  children = "copy",
   successText = "copied ✓",
 }: {
   value: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   successText?: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
-    if (!copied) return;
+    if (status === "idle") return;
 
-    const timeout = window.setTimeout(() => setCopied(false), 1600);
+    const timeout = window.setTimeout(() => {
+      setStatus("idle");
+      setAnnouncement("");
+    }, status === "error" ? 2200 : 1600);
     return () => window.clearTimeout(timeout);
-  }, [copied]);
+  }, [status]);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        setStatus("success");
+        setAnnouncement("Copied to clipboard");
+        return;
+      }
+      throw new Error("Clipboard API unavailable");
     } catch {
-      // no-op fallback: the button still communicates the action state.
+      // Fallback for browsers / environments where navigator.clipboard throws
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (successful) {
+          setStatus("success");
+          setAnnouncement("Copied to clipboard");
+          return;
+        }
+      } catch {
+        // Fallback failed
+      }
+      setStatus("error");
+      setAnnouncement("Failed to copy to clipboard");
     }
-    setCopied(true);
   };
 
+  const accessibleLabel =
+    status === "success"
+      ? "Copied to clipboard"
+      : status === "error"
+        ? "Failed to copy to clipboard"
+        : typeof children === "string"
+          ? `${children}: copy ${value}`
+          : `Copy ${value}`;
+
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={copied ? `Copied ${value}` : `Copy ${value}`}
-      aria-live="polite"
-      className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.02] px-2.5 py-1.5 font-mono text-[10px] tracking-[0.18em] text-white/70 transition-colors duration-300 hover:border-white/[0.14] hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
-    >
-      <span>{copied ? successText : children}</span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleCopy}
+        aria-label={accessibleLabel}
+        className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.02] px-2.5 py-1.5 font-mono text-2xs tracking-[0.18em] text-text-secondary transition-colors duration-300 hover:border-white/[0.14] hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+      >
+        <span>
+          {status === "success"
+            ? successText
+            : status === "error"
+              ? "copy failed"
+              : children}
+        </span>
+      </button>
+      <Announcer message={announcement} politeness="polite" />
+    </>
   );
 }

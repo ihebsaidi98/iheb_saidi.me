@@ -314,7 +314,7 @@ async def test_copilot_service_timeout_fallback_to_template(
 async def test_interview_service_timeout_fallback_to_deterministic_rubric(
     test_settings: Settings,
 ) -> None:
-    """If Gemini times out during interview evaluation, rubric is still returned deterministically."""
+    """If Gemini times out during written answer evaluation, rubric is still returned deterministically."""
     test_settings.request_timeout_seconds = 0.05
 
     mock_store = MagicMock(spec=PortfolioVectorStore)
@@ -334,12 +334,19 @@ async def test_interview_service_timeout_fallback_to_deterministic_rubric(
         gemini_client=mock_client,
     )
 
-    req = SubmitAnswerRequest(
-        session_id="session-test-timeout",
-        question_id="be-01",
-        answer="I implemented Kafka consumers and optimized PostgreSQL connection pooling.",
+    q_data = {
+        "question_id": "be-open-06",
+        "question_text": "Explain three common algorithms for implementing API rate limiting.",
+        "topic": "API Rate Limiting",
+        "expected_talking_points": ["token bucket", "leaky bucket", "sliding window"],
+        "ideal_answer": "Token bucket and leaky bucket algorithms...",
+    }
+
+    res = await service._score_written(
+        q_data=q_data,
+        submitted_answer="Token bucket algorithm allows bursts while leaky bucket processes at a constant rate.",
+        question_number=6,
     )
-    res = await service.submit_answer(req)
     assert res.rubric.overall_score >= 1.0
     assert len(res.strengths) > 0
 
@@ -425,25 +432,40 @@ async def test_copilot_match_rejects_short_and_long_jd(client: AsyncClient) -> N
 async def test_interview_submit_rejects_short_and_long_answer(
     client: AsyncClient,
 ) -> None:
-    """POST /v1/interview/submit-answer bounds answer between 10 and 3000 chars."""
+    """POST /v1/interview/submit-answer bounds answer between 1 and 3000 chars."""
     from pydantic import ValidationError
 
-    # Too short (< 10) -> 422
+    # Too short (< 1) -> 422
     res_short = await client.post(
         "/v1/interview/submit-answer",
-        json={"session_id": "s1", "question_id": "be-01", "answer": "short"},
+        json={
+            "session_id": "s1",
+            "session_token": "token1",
+            "question_id": "be-mcq-01",
+            "answer": "",
+        },
         headers=AUTH_HEADERS,
     )
     assert res_short.status_code == 422
 
     # Schema enforces max_length=3000
     with pytest.raises(ValidationError):
-        SubmitAnswerRequest(session_id="s1", question_id="be-01", answer="x" * 3001)
+        SubmitAnswerRequest(
+            session_id="s1",
+            session_token="token1",
+            question_id="be-mcq-01",
+            answer="x" * 3001,
+        )
 
     # HTTP layer intercepts oversized requests (defense in depth: 413 or 422)
     res_long = await client.post(
         "/v1/interview/submit-answer",
-        json={"session_id": "s1", "question_id": "be-01", "answer": "x" * 3001},
+        json={
+            "session_id": "s1",
+            "session_token": "token1",
+            "question_id": "be-mcq-01",
+            "answer": "x" * 3001,
+        },
         headers=AUTH_HEADERS,
     )
     assert res_long.status_code in (413, 422)
@@ -521,6 +543,7 @@ async def test_interview_simulator_disabled_flag(test_settings: Settings) -> Non
             "/v1/interview/submit-answer",
             json={
                 "session_id": "s1",
+                "session_token": "token1",
                 "question_id": "be-01",
                 "answer": "Valid length technical answer here.",
             },
@@ -568,32 +591,68 @@ async def test_sentinel_token_and_secrets_absent_from_logs(
 async def test_interview_sessions_are_stateless_and_independent(
     client: AsyncClient,
 ) -> None:
-    """Interview simulator is completely stateless: multiple session IDs operate without cross-talk."""
+    """Interview simulator sessions operate with complete isolation: multiple sessions operate without cross-talk."""
+    start1 = await client.post(
+        "/v1/interview/start",
+        json={"track": "backend"},
+        headers=AUTH_HEADERS,
+    )
+    assert start1.status_code == 200
+    sid1 = start1.json()["session_id"]
+    token1 = start1.json()["session_token"]
+    qid1 = start1.json()["initial_question"]["question_id"]
+
+    start2 = await client.post(
+        "/v1/interview/start",
+        json={"track": "backend"},
+        headers=AUTH_HEADERS,
+    )
+    assert start2.status_code == 200
+    sid2 = start2.json()["session_id"]
+    token2 = start2.json()["session_token"]
+    qid2 = start2.json()["initial_question"]["question_id"]
+
+    assert sid1 != sid2
+    assert token1 != token2
+
+    # Cross-session token submission must be rejected with 403
+    cross_res = await client.post(
+        "/v1/interview/submit-answer",
+        json={
+            "session_id": sid1,
+            "session_token": token2,
+            "question_id": qid1,
+            "answer": "TCP",
+        },
+        headers=AUTH_HEADERS,
+    )
+    assert cross_res.status_code == 403
+
+    # Valid submissions to isolated sessions
     res1 = await client.post(
         "/v1/interview/submit-answer",
         json={
-            "session_id": "session-user-alpha",
-            "question_id": "be-01",
-            "answer": "Asynchronous Spring Boot consumers with Kafka and Redis caching.",
+            "session_id": sid1,
+            "session_token": token1,
+            "question_id": qid1,
+            "answer": "TCP",
         },
         headers=AUTH_HEADERS,
     )
     assert res1.status_code == 200
-    assert res1.json()["session_id"] == "session-user-alpha"
+    assert res1.json()["session_id"] == sid1
+    assert res1.json()["answered_count"] == 1
 
     res2 = await client.post(
         "/v1/interview/submit-answer",
         json={
-            "session_id": "session-user-beta",
-            "question_id": "be-01",
-            "answer": "Simple relational SQL database queries without caching.",
+            "session_id": sid2,
+            "session_token": token2,
+            "question_id": qid2,
+            "answer": "UDP",
         },
         headers=AUTH_HEADERS,
     )
     assert res2.status_code == 200
-    assert res2.json()["session_id"] == "session-user-beta"
-
-    # Evaluation results must be distinct based strictly on answer content, not session ID
-    assert (
-        res1.json()["rubric"]["overall_score"] > res2.json()["rubric"]["overall_score"]
-    )
+    assert res2.json()["session_id"] == sid2
+    assert res2.json()["answered_count"] == 1
