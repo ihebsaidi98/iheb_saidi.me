@@ -3,24 +3,17 @@
  *
  * Floating chat widget — FAB + expandable panel.
  *
- * Features:
- *   - Floating action button (bottom-right, z-50)
- *   - Expandable panel with framer-motion spring animation
- *   - Welcome screen with suggested questions
- *   - Conversation history with user + assistant bubbles
- *   - Loading skeleton while awaiting LLM response
- *   - Error banner with retry button
- *   - Source link chips below assistant messages
- *   - Input with send-on-Enter, character count, disabled while loading
- *   - Keyboard: Escape closes, Tab cycles within panel (focus trap)
- *   - ARIA: role="dialog", aria-modal, aria-label, aria-live="polite"
- *   - Respects prefers-reduced-motion via MotionConfig in MotionProvider
- *   - Calls ONLY /api/chat — never the LLM provider directly
+ * Phase 3: premium UI — emerald gradient FAB with pulse ring,
+ *   animated typing indicator, gradient accent lines, improved bubbles,
+ *   welcome screen with radial glow, focus ring on input, polished error state.
+ *
+ * Phase 1: source removal preserved.
+ * Phase 2: smart scroll + mobile UX preserved.
  */
 
 "use client";
 
-import {
+import React, {
   useCallback,
   useEffect,
   useId,
@@ -37,6 +30,7 @@ import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 // ============================================================
 
 const MAX_INPUT = 500;
+const NEAR_BOTTOM_THRESHOLD_PX = 80;
 
 const SUGGESTED = [
   "What technologies does Iheb work with?",
@@ -46,10 +40,10 @@ const SUGGESTED = [
 ];
 
 const PANEL_SPRING = { type: "spring" as const, stiffness: 320, damping: 30, mass: 0.8 };
-const BUBBLE_SPRING = { type: "spring" as const, stiffness: 280, damping: 26, mass: 0.7 };
+const BUBBLE_SPRING = { type: "spring" as const, stiffness: 300, damping: 28, mass: 0.6 };
 
 // ============================================================
-// ICONS — inline SVG, no extra dep
+// ICONS
 // ============================================================
 
 function IconClose() {
@@ -61,8 +55,8 @@ function IconClose() {
 }
 function IconSend() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 8h12M9 3l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -93,36 +87,68 @@ function IconRefresh() {
 }
 function IconBot() {
   return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
-      <rect x="1" y="4" width="11" height="8" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-      <path d="M4.5 4V2.5a2 2 0 013 0V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-      <circle cx="4.5" cy="8" r="1" fill="currentColor"/>
-      <circle cx="8.5" cy="8" r="1" fill="currentColor"/>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <rect x="1.5" y="4.5" width="11" height="8" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 4.5V3a2 2 0 014 0v1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="5" cy="9" r="1.1" fill="currentColor" />
+      <circle cx="9" cy="9" r="1.1" fill="currentColor" />
     </svg>
   );
 }
-function IconClear() {
+function IconTrash() {
   return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
-      <path d="M2 6.5h9M6.5 2v9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ transform: "rotate(45deg)", transformOrigin: "center" }} />
-      <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M2 3.5h10M5 3.5V2.5a1 1 0 011-1h2a1 1 0 011 1v1M5.5 6v4.5M8.5 6v4.5M3 3.5l.8 8a1 1 0 001 .9h4.4a1 1 0 001-.9l.8-8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function IconSparkle() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M8 1v3M8 12v3M1 8h3M12 8h3M3.05 3.05l2.12 2.12M10.83 10.83l2.12 2.12M10.83 5.17l2.12-2.12M3.05 12.95l2.12-2.12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
 // ============================================================
-// LOADING SKELETON
+// TYPING INDICATOR — three-dot bounce, replaces skeleton bars
 // ============================================================
-function BubbleSkeleton() {
+function TypingIndicator() {
   return (
-    <div className="flex items-start gap-2.5" aria-hidden>
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400/60">
+    <div className="flex items-start gap-2.5" aria-label="Assistant is thinking" role="status">
+      <span
+        aria-hidden
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full
+          bg-gradient-to-br from-emerald-400/20 to-emerald-600/10
+          ring-1 ring-emerald-400/25 text-emerald-400"
+      >
         <IconBot />
-      </div>
-      <div className="max-w-[85%] space-y-2 pt-0.5">
-        <div className="h-3 w-40 animate-pulse rounded-full bg-white/8" />
-        <div className="h-3 w-56 animate-pulse rounded-full bg-white/8" />
-        <div className="h-3 w-28 animate-pulse rounded-full bg-white/8" />
+      </span>
+      <div
+        className="flex items-center gap-1.5 rounded-2xl rounded-bl-none border border-white/8
+          bg-white/[0.04] px-4 py-3.5 mt-0.5"
+      >
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="block h-1.5 w-1.5 rounded-full bg-emerald-400/70"
+            style={{
+              animation: "chatDotBounce 1.2s ease-in-out infinite",
+              animationDelay: `${i * 0.18}s`,
+            }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -137,272 +163,442 @@ export function ChatWidget() {
   const [input, setInput] = useState("");
   const { state, send, retry, clear } = useChat();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const contentWrapperRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
   const isLoading = state.status === "loading";
   const hasMessages = state.messages.length > 0;
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (open) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((smooth = true) => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    if (smooth && typeof el.scrollTo === "function") {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else {
+      el.scrollTop = el.scrollHeight;
     }
-  }, [state.messages, open]);
+  }, []);
 
-  // Focus input when panel opens
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
+  }, []);
+
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 120);
+    if (open && isNearBottomRef.current) {
+      scrollToBottom(true);
     }
-  }, [open]);
+  }, [state.messages, open, scrollToBottom]);
 
-  // Escape key closes panel
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        fabRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const container = messagesContainerRef.current;
+    const content = contentWrapperRef.current;
+    if (!container || !content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (isNearBottomRef.current) container.scrollTop = container.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
   }, [open]);
 
-  // Focus trap inside the dialog
+  useEffect(() => {
+    if (open && hasMessages) {
+      isNearBottomRef.current = true;
+      requestAnimationFrame(() => scrollToBottom(false));
+    }
+  }, [open, hasMessages, scrollToBottom]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const isAtTop = scrollTop <= 0 && e.deltaY < 0;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1 && e.deltaY > 0;
+      if (isAtTop || isAtBottom) e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    if (window.innerWidth < 768) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = orig; };
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      if (window.innerWidth < 768 && panelRef.current) {
+        const kh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        if (kh > 50) {
+          panelRef.current.style.bottom = `${kh}px`;
+          panelRef.current.style.height = `${Math.min(vv.height, window.innerHeight * 0.88)}px`;
+        } else {
+          panelRef.current.style.bottom = "0px";
+          panelRef.current.style.height = "";
+        }
+      }
+    };
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      const touch = typeof window !== "undefined" &&
+        (window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768);
+      if (!touch) {
+        const t = setTimeout(() => inputRef.current?.focus(), 120);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); fabRef.current?.focus(); }
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [open]);
+
   useEffect(() => {
     if (!open || !panelRef.current) return;
     const panel = panelRef.current;
-    const focusable = (): HTMLElement[] =>
-      Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => !el.hasAttribute("disabled") && !el.closest('[aria-hidden="true"]'));
-
-    const handler = (e: KeyboardEvent) => {
+    const focusable = () =>
+      Array.from(panel.querySelectorAll<HTMLElement>(
+        'button,[href],input,textarea,select,[tabindex]:not([tabindex="-1"])'
+      )).filter(el => !el.hasAttribute("disabled") && !el.closest('[aria-hidden="true"]'));
+    const h = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       const els = focusable();
-      if (els.length === 0) return;
-      const first = els[0]!;
-      const last = els[els.length - 1]!;
+      if (!els.length) return;
       if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        if (document.activeElement === els[0]) { e.preventDefault(); els[els.length - 1]!.focus(); }
       } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        if (document.activeElement === els[els.length - 1]) { e.preventDefault(); els[0]!.focus(); }
       }
     };
-    panel.addEventListener("keydown", handler);
-    return () => panel.removeEventListener("keydown", handler);
+    panel.addEventListener("keydown", h);
+    return () => panel.removeEventListener("keydown", h);
   }, [open]);
 
-  const handleSend = useCallback(
-    (text?: string) => {
-      const q = (text ?? input).trim();
-      if (!q || isLoading) return;
-      setInput("");
-      void send(q);
-    },
-    [input, isLoading, send],
-  );
+  const handleSend = useCallback((text?: string) => {
+    const q = (text ?? input).trim();
+    if (!q || isLoading) return;
+    setInput("");
+    isNearBottomRef.current = true;
+    scrollToBottom(true);
+    void send(q);
+  }, [input, isLoading, send, scrollToBottom]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
+
+  const canSend = input.trim().length > 0 && !isLoading;
 
   return (
     <>
-      {/* ---- FAB ---- */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        <AnimatePresence>
-          {open && (
+      <style>{`
+        @keyframes chatDotBounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+          30% { transform: translateY(-5px); opacity: 1; }
+        }
+      `}</style>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            {/* Mobile backdrop */}
+            <motion.div
+              key="chat-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setOpen(false); fabRef.current?.focus(); }}
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm md:hidden"
+              aria-hidden="true"
+            />
+
+            {/* Panel */}
             <motion.div
               key="panel"
               ref={panelRef}
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
-              initial={{ opacity: 0, y: 20, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
               transition={PANEL_SPRING}
               className={twMerge(
-                "flex flex-col",
-                "w-[min(calc(100vw-3rem),420px)] h-[min(calc(100vh-8rem),640px)]",
-                "overflow-hidden rounded-2xl",
-                "border border-white/8",
-                "bg-[#0a0f14]/95 shadow-[0_24px_80px_rgba(0,0,0,0.55)]",
-                "backdrop-blur-2xl",
+                "fixed z-50 flex flex-col overflow-hidden",
+                "inset-x-0 bottom-0 w-full max-w-full rounded-t-3xl",
+                "h-[88vh] max-h-[88dvh]",
+                "md:inset-auto md:bottom-24 md:right-6 md:w-[430px] md:max-w-[calc(100vw-3rem)]",
+                "md:h-[min(calc(100vh-8rem),660px)] md:max-h-[660px] md:rounded-2xl",
+                "bg-[#080d12]/98 backdrop-blur-3xl",
+                "shadow-[0_32px_80px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.07)]",
               )}
+              style={{ height: "min(88dvh, 660px)", maxHeight: "100dvh" }}
             >
+              {/* Mobile drag pill */}
+              <div className="flex justify-center pt-2.5 pb-0 md:hidden" aria-hidden="true">
+                <div className="h-1.5 w-12 rounded-full bg-white/25" />
+              </div>
+
+              {/* Emerald gradient top accent line */}
+              <div
+                className="shrink-0 h-px w-full"
+                style={{
+                  background: "linear-gradient(90deg, transparent 0%, rgba(110,231,183,0.55) 40%, rgba(56,189,248,0.3) 70%, transparent 100%)",
+                }}
+                aria-hidden="true"
+              />
+
               {/* Header */}
-              <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400">
-                  <IconBot />
-                </span>
+              <div
+                className="flex shrink-0 items-center gap-3 px-4 py-3.5 border-b border-white/[0.05]"
+                style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0.025) 0%, transparent 100%)" }}
+              >
+                <div className="relative shrink-0">
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-full
+                      bg-gradient-to-br from-emerald-400/20 to-emerald-600/10
+                      ring-1 ring-emerald-400/35 text-emerald-400
+                      shadow-[0_0_14px_rgba(110,231,183,0.14)]"
+                  >
+                    <IconBot />
+                  </span>
+                  <span
+                    aria-hidden
+                    className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#080d12]"
+                  />
+                </div>
+
                 <div className="min-w-0 flex-1">
-                  <p id={titleId} className="text-xs font-semibold text-white">
+                  <p
+                    id={titleId}
+                    className="text-[0.8rem] font-semibold"
+                    style={{
+                      background: "linear-gradient(90deg, #f5f7fa 0%, rgba(245,247,250,0.78) 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
                     Ask about Iheb
                   </p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] text-white/40">
-                    Answers from portfolio data
+                  <p className="mt-0.5 truncate text-[0.68rem] text-white/38">
+                    Powered by portfolio knowledge base
                   </p>
                 </div>
+
                 <div className="flex items-center gap-1">
                   {hasMessages && (
                     <button
                       onClick={clear}
                       title="Clear conversation"
                       aria-label="Clear conversation"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-white/35 transition-colors hover:bg-white/6 hover:text-white/70"
+                      className="flex h-8 w-8 md:h-7 md:w-7 items-center justify-center rounded-lg
+                        text-white/28 transition-all duration-200 hover:bg-white/6 hover:text-white/62"
                     >
-                      <IconClear />
+                      <IconTrash />
                     </button>
                   )}
                   <button
-                    onClick={() => setOpen(false)}
+                    onClick={() => { setOpen(false); fabRef.current?.focus(); }}
                     aria-label="Close chat"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-white/35 transition-colors hover:bg-white/6 hover:text-white/70"
+                    className="flex h-8 w-8 md:h-7 md:w-7 items-center justify-center rounded-lg
+                      text-white/28 transition-all duration-200 hover:bg-white/6 hover:text-white/62"
                   >
                     <IconClose />
                   </button>
                 </div>
               </div>
 
-              {/* Message list */}
+              {/* Scrollable messages */}
               <div
-                className="flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className={twMerge(
+                  "flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5",
+                  "scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20",
+                )}
+                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                 role="log"
                 aria-live="polite"
                 aria-label="Chat messages"
               >
-                {/* Welcome screen */}
-                {!hasMessages && (
-                  <WelcomeScreen onSelect={(q) => handleSend(q)} disabled={isLoading} />
-                )}
+                <div ref={contentWrapperRef} className="space-y-5">
+                  {!hasMessages && (
+                    <WelcomeScreen onSelect={(q) => handleSend(q)} disabled={isLoading} />
+                  )}
 
-                {/* Messages */}
-                <div className="space-y-4">
-                  {state.messages.map((msg) => (
+                  {state.messages.map((msg, index) => (
                     <AnimatePresence key={msg.id} mode="wait">
                       <motion.div
                         key={msg.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={BUBBLE_SPRING}
+                        initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ ...BUBBLE_SPRING, delay: index === 0 ? 0 : 0.03 }}
                       >
                         {msg.pending ? (
-                          <BubbleSkeleton />
+                          <TypingIndicator />
                         ) : msg.role === "user" ? (
                           <UserBubble content={msg.content} />
                         ) : (
-                          <AssistantBubble
-                            content={msg.content}
-                            sources={msg.sources}
-                            failed={msg.failed}
-                          />
+                          <AssistantBubble content={msg.content} failed={msg.failed} />
                         )}
                       </motion.div>
                     </AnimatePresence>
                   ))}
+
+                  {state.status === "error" && state.errorMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="flex items-start gap-3 rounded-2xl border border-red-400/18 px-3.5 py-3.5 mt-2"
+                      style={{ background: "linear-gradient(135deg, rgba(248,113,113,0.07) 0%, transparent 100%)" }}
+                      role="alert"
+                    >
+                      <span
+                        aria-hidden
+                        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center
+                          rounded-full bg-red-400/15 text-red-400 text-[10px] font-bold"
+                      >
+                        &#x2715;
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[0.78rem] leading-snug text-red-300/80">{state.errorMessage}</p>
+                        {state.lastQuestion && (
+                          <button
+                            onClick={retry}
+                            className="mt-2 flex items-center gap-1.5 text-[0.72rem] font-medium
+                              text-red-300/60 underline underline-offset-2 decoration-red-300/30
+                              transition-colors hover:text-red-300/90"
+                          >
+                            <IconRefresh />
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
-
-                {/* Error banner */}
-                {state.status === "error" && state.errorMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-400/15 bg-red-400/[0.07] px-3.5 py-3"
-                    role="alert"
-                  >
-                    <span className="mt-px shrink-0 text-red-400/80 text-sm" aria-hidden>⚠</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[0.78rem] leading-snug text-red-300/80">
-                        {state.errorMessage}
-                      </p>
-                      {state.lastQuestion && (
-                        <button
-                          onClick={retry}
-                          className="mt-2 flex items-center gap-1.5 text-[0.72rem] font-medium text-red-300/70 transition-colors hover:text-red-300"
-                        >
-                          <IconRefresh />
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-
-                <div ref={bottomRef} aria-hidden />
               </div>
 
-              {/* Input */}
-              <div className="shrink-0 border-t border-white/[0.06] px-3 py-3">
-                <div className="flex items-end gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 transition-colors focus-within:border-emerald-400/25 focus-within:bg-white/[0.06]">
+              {/* Input area */}
+              <div
+                className="shrink-0 border-t border-white/[0.05] px-3 pt-3"
+                style={{
+                  paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
+                  background: "linear-gradient(to top, rgba(0,0,0,0.2) 0%, transparent 100%)",
+                }}
+              >
+                <div
+                  className={twMerge(
+                    "flex items-end gap-2 rounded-2xl border px-3.5 py-2.5 transition-all duration-200",
+                    "bg-white/[0.04] border-white/10",
+                    "focus-within:border-emerald-400/35 focus-within:bg-white/[0.055]",
+                    "focus-within:shadow-[0_0_0_3px_rgba(110,231,183,0.07)]",
+                  )}
+                >
                   <textarea
                     ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value.slice(0, MAX_INPUT))}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask anything about Iheb…"
+                    placeholder="Ask anything about Iheb\u2026"
                     rows={1}
                     disabled={isLoading}
                     aria-label="Chat message"
                     aria-describedby="chat-input-hint"
                     className={twMerge(
-                      "flex-1 resize-none bg-transparent text-[0.825rem] leading-relaxed",
-                      "text-white placeholder:text-white/30",
+                      "flex-1 resize-none bg-transparent text-base md:text-[0.825rem] leading-relaxed",
+                      "text-white/90 placeholder:text-white/28",
                       "outline-none scrollbar-none",
                       "max-h-28 min-h-[1.4rem]",
-                      isLoading && "opacity-50",
+                      isLoading && "opacity-40",
                     )}
                     style={{ fieldSizing: "content" } as React.CSSProperties}
                   />
                   <button
                     onClick={() => handleSend()}
-                    disabled={!input.trim() || isLoading}
+                    disabled={!canSend}
                     aria-label="Send message"
                     className={twMerge(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-                      "transition-all duration-200",
-                      input.trim() && !isLoading
-                        ? "bg-emerald-400/15 text-emerald-300 hover:bg-emerald-400/25"
-                        : "text-white/20",
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-200",
+                      canSend
+                        ? "bg-emerald-500/75 text-white hover:bg-emerald-400/90 hover:scale-105 active:scale-95 shadow-[0_2px_10px_rgba(110,231,183,0.22)] hover:shadow-[0_4px_16px_rgba(110,231,183,0.32)]"
+                        : "text-white/18 cursor-not-allowed",
                     )}
                   >
                     <IconSend />
                   </button>
                 </div>
-                <p id="chat-input-hint" className="mt-1.5 px-1 font-mono text-[9px] text-white/25">
-                  {input.length > 0
-                    ? `${MAX_INPUT - input.length} chars remaining · Shift+Enter for new line`
-                    : "Enter to send · answers from verified portfolio data only"}
+                <p
+                  id="chat-input-hint"
+                  className="mt-1.5 flex justify-between px-1 font-mono text-[9px] text-white/22"
+                >
+                  <span>Enter to send \u00b7 Shift+Enter for new line</span>
+                  {input.length > 0 && (
+                    <span className={input.length > MAX_INPUT * 0.9 ? "text-amber-400/60" : ""}>
+                      {MAX_INPUT - input.length}
+                    </span>
+                  )}
                 </p>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </>
+        )}
+      </AnimatePresence>
 
-        {/* FAB button */}
+      {/* FAB */}
+      <div
+        className={twMerge(
+          "fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3",
+          open && "hidden md:flex",
+        )}
+      >
+        {!open && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-full border border-emerald-400/30 animate-ping"
+            style={{ animationDuration: "2.6s" }}
+          />
+        )}
+
         <motion.button
           ref={fabRef}
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Close chat" : "Open portfolio chatbot"}
           aria-expanded={open}
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.93 }}
+          whileHover={{ scale: 1.07 }}
+          whileTap={{ scale: 0.92 }}
           className={twMerge(
             "relative flex h-14 w-14 items-center justify-center",
-            "rounded-full border text-white shadow-[0_8px_32px_rgba(0,0,0,0.45)]",
-            "transition-colors duration-300",
+            "rounded-full text-white transition-all duration-300",
             open
-              ? "border-white/20 bg-[#0d141b]"
-              : "border-emerald-400/30 bg-emerald-400/10 hover:border-emerald-400/50 hover:bg-emerald-400/15",
+              ? "bg-[#0d141b] border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+              : "border border-emerald-400/35 bg-gradient-to-br from-emerald-500/20 to-emerald-700/12 shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_20px_rgba(110,231,183,0.1)] hover:border-emerald-400/55 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_28px_rgba(110,231,183,0.2)]",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>
@@ -428,11 +624,10 @@ export function ChatWidget() {
               </motion.span>
             )}
           </AnimatePresence>
-          {/* Unread dot when there's an error and panel is closed */}
           {!open && state.status === "error" && (
             <span
               aria-label="Chat error"
-              className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-[#0a0f14] bg-red-400"
+              className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-[#080d12] bg-red-400"
             />
           )}
         </motion.button>
@@ -452,34 +647,62 @@ function WelcomeScreen({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center py-4">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-400 text-2xl">
-        <IconBot />
-      </span>
-      <p className="mt-3 text-center text-[0.85rem] font-medium text-white">
-        Ask about Iheb&apos;s work
-      </p>
-      <p className="mt-1.5 max-w-[260px] text-center text-[0.75rem] leading-relaxed text-white/45">
-        Answers come only from verified portfolio data — skills, projects, experience, and contact info.
+    <div className="flex flex-col items-center py-6">
+      <div className="relative flex items-center justify-center">
+        <div
+          aria-hidden
+          className="absolute h-24 w-24 rounded-full opacity-50"
+          style={{
+            background: "radial-gradient(circle, rgba(110,231,183,0.35) 0%, transparent 70%)",
+            filter: "blur(12px)",
+          }}
+        />
+        <span
+          className="relative flex h-14 w-14 items-center justify-center rounded-2xl
+            bg-gradient-to-br from-emerald-400/20 to-emerald-600/10
+            ring-1 ring-emerald-400/30 text-emerald-400
+            shadow-[0_0_28px_rgba(110,231,183,0.12)]"
+        >
+          <svg width="26" height="26" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <rect x="1.5" y="4.5" width="11" height="8" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M5 4.5V3a2 2 0 014 0v1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            <circle cx="5" cy="9" r="1.1" fill="currentColor" />
+            <circle cx="9" cy="9" r="1.1" fill="currentColor" />
+          </svg>
+        </span>
+      </div>
+
+      <div className="mt-4 flex items-center gap-1.5">
+        <span className="text-emerald-400/70"><IconSparkle /></span>
+        <p className="text-[0.875rem] font-semibold text-white">Ask about Iheb&apos;s work</p>
+      </div>
+
+      <p className="mt-2 max-w-[250px] text-center text-[0.73rem] leading-relaxed text-white/40">
+        Powered by verified portfolio data \u2014 skills, projects, experience &amp; contact info.
       </p>
 
-      <div className="mt-5 flex w-full flex-col gap-2">
+      <div className="mt-6 flex w-full flex-col gap-2">
         {SUGGESTED.map((q) => (
           <button
             key={q}
             disabled={disabled}
             onClick={() => onSelect(q)}
             className={twMerge(
-              "w-full rounded-xl border border-white/8 px-3.5 py-2.5 text-left",
-              "text-[0.78rem] leading-snug text-white/60",
-              "transition-all duration-200",
+              "group w-full rounded-xl border border-white/7 px-3.5 py-2.5 text-left",
+              "text-[0.77rem] leading-snug text-white/55 transition-all duration-200",
               disabled
-                ? "cursor-not-allowed opacity-40"
-                : "hover:border-emerald-400/20 hover:bg-emerald-400/[0.06] hover:text-white/85",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/50",
+                ? "cursor-not-allowed opacity-35"
+                : "hover:border-emerald-400/22 hover:bg-emerald-400/[0.05] hover:text-white/85 hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/50",
             )}
           >
-            {q}
+            <span className="flex items-center gap-2.5">
+              <span
+                aria-hidden
+                className="h-1 w-1 shrink-0 rounded-full bg-emerald-400/50 transition-all duration-200
+                  group-hover:bg-emerald-400/90 group-hover:scale-125"
+              />
+              {q}
+            </span>
           </button>
         ))}
       </div>
@@ -495,9 +718,11 @@ function UserBubble({ content }: { content: string }) {
     <div className="flex justify-end">
       <div
         className={twMerge(
-          "max-w-[82%] rounded-2xl rounded-br-sm",
-          "bg-white/[0.07] px-4 py-2.5",
-          "text-[0.825rem] leading-relaxed text-white/85",
+          "max-w-[82%] rounded-2xl rounded-br-none",
+          "border border-emerald-400/12",
+          "bg-gradient-to-br from-emerald-400/10 to-emerald-500/5",
+          "px-4 py-2.5",
+          "text-[0.825rem] leading-relaxed text-white/90",
         )}
       >
         {content}
@@ -508,11 +733,9 @@ function UserBubble({ content }: { content: string }) {
 
 function AssistantBubble({
   content,
-  sources,
   failed,
 }: {
   content: string;
-  sources?: import("@/lib/chat").ChatSource[];
   failed?: boolean;
 }) {
   return (
@@ -520,60 +743,23 @@ function AssistantBubble({
       <span
         aria-hidden
         className={twMerge(
-          "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
           failed
-            ? "bg-red-400/10 text-red-400"
-            : "bg-emerald-400/10 text-emerald-400/70",
+            ? "bg-red-400/12 text-red-400 ring-1 ring-red-400/25"
+            : "bg-gradient-to-br from-emerald-400/18 to-emerald-600/8 text-emerald-400 ring-1 ring-emerald-400/22",
         )}
       >
         <IconBot />
       </span>
       <div className="min-w-0 flex-1">
         {failed ? (
-          <p className="text-[0.825rem] italic text-red-300/80">
-            Failed to generate response.
-          </p>
+          <p className="text-[0.825rem] italic text-red-300/75">Failed to generate a response.</p>
         ) : (
-          <ChatMarkdown content={content} />
-        )}
-        {sources && sources.length > 0 && (
-          <SourceChips sources={sources} />
+          <div className="border-l-2 border-emerald-400/15 pl-3">
+            <ChatMarkdown content={content} />
+          </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ============================================================
-// SOURCE CHIPS
-// ============================================================
-const TYPE_LABELS: Record<string, string> = {
-  profile: "Profile",
-  contact: "Contact",
-  skills: "Skills",
-  experience: "Experience",
-  education: "Education",
-  project: "Project",
-  meta: "Meta",
-};
-
-function SourceChips({ sources }: { sources: import("@/lib/chat").ChatSource[] }) {
-  return (
-    <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Sources">
-      {sources.map((s) => (
-        <span
-          key={s.id}
-          title={s.title}
-          className={twMerge(
-            "inline-flex max-w-[180px] items-center gap-1 truncate",
-            "rounded-full border border-white/8 bg-white/[0.04] px-2 py-0.5",
-            "font-mono text-[0.65rem] text-white/40",
-          )}
-        >
-          <span className="text-emerald-400/50">{TYPE_LABELS[s.type] ?? s.type}</span>
-          <span className="truncate">{s.title}</span>
-        </span>
-      ))}
     </div>
   );
 }

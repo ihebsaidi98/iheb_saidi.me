@@ -17,7 +17,7 @@ type HeroSceneCapability = {
 
 let hasLoggedHeroSceneCapability = false;
 
-function getHeroSceneCapability(): HeroSceneCapability {
+function getHeroSceneCapability(webglCapable = false): HeroSceneCapability {
   const pointerFine = window.matchMedia("(pointer: fine)").matches;
   const hoverable = window.matchMedia("(hover: hover)").matches;
   const wideViewport = window.matchMedia("(min-width: 1024px)").matches;
@@ -26,16 +26,7 @@ function getHeroSceneCapability(): HeroSceneCapability {
     navigator as Navigator & { connection?: { saveData?: boolean } }
   ).connection?.saveData === true;
 
-  let webgl = false;
-  try {
-    const canvas = document.createElement("canvas");
-    webgl = Boolean(
-      canvas.getContext("webgl2", { failIfMajorPerformanceCaveat: true }) ??
-        canvas.getContext("webgl", { failIfMajorPerformanceCaveat: true }),
-    );
-  } catch {
-    webgl = false;
-  }
+  const webgl = webglCapable;
 
   // Touchscreen laptops may report a coarse primary pointer even when they are
   // capable of hover; the large-viewport + hover fallback keeps the 3D scene on
@@ -294,37 +285,54 @@ function TerminalCard() {
   const len = useTypedCode(TYPED_CODE, !reduceMotion);
 
   return (
-    <div aria-hidden="true" className="hidden min-w-0 lg:block">
-      <div className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#070b11] shadow-[0_0_80px_rgba(16,185,129,0.07)]">
-        <div className="flex items-center gap-2 border-b border-white/[0.07] px-4 py-2.5">
-          <span className="size-2.5 rounded-full bg-[#ff5f57]/70" />
-          <span className="size-2.5 rounded-full bg-[#febc2e]/70" />
-          <span className="size-2.5 rounded-full bg-[#28c840]/70" />
-          <span className="ml-3 font-mono text-[10px] tracking-wider text-white/50">
+    <div
+      aria-hidden="true"
+      className="hero-card-shell relative w-full max-w-[340px] justify-self-end lg:justify-self-end"
+    >
+      <div className="pointer-events-none absolute inset-0 -z-10 rounded-[1.8rem] bg-[radial-gradient(circle_at_top,_rgba(110,231,183,0.2),transparent_62%)] blur-3xl" />
+      <FloatingYearBadge />
+      <div className="hero-code-card relative w-full overflow-hidden rounded-[1.5rem] border border-emerald-300/20 bg-[#050c12]/90 shadow-[0_0_0_1px_rgba(110,231,183,0.08),0_30px_90px_rgba(2,8,16,0.86),0_0_60px_rgba(16,185,129,0.14)] backdrop-blur-md">
+        <div className="flex items-center gap-2 border-b border-white/[0.08] bg-[#09131a]/90 px-3 py-2.5 sm:px-4">
+          <span className="size-2.5 rounded-full bg-[#ff5f57]/80 shadow-[0_0_14px_rgba(255,95,87,0.45)]" />
+          <span className="size-2.5 rounded-full bg-[#febc2e]/80 shadow-[0_0_14px_rgba(254,188,46,0.45)]" />
+          <span className="size-2.5 rounded-full bg-[#28c840]/80 shadow-[0_0_14px_rgba(52,211,153,0.45)]" />
+          <span className="ml-3 truncate font-mono text-[9px] tracking-[0.18em] text-white/55 sm:text-[10px]">
             OpportunityController.java
           </span>
-          <span className="ml-auto font-mono text-[10px] text-white/50">UTF-8</span>
+          <span className="ml-auto font-mono text-[8px] uppercase tracking-[0.18em] text-white/40 sm:text-[9px]">
+            UTF-8
+          </span>
         </div>
 
-        <pre
-          className="min-h-[280px] overflow-hidden bg-[#070b11] px-5 py-4 font-mono text-[12.5px] leading-6 text-white/60 lg:min-h-[320px]"
-          style={{ minHeight: TYPED_CODE_HEIGHT }}
-        >
-          <code>
-            <TypedCode len={len} />
-          </code>
-          <span className="hero-caret ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
-        </pre>
+        <div className="relative bg-[#060d13]">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(6,13,19,0.12),rgba(6,13,19,0.64))]" />
+          <pre className="hero-terminal-code relative m-0 w-full overflow-x-auto overflow-y-auto bg-transparent px-3 py-4 font-mono text-[9px] leading-5 text-white/80 sm:px-4 sm:text-[10px] sm:leading-6 md:text-[11px] lg:text-[12px]">
+            <code className="relative block min-w-0 w-full max-w-full whitespace-pre text-inherit sm:min-w-0">
+              <TypedCode len={len} />
+            </code>
+            <span className="hero-caret relative ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
+          </pre>
+        </div>
 
-        <div className="flex items-center gap-4 border-t border-white/[0.07] px-4 py-2 font-mono text-[10px] text-white/50">
-          <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-emerald-400" />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/[0.08] bg-[#081118]/95 px-3 py-2.5 font-mono text-[9px] text-white/60 sm:px-4 sm:text-[10px]">
+          <span className="flex items-center gap-1.5 whitespace-nowrap text-emerald-200/80">
+            <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
             build: success
           </span>
-          <span>tests: 42/42</span>
-          <span className="ml-auto text-emerald-300/60">ready to ship</span>
+          <span className="whitespace-nowrap text-white/70">tests: 42/42</span>
+          <span className="ml-auto whitespace-nowrap text-emerald-300/80">ready to ship</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FloatingYearBadge() {
+  return (
+    <div className="hero-year-badge pointer-events-none absolute right-4 top-1/2 z-20 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300/40 bg-[#061219]/95 shadow-[0_0_0_1px_rgba(6,18,25,0.5),0_20px_45px_rgba(16,185,129,0.12)] backdrop-blur-sm sm:right-5 sm:h-16 sm:w-16 md:right-6 lg:right-10 lg:h-20 lg:w-20">
+      <span className="font-mono text-[0.54rem] tracking-[0.22em] text-emerald-100/90 sm:text-[0.58rem] lg:text-[0.7rem]">
+        2026
+      </span>
     </div>
   );
 }
@@ -338,13 +346,13 @@ export const HeroSection = () => {
   const [loadScene, setLoadScene] = useState(false);
 
   useEffect(() => {
-    const capability = getHeroSceneCapability();
+    const capability = getHeroSceneCapability(env.webgl);
     if (process.env.NODE_ENV !== "production" && !hasLoggedHeroSceneCapability) {
       console.info("[hero-3d] capability", capability);
       hasLoggedHeroSceneCapability = true;
     }
     setLoadScene(capability.enabled);
-  }, []);
+  }, [env.webgl]);
 
   /* scroll parallax — rAF-throttled DOM writes; detached once hero is off-screen */
   useEffect(() => {
@@ -389,7 +397,7 @@ export const HeroSection = () => {
       <div className="container relative z-10 mx-auto flex h-full w-full items-center px-6 py-16 lg:py-12">
         <div
           ref={contentRef}
-          className="grid w-full items-center gap-14 will-change-transform lg:grid-cols-[1.05fr_0.95fr]"
+          className="relative grid w-full items-center gap-10 sm:gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14"
         >
           {/* LEFT */}
           <div className="min-w-0">

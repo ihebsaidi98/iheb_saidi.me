@@ -782,6 +782,32 @@ export default function HeroScene3D() {
         ? "demand"
         : "always";
 
+  const cameraConfig = useMemo(
+    () => ({
+      position: [0, 0.4, 8] as [number, number, number],
+      fov: env.mobile ? 55 : 45,
+      near: 0.1,
+      far: 40,
+    }),
+    [env.mobile],
+  );
+
+  const dprConfig = useMemo(
+    () => (env.mobile || env.lowPower ? 1 : ([1, 1.5] as [number, number])),
+    [env.mobile, env.lowPower],
+  );
+
+  const glConfig = useMemo(
+    () => ({
+      alpha: true,
+      antialias: !env.mobile && !env.lowPower,
+      powerPreference: "high-performance" as const,
+      stencil: false,
+      depth: true,
+    }),
+    [env.mobile, env.lowPower],
+  );
+
   return (
     <div
       ref={wrapperRef}
@@ -796,24 +822,9 @@ export default function HeroScene3D() {
       {showCanvas ? (
         <Canvas
           frameloop={frameloop}
-          camera={{
-            position: [0, 0.4, 8],
-            fov: env.mobile ? 55 : 45,
-            near: 0.1,
-            far: 40,
-          }}
-          dpr={
-            env.mobile || env.lowPower
-              ? 1
-              : [1, 1.5]
-          }
-          gl={{
-            alpha: true,
-            antialias: !env.mobile && !env.lowPower,
-            powerPreference: "high-performance",
-            stencil: false,
-            depth: true,
-          }}
+          camera={cameraConfig}
+          dpr={dprConfig}
+          gl={glConfig}
           style={{
             position: "absolute",
             inset: 0,

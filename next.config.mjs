@@ -1,12 +1,6 @@
 /** @type {import('next').NextConfig} */
 import nextBundleAnalyzer from "@next/bundle-analyzer";
 
-const isDev = process.env.NODE_ENV === "development";
-const connectSrc = isDev ? "'self' ws: http: https:" : "'self'";
-const scriptSrc = isDev
-  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-  : "script-src 'self' 'unsafe-inline'";
-
 const nextConfig = {
   async headers() {
     const isDev = process.env.NODE_ENV === "development";

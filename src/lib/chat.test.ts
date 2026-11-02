@@ -36,6 +36,10 @@ import {
   formatUserPrompt,
   escapeXml,
   ProxyConfigurationError,
+  cleanChatResponse,
+  cleanSourceTitle,
+  isGreeting,
+  GREETING_RESPONSE,
   SYSTEM_PROMPT,
   MAX_MESSAGE_LENGTH,
   MAX_HISTORY_TURNS,
@@ -1068,4 +1072,149 @@ describe("Audit Point L — Timeout and AbortController propagation", () => {
     );
   });
 });
+
+// ============================================================
+// cleanChatResponse & cleanSourceTitle
+// ============================================================
+
+describe("cleanChatResponse — RAG response post-processing & anti-artifact filter", () => {
+  it("strips robotic preamble filler", () => {
+    const raw = "Based on the provided portfolio data, Iheb primarily works with Java and Spring Boot.";
+    const cleaned = cleanChatResponse(raw);
+    assert.equal(cleaned, "Iheb primarily works with Java and Spring Boot.");
+
+    const raw2 = "According to Iheb's portfolio, he is based in Tunis.";
+    const cleaned2 = cleanChatResponse(raw2);
+    assert.equal(cleaned2, "he is based in Tunis.");
+  });
+
+  it("strips inline citation markers [1], [2], [1, 2], [chunk-1]", () => {
+    const raw = "Iheb develops with Spring Boot [1] and PostgreSQL [2]. He also uses Docker [1, 2] and Redis [chunk-abc].";
+    const cleaned = cleanChatResponse(raw);
+    assert.equal(cleaned, "Iheb develops with Spring Boot and PostgreSQL. He also uses Docker and Redis.");
+  });
+
+  it("strips trailing Sources / References blocks", () => {
+    const raw = `Iheb primarily works with Java, Spring Boot and Angular.
+
+His backend skills include REST APIs and PostgreSQL.
+
+Sources:
+[1] Technical Skills — backend
+[2] Technical Skills — frontend`;
+
+    const cleaned = cleanChatResponse(raw);
+    assert.equal(
+      cleaned,
+      "Iheb primarily works with Java, Spring Boot and Angular.\n\nHis backend skills include REST APIs and PostgreSQL.",
+    );
+  });
+
+  it("strips run-together raw RAG labels and document metadata lines", () => {
+    const raw = `Iheb is a full-stack engineer.
+
+SkillsTechnical Skills — backend
+ProfileIheb Saidi — Professional Profile`;
+
+    const cleaned = cleanChatResponse(raw);
+    assert.equal(cleaned, "Iheb is a full-stack engineer.");
+  });
+
+  it("strips isolated raw document title headers", () => {
+    const raw = `Technical Skills — backend
+Iheb specializes in Java and microservices architecture.`;
+
+    const cleaned = cleanChatResponse(raw);
+    assert.equal(cleaned, "Iheb specializes in Java and microservices architecture.");
+  });
+
+  it("preserves clean conversational markdown and code blocks", () => {
+    const input = `Iheb primarily works with Java, Spring Boot and Angular.
+
+His backend skills include REST APIs, microservices, PostgreSQL and Redis. On the frontend, he works with Angular, TypeScript, RxJS and Tailwind CSS.
+
+He also has experience with AI integration, including Spring AI, LangChain4j, OpenAI and Anthropic APIs, pgvector and embeddings.`;
+
+    const cleaned = cleanChatResponse(input);
+    assert.equal(cleaned, input);
+  });
+});
+
+describe("cleanSourceTitle — human-readable reference titles", () => {
+  it("cleans internal skill titles to readable category names", () => {
+    assert.equal(cleanSourceTitle("Technical Skills — backend", "skills"), "Backend Development");
+    assert.equal(cleanSourceTitle("Technical Skills — frontend", "skills"), "Frontend Development");
+    assert.equal(cleanSourceTitle("Technical Skills — ai-ml", "skills"), "AI & Machine Learning");
+    assert.equal(cleanSourceTitle("Technical Skills — cloud-devops", "skills"), "Cloud & DevOps");
+  });
+
+  it("cleans profile and contact titles", () => {
+    assert.equal(cleanSourceTitle("Iheb Saidi — Professional Profile", "profile"), "Professional Profile");
+    assert.equal(cleanSourceTitle("Contact Information — Iheb Saidi", "contact"), "Contact Information");
+  });
+
+  it("preserves custom project and experience titles", () => {
+    assert.equal(cleanSourceTitle("AgroRetail OS", "project"), "AgroRetail OS");
+    assert.equal(cleanSourceTitle("Experience at Novatek", "experience"), "Experience at Novatek");
+  });
+});
+
+describe("SYSTEM_PROMPT — conversational quality & adaptive formatting rules", () => {
+  it("mandates direct conversational tone without filler intros", () => {
+    assert.ok(SYSTEM_PROMPT.includes("Direct & Conversational Tone"));
+    assert.ok(SYSTEM_PROMPT.includes("Avoid generic introductions"));
+    assert.ok(SYSTEM_PROMPT.includes("Avoid unnecessary conclusions"));
+  });
+
+  it("mandates smart & adaptive formatting rules", () => {
+    assert.ok(SYSTEM_PROMPT.includes("Smart & Adaptive Formatting"));
+    assert.ok(SYSTEM_PROMPT.includes("For simple questions"));
+    assert.ok(SYSTEM_PROMPT.includes("For technical stack questions"));
+    assert.ok(SYSTEM_PROMPT.includes("Use bullet points ONLY"));
+  });
+
+  it("strictly forbids raw metadata, chunk indices, and citation leakage", () => {
+    assert.ok(SYSTEM_PROMPT.includes("NEVER expose or output raw document chunks"));
+    assert.ok(SYSTEM_PROMPT.includes("chunk numbers"));
+    assert.ok(SYSTEM_PROMPT.includes("NEVER include citation markers"));
+  });
+
+  it("enforces third person and untrusted context security warning", () => {
+    assert.ok(SYSTEM_PROMPT.includes("Refer to Iheb in the third person."));
+    assert.ok(SYSTEM_PROMPT.includes("untrusted"));
+  });
+});
+
+describe("isGreeting — short-circuit pure greetings to avoid unnecessary RAG", () => {
+  it("detects common greetings and pleasantries", () => {
+    assert.equal(isGreeting("hi"), true);
+    assert.equal(isGreeting("Hi!"), true);
+    assert.equal(isGreeting("hello"), true);
+    assert.equal(isGreeting("Hello."), true);
+    assert.equal(isGreeting("hey"), true);
+    assert.equal(isGreeting("hey there"), true);
+    assert.equal(isGreeting("hi there!"), true);
+    assert.equal(isGreeting("good morning"), true);
+    assert.equal(isGreeting("Good afternoon"), true);
+    assert.equal(isGreeting("good evening!"), true);
+    assert.equal(isGreeting("howdy"), true);
+    assert.equal(isGreeting("who are you?"), true);
+    assert.equal(isGreeting("what can you do?"), true);
+    assert.equal(isGreeting("help"), true);
+  });
+
+  it("does not trigger on substantive portfolio questions", () => {
+    assert.equal(isGreeting("What technologies does Iheb use?"), false);
+    assert.equal(isGreeting("Hi, where is Iheb located?"), false);
+    assert.equal(isGreeting("Hello, what is your experience with Java?"), false);
+    assert.equal(isGreeting("Tell me about AgroRetail OS"), false);
+    assert.equal(isGreeting(""), false);
+  });
+
+  it("exports a natural, friendly greeting response", () => {
+    assert.ok(GREETING_RESPONSE.includes("Iheb Saidi"));
+    assert.ok(GREETING_RESPONSE.includes("Java"));
+  });
+});
+
 

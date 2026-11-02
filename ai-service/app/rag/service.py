@@ -13,6 +13,7 @@ from app.rag.grounding import (
     INSUFFICIENT_EVIDENCE_REPLY,
     SYSTEM_PROMPT,
     build_gemini_chat_contents,
+    clean_chat_response,
     deduplicate_sources,
 )
 from app.rag.retriever import retrieve_relevant_chunks
@@ -215,7 +216,8 @@ class RAGService:
         )
 
         reply_text = await self._generate_grounded_reply(contents)
-        return ChatResponse(reply=reply_text, sources=sources)
+        clean_reply = clean_chat_response(reply_text)
+        return ChatResponse(reply=clean_reply, sources=sources)
 
     async def _generate_grounded_reply(self, contents: list[types.Content]) -> str:
         """Call Gemini chat generation with candidate model fallback and timeouts."""

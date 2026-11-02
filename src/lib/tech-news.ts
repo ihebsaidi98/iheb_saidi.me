@@ -84,7 +84,7 @@ type FeedConfig = {
 const DEVTO = (tag: string, n = 8): string =>
   `https://dev.to/api/articles?tag=${tag}&per_page=${n}&top=30`;
 
-export const FEEDS: ReadonlyArray<FeedConfig> = [
+const FEEDS: ReadonlyArray<FeedConfig> = [
   // --- AI & LLMs ---
   { id: "devto-ai", name: "DEV Community", url: DEVTO("artificial-intelligence", 8), category: "ai-llm", type: "devto" },
   { id: "devto-llm", name: "DEV Community", url: DEVTO("llm", 6), category: "ai-llm", type: "devto" },

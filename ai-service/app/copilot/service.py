@@ -166,6 +166,22 @@ class CareerCopilotService:
             if kw in haystack:
                 matched_records.append(record)
 
+        # Prioritize dedicated project/experience records and direct title/id matches over profile overviews
+        matched_records.sort(
+            key=lambda r: (
+                0
+                if (
+                    r.type in ("project", "experience")
+                    and (kw in r.title.lower() or kw in r.id.lower())
+                )
+                else 1
+                if (kw in r.title.lower() or kw in r.id.lower())
+                else 2
+                if r.type in ("project", "experience")
+                else 3
+            )
+        )
+
         if not matched_records:
             # Fallback to semantic search
             search_res = await self.rag_service.search(

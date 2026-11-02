@@ -16,21 +16,45 @@ const SERVER_ENV: Environment = {
   reduceMotion: false,
 };
 
+let webglCapable: boolean | null = null;
+
+function probeWebGL(): boolean {
+  if (webglCapable !== null) return webglCapable;
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+
+    const ctx =
+      (canvas.getContext("webgl2", { failIfMajorPerformanceCaveat: true }) as WebGL2RenderingContext | null) ??
+      (canvas.getContext("webgl", { failIfMajorPerformanceCaveat: true }) as WebGLRenderingContext | null);
+
+    webglCapable = ctx !== null;
+
+    if (ctx) {
+      const ext =
+        (ctx as WebGL2RenderingContext).getExtension?.("WEBGL_lose_context") ??
+        (ctx as WebGLRenderingContext).getExtension?.("WEBGL_lose_context");
+      ext?.loseContext();
+    }
+
+    canvas.width = 0;
+    canvas.height = 0;
+  } catch {
+    webglCapable = false;
+  }
+
+  return webglCapable;
+}
+
 let cached: Environment | null = null;
 
 function detect(): Environment {
   if (cached) return cached;
 
-  let webgl = false;
-  try {
-    const canvas = document.createElement("canvas");
-    webgl = Boolean(
-      canvas.getContext("webgl2", { failIfMajorPerformanceCaveat: true }) ??
-        canvas.getContext("webgl", { failIfMajorPerformanceCaveat: true }),
-    );
-  } catch {
-    webgl = false;
-  }
+  const webgl = probeWebGL();
 
   const mobile =
     window.matchMedia("(max-width: 768px)").matches ||

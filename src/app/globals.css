@@ -563,8 +563,137 @@
   50%, 100% { opacity: 0; }
 }
 
+@keyframes hero-card-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -6px, 0); }
+}
+
+@keyframes year-badge-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -5px, 0); }
+}
+
+.hero-code-card,
+.hero-card-shell,
+.hero-terminal-code,
+.hero-terminal-code code {
+  box-sizing: border-box;
+}
+
+.hero-code-card {
+  position: relative;
+  display: block;
+  width: min(100%, 340px);
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  animation: hero-card-float 8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.hero-card-shell {
+  width: min(100%, 340px);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hero-terminal-code {
+  max-width: 100%;
+  height: clamp(220px, 26vw, 360px);
+  min-height: 220px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(110, 231, 183, 0.32) rgba(255, 255, 255, 0.04);
+}
+
+.hero-terminal-code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.hero-terminal-code::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hero-terminal-code::-webkit-scrollbar-thumb {
+  background: rgba(110, 231, 183, 0.32);
+  border-radius: 999px;
+}
+
+.hero-terminal-code code {
+  display: block;
+  min-width: max-content;
+  white-space: pre;
+}
+
+.hero-year-badge {
+  animation: year-badge-float 8.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .hero-card-shell {
+    padding-right: 3.75rem;
+  }
+
+  .hero-year-badge {
+    right: 0.8rem;
+    top: 1rem;
+    transform: none;
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-letter { animation: none; opacity: 1; transform: none; }
+  .hero-code-card,
+  .hero-year-badge { animation: none !important; }
+}
+
+@media (max-width: 767px) {
+  #top {
+    height: auto !important;
+    min-height: 100svh;
+  }
+
+  .hero-code-card {
+    animation: none;
+    width: min(100%, calc(100vw - 32px));
+    max-height: none;
+    margin-inline: auto;
+  }
+
+  .hero-card-shell {
+    width: min(100%, calc(100vw - 32px));
+    margin-inline: auto;
+    margin-top: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .hero-terminal-code {
+    overflow-x: auto;
+    overflow-y: auto;
+    min-height: 180px !important;
+    height: clamp(180px, 30vh, 260px);
+    max-height: 260px;
+    font-size: 7px;
+    line-height: 1.55;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .hero-terminal-code code {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .hero-year-badge {
+    top: 1rem;
+    right: 0.75rem;
+    bottom: auto;
+    width: 3.5rem;
+    height: 3.5rem;
+  }
 }
 
 /* =========================================================

@@ -28,6 +28,7 @@ import type {
   SubmitAnswerAck,
   StartInterviewResponse,
 } from "@/lib/ai-service-client";
+import { TOTAL_QUESTIONS } from "@/lib/interview";
 
 // ============================================================
 // TYPES
@@ -106,7 +107,7 @@ export const INITIAL_INTERVIEW_STATE: InterviewState = {
   config: null,
   currentQuestion: null,
   questionNumber: 0,
-  totalQuestions: 10,
+  totalQuestions: TOTAL_QUESTIONS,
   answeredCount: 0,
   completionReport: null,
   errorMessage: null,
@@ -133,7 +134,7 @@ export function interviewReducer(
         config: action.config,
         currentQuestion: action.question,
         questionNumber: action.question.question_number || 1,
-        totalQuestions: action.totalQuestions || 10,
+        totalQuestions: action.totalQuestions || TOTAL_QUESTIONS,
         answeredCount: 0,
         completionReport: null,
         errorMessage: null,

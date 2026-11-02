@@ -110,12 +110,12 @@ function renderInline(text: string): React.ReactNode[] {
     if (match[0].startsWith("**")) {
       parts.push(<strong key={match.index} className="font-semibold text-white">{match[2]}</strong>);
     } else if (match[0].startsWith("*")) {
-      parts.push(<em key={match.index} className="italic text-white/80">{match[3]}</em>);
+      parts.push(<em key={match.index} className="italic text-white/82">{match[3]}</em>);
     } else {
       parts.push(
         <code
           key={match.index}
-          className="rounded bg-white/8 px-1 py-0.5 font-mono text-[0.8em] text-emerald-300/90"
+          className="rounded-md bg-emerald-400/8 px-1.5 py-0.5 font-mono text-[0.8em] text-emerald-300 ring-1 ring-emerald-400/15"
         >
           {match[4]}
         </code>,
@@ -149,8 +149,8 @@ function groupTokens(tokens: Token[]): React.ReactNode[] {
       nodes.push(
         <ul key={`ul-${i}`} className="my-1.5 space-y-1 pl-4" role="list">
           {items.map((item, idx) => (
-            <li key={idx} className="flex gap-2 leading-relaxed text-white/75">
-              <span aria-hidden className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full bg-emerald-400/70" />
+            <li key={idx} className="flex gap-2 leading-relaxed text-white/78">
+              <span aria-hidden className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full bg-emerald-400/80" />
               <span>{renderInline(item)}</span>
             </li>
           ))}
@@ -169,8 +169,8 @@ function groupTokens(tokens: Token[]): React.ReactNode[] {
       nodes.push(
         <ol key={`ol-${i}`} className="my-1.5 space-y-1 pl-4" role="list">
           {items.map((item, idx) => (
-            <li key={idx} className="flex gap-2 leading-relaxed text-white/75">
-              <span aria-hidden className="shrink-0 font-mono text-[0.75em] text-emerald-400/60">
+            <li key={idx} className="flex gap-2 leading-relaxed text-white/78">
+              <span aria-hidden className="shrink-0 font-mono text-[0.75em] text-emerald-400/80">
                 {counter + idx}.
               </span>
               <span>{renderInline(item)}</span>
@@ -201,7 +201,7 @@ function groupTokens(tokens: Token[]): React.ReactNode[] {
       nodes.push(
         <pre
           key={`pre-${i}`}
-          className="my-2 overflow-x-auto rounded-lg bg-[#0a0f14] p-3 font-mono text-[0.75em] leading-relaxed text-emerald-300/80"
+          className="my-2 overflow-x-auto rounded-lg border border-white/[0.08] bg-[#060b10] p-3 font-mono text-[0.75em] leading-relaxed text-emerald-300/90"
         >
           <code>{t.code}</code>
         </pre>,
@@ -212,7 +212,7 @@ function groupTokens(tokens: Token[]): React.ReactNode[] {
 
     if (t.kind === "paragraph") {
       nodes.push(
-        <p key={`p-${i}`} className="leading-relaxed text-white/75">
+        <p key={`p-${i}`} className="leading-relaxed text-white/80">
           {renderInline(t.text)}
         </p>,
       );

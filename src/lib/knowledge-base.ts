@@ -179,6 +179,67 @@ function buildDocumentText(document: {
   ].join("\n\n");
 }
 
+/**
+ * Authoritative classification for each experience organization.
+ * Distinguishes freelance assignments, salaried employment, internships, and academic projects.
+ */
+function getExperienceClassification(organization: string): {
+  engagementType: string;
+  classificationNotice?: string;
+} {
+  switch (organization) {
+    case "AgroRetail OS":
+      return {
+        engagementType: "Professional Experience (Independent Freelance Assignment)",
+        classificationNotice:
+          "Important factual boundary: AgroRetail OS is an independent professional freelance assignment carried out by Iheb (2026 – Present). He was not employed as a salaried staff member by AgroRetail OS or any other company for this work.",
+      };
+    case "Novatek (Délice Group)":
+      return {
+        engagementType: "Professional Experience (Salaried Full-time Employment)",
+        classificationNotice:
+          "Full-time salaried software engineering employment at Novatek (Délice Group) from July 2024 to January 2026.",
+      };
+    case "Tunisair":
+      return {
+        engagementType: "Professional Experience (Enterprise Solution Delivery)",
+        classificationNotice:
+          "Enterprise software development role at Tunisair (January 2024 – July 2024) delivering an ITSM and AI document-analysis platform.",
+      };
+    case "Xtensus, Ariana":
+      return {
+        engagementType: "Internship (Summer 2023)",
+        classificationNotice:
+          "Student summer developer internship (July 2023 – August 2023) at Xtensus, Ariana.",
+      };
+    case "World Soft Group, Marsa":
+      return {
+        engagementType: "Internship (Summer 2022)",
+        classificationNotice:
+          "Student summer developer internship (July 2022 – September 2022) at World Soft Group, Marsa.",
+      };
+    case "ISIMS, Sfax — Bachelor's Final Project":
+      return {
+        engagementType: "Academic Project (Bachelor's Final Graduation Project / PFE)",
+        classificationNotice:
+          "Academic graduation project (PFE) at ISIMS Sfax (February 2021 – June 2021). This was an academic graduation project, not an employment contract with ISIMS.",
+      };
+    default:
+      return {
+        engagementType: "Professional Experience",
+      };
+  }
+}
+
+function getEngineerRoleForCompany(company: string): string {
+  if (company === "AgroRetail OS") return "Full Stack Engineer (Freelance)";
+  if (company === "Novatek") return "Full Stack Engineer";
+  if (company === "Xtensus" || company.includes("Xtensus")) return "Full Stack Developer (Internship)";
+  if (company === "World Soft Group" || company.includes("World Soft")) return "Full Stack Developer (Internship)";
+  if (company === "ISIMS" || company.includes("ISIMS")) return "Full Stack Developer (Bachelor's Final Project)";
+  return "Full Stack Developer";
+}
+
 // ============================================================
 // DOCUMENTS
 // ============================================================
@@ -192,15 +253,26 @@ const portfolioDocuments: KnowledgeDocument[] = [
     type: "profile",
     title: "Iheb Saidi — Professional Profile",
     summary:
-      "Full-stack software engineer based in Tunis, Tunisia, specialising in Java, Spring Boot, Angular, microservices, and AI-assisted workflows. Currently working at AgroRetail OS and open to new opportunities.",
+      "Full-stack software engineer based in Tunis, Tunisia, specialising in Java, Spring Boot, Angular, microservices, and AI-assisted workflows. Currently working as an independent freelance engineer on AgroRetail OS and open to new opportunities.",
     content: [
       `Iheb Saidi is a full-stack software engineer based in ${locationShort} (timezone: ${profile.timezone}).`,
       `His professional title is: ${profile.title}.`,
       ``,
       `He specialises in Java and Spring Boot backends, Angular and TypeScript frontends, event-driven microservices, production-grade REST APIs, and AI/LLM-assisted application workflows using Spring AI and pgvector.`,
       ``,
-      `He is currently working at AgroRetail OS (since 2026) and is ${availability.toLowerCase()}.`,
-      `He is open to relocation and typically responds to messages within 24 hours.`,
+      `Education & Degrees:`,
+      `- Engineering Degree in Computer Science (Bac+5) from ESPRIT (2021–2024).`,
+      `- Bachelor's Degree in Computer Science (Bac+3) from ISIMS Sfax (2017–2021).`,
+      ``,
+      `Career History & Employment Boundaries:`,
+      `- Current status: Works as an independent freelance software engineer on AgroRetail OS (since 2026) and is ${availability.toLowerCase()}. Open to relocation.`,
+      `- Important: AgroRetail OS is an independent professional freelance assignment; Iheb was not employed as a salaried staff member by AgroRetail OS.`,
+      `- Salaried full-time employment: Full Stack Engineer at Novatek (Délice Group) from July 2024 to January 2026.`,
+      `- Experience duration & Seniority: Full Stack Software Engineer (mid-level, not senior, not lead). Post-graduate professional engineering experience began upon graduation from ESPRIT in 2024. Practical hands-on programming with Java and Spring Boot dates from 2019 across university, internships, and commercial projects; Angular since 2020.`,
+      `- Internships: Xtensus (summer 2023), World Soft Group (summer 2022).`,
+      `- Academic final project: NLP chatbot at ISIMS Sfax (2021).`,
+      ``,
+      `He typically responds to messages within 24 hours.`,
     ].join("\n"),
     source: "src/data/profile.ts",
     tags: [
@@ -213,6 +285,7 @@ const portfolioDocuments: KnowledgeDocument[] = [
       "tunis",
       "tunisia",
       "available",
+      "freelance",
     ],
     metadata: { visibility: "public", location: "Tunis, Tunisia" },
     public: true,
@@ -290,33 +363,39 @@ const portfolioDocuments: KnowledgeDocument[] = [
   // 4. PROFESSIONAL EXPERIENCE — career perspective (experience.ts)
   //    Captures the role, growth story, and learning context.
   // ----------------------------------------------------------
-  ...experience.map((entry) => ({
-    id: `experience-${normalizeId(entry.organization)}`,
-    type: "experience" as const,
-    title: `${entry.role} at ${entry.organization} (${entry.period})`,
-    summary: entry.details[0] ?? `${entry.role} at ${entry.organization}.`,
-    content: [
-      `Role: ${entry.role}`,
-      `Company / Organisation: ${entry.organization}`,
-      `Period: ${entry.period}`,
-      ``,
-      `Key contributions and learnings:`,
-      entry.details.map((d) => `- ${d}`).join("\n"),
-    ].join("\n"),
-    source: "src/data/experience.ts",
-    tags: [
-      "experience",
-      normalizeId(entry.organization),
-      normalizeId(entry.role),
-    ],
-    metadata: {
-      company: entry.organization,
-      role: entry.role,
-      period: entry.period,
-      visibility: "public" as const,
-    },
-    public: true,
-  })),
+  ...experience.map((entry) => {
+    const classification = getExperienceClassification(entry.organization);
+    return {
+      id: `experience-${normalizeId(entry.organization)}`,
+      type: "experience" as const,
+      title: `${entry.role} at ${entry.organization} (${entry.period})`,
+      summary: entry.details[0] ?? `${entry.role} at ${entry.organization}.`,
+      content: [
+        `Role: ${entry.role}`,
+        `Company / Organisation: ${entry.organization}`,
+        `Engagement Type: ${classification.engagementType}`,
+        `Period: ${entry.period}`,
+        ...(classification.classificationNotice ? [``, classification.classificationNotice] : []),
+        ``,
+        `Key contributions and learnings:`,
+        entry.details.map((d) => `- ${d}`).join("\n"),
+      ].join("\n"),
+      source: "src/data/experience.ts",
+      tags: [
+        "experience",
+        normalizeId(entry.organization),
+        normalizeId(entry.role),
+        normalizeId(classification.engagementType),
+      ],
+      metadata: {
+        company: entry.organization,
+        role: entry.role,
+        period: entry.period,
+        visibility: "public" as const,
+      },
+      public: true,
+    };
+  }),
 
   // ----------------------------------------------------------
   // 5. PROFESSIONAL PROJECTS — technical detail (projects.ts)
@@ -325,16 +404,32 @@ const portfolioDocuments: KnowledgeDocument[] = [
   ...professionalExperience.map((entry) => {
     const techInText = extractTechFromText(entry.impact);
     const metrics = formatMetrics(entry.metrics);
+    const classification = getExperienceClassification(
+      entry.company === "Novatek"
+        ? "Novatek (Délice Group)"
+        : entry.company === "Xtensus"
+          ? "Xtensus, Ariana"
+          : entry.company === "World Soft Group"
+            ? "World Soft Group, Marsa"
+            : entry.company === "ISIMS"
+              ? "ISIMS, Sfax — Bachelor's Final Project"
+              : entry.company,
+    );
+    const actualRole = getEngineerRoleForCompany(entry.company);
     return {
       id: `project-${entry.slug}`,
       type: "project" as const,
       title: `${entry.company} — ${entry.role} (${entry.period})`,
       summary: entry.description,
       content: [
-        `Company: ${entry.company}`,
+        `Company / Organization: ${entry.company}`,
+        `Project Title: ${entry.role}`,
+        `Engineer Role: ${actualRole}`,
         `Role: ${entry.role}`,
+        `Engagement Type: ${classification.engagementType}`,
         `Period: ${entry.period}`,
         `Location: ${entry.location}`,
+        ...(classification.classificationNotice ? [``, classification.classificationNotice] : []),
         ``,
         `Description: ${entry.description}`,
         ``,
@@ -351,6 +446,7 @@ const portfolioDocuments: KnowledgeDocument[] = [
         "professional",
         normalizeId(entry.company),
         normalizeId(entry.role),
+        normalizeId(actualRole),
         entry.slug,
       ],
       metadata: {
@@ -440,12 +536,23 @@ const portfolioDocuments: KnowledgeDocument[] = [
   {
     id: "meta-chatbot-rules",
     type: "meta",
-    title: "Portfolio Chatbot — Scope and Guidelines",
+    title: "Portfolio Chatbot — Scope, Grounding and Factual Boundaries",
     summary:
-      "Internal guidance for the AI assistant: scope, tone, and privacy boundaries. Not for display to users.",
+      "Internal guidance for the AI assistant: scope, factual boundaries, tone, and privacy. Not for display to users.",
     content: [
       "PURPOSE",
       "This AI assistant is embedded on Iheb Saidi's portfolio website to help visitors learn about his professional background, skills, projects, and how to contact him.",
+      "",
+      "FACTUAL GROUNDING & BOUNDARIES (STRICT)",
+      "1. AgroRetail OS: Classify strictly as an independent professional freelance assignment (2026–Present). Never state that Iheb was employed by AgroRetail OS or that AgroRetail OS was his employer. Never classify it as a personal hobby project. Distinguish freelance assignments from salaried employment.",
+      "2. Salaried Employment: Novatek (Délice Group) from July 2024 to January 2026 is his documented full-time salaried engineering employment.",
+      "3. Internships & Academic Work: Xtensus (Jul–Aug 2023) and World Soft Group (Jul–Sep 2022) were student internships. ISIMS Sfax (Feb–Jun 2021) was an academic Bachelor's graduation project (PFE), not an employment contract.",
+      "4. Project Titles vs. Job Titles: Never confuse project or system names ('Multi-tenant SaaS for Agricultural Retail', 'Real-Time Industrial Supervision Platform', 'ITSM & AI Platform') with job titles. Iheb's actual roles are Full Stack Engineer or Developer.",
+      "5. Seniority: Iheb is a Full Stack Software Engineer (mid-level). Never describe him as 'Senior', 'Lead', 'Architect', or 'Manager'. He graduated from ESPRIT in 2024.",
+      "6. Experience Duration: Java/Spring Boot experience dates to 2019 (spanning studies, internships, and commercial work); Angular to 2020. Post-graduate full-time professional experience began in 2024.",
+      "7. Unsupported Technologies: Only claim skills documented in the portfolio (Java, Spring Boot, Angular, TypeScript, Python, PostgreSQL, MySQL, Redis, pgvector, Docker, AWS, Spring AI, LangChain4j). If asked about Rust, Go, Kubernetes, React, C#, Kafka, GraphQL, or other unlisted tools, clearly state that this information is not available in the portfolio data.",
+      "8. Partial Answers & Missing Information: If a question asks about supported and unsupported topics (e.g. Java and COBOL), answer the supported part and explicitly state that the other is not in the portfolio data. When context is missing, say: 'I don't have that information in my portfolio data.'",
+      "9. No Citations: Never display document titles, chunk markers ([1], [2]), or source references in answers.",
       "",
       "TOPICS TO ANSWER",
       "- Technical skills (Java, Spring Boot, Angular, TypeScript, microservices, AI/LLM, DevOps)",
@@ -462,13 +569,12 @@ const portfolioDocuments: KnowledgeDocument[] = [
       "- Anything not covered by the provided portfolio context",
       "",
       "TONE AND FORMAT",
-      "Be concise, professional, and factual. Refer to Iheb in the third person.",
+      "Be concise, professional, direct, and factual. Refer to Iheb in the third person.",
       "Do not fabricate, infer, or embellish information beyond what is provided in the context chunks.",
-      "When the context does not contain a sufficient answer, say so honestly.",
-      "Keep responses short unless detail is explicitly requested.",
+      "When the context does not contain a sufficient answer, say: 'I don't have that information in my portfolio data.'",
     ].join("\n"),
     source: "src/lib/knowledge-base.ts",
-    tags: ["meta", "chatbot", "rules", "system", "internal"],
+    tags: ["meta", "chatbot", "rules", "system", "internal", "grounding"],
     metadata: {},
     public: false,
   },
@@ -686,7 +792,7 @@ export function validatePortfolioKnowledgeBase(
 // Surfaces data issues during `npm run build` and `npm test`.
 // ============================================================
 
-export const portfolioKnowledgeValidation = validatePortfolioKnowledgeBase();
+const portfolioKnowledgeValidation = validatePortfolioKnowledgeBase();
 
 if (!portfolioKnowledgeValidation.valid) {
   throw new Error(

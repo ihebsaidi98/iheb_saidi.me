@@ -22,13 +22,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { searchPortfolioKnowledge } from "@/lib/rag";
+import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import {
-  InMemoryRateLimiter,
   validateChatRequest,
   sanitizeText,
   buildGeminiChatPayload,
   extractGeminiResponseText,
-  formatSources,
+  cleanChatResponse,
+  isGreeting,
+  GREETING_RESPONSE,
+  INSUFFICIENT_EVIDENCE_REPLY,
   extractClientIp,
   type ChatResponse,
   type ChatErrorResponse,
@@ -39,17 +42,16 @@ import {
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_CHAT_MODEL =
   process.env.GEMINI_CHAT_MODEL ?? "gemini-3.5-flash-lite";
-const CHAT_RATE_LIMIT = parseInt(process.env.CHAT_RATE_LIMIT ?? "10", 10);
-const CHAT_RATE_WINDOW_MS = parseInt(
-  process.env.CHAT_RATE_WINDOW_MS ?? "60000",
-  10,
-);
 const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS ?? "45000", 10);
 const RAG_TOP_K = 5;
 
 // Module-level singleton — persists across requests in the same process.
-const rateLimiter = new InMemoryRateLimiter(CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS);
-rateLimiter.startAutoCleanup();
+const { limit: CHAT_RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
+  "CHAT_RATE_LIMIT",
+  10,
+  "CHAT_RATE_WINDOW_MS",
+  60_000,
+);
 
 // ============================================================
 // POST /api/chat
@@ -124,6 +126,14 @@ export async function POST(
     content: sanitizeText(m.content),
   }));
 
+  // 4b. Pure greetings short-circuit (avoid unnecessary RAG retrieval and LLM call)
+  if (isGreeting(question)) {
+    return NextResponse.json(
+      { reply: GREETING_RESPONSE },
+      { status: 200, headers: rlHeaders },
+    );
+  }
+
   // 5. Guard: API key must exist before any external call
   if (!GEMINI_API_KEY) {
     console.error("[chat/route] GEMINI_API_KEY is not set.");
@@ -154,13 +164,22 @@ export async function POST(
     );
   }
 
+  // 6b. Abstain if no portfolio chunks met the relevance threshold and no conversation history exists
+  if (chunks.length === 0 && history.length === 0) {
+    return NextResponse.json(
+      { reply: INSUFFICIENT_EVIDENCE_REPLY },
+      { status: 200, headers: rlHeaders },
+    );
+  }
+
   // 7. Build grounded Gemini payload
   const payload = buildGeminiChatPayload(question, chunks, history);
 
   // 8. Call Gemini with timeout
   let reply: string;
   try {
-    reply = await callGemini(payload, GEMINI_API_KEY, GEMINI_CHAT_MODEL);
+    const rawReply = await callGemini(payload, GEMINI_API_KEY, GEMINI_CHAT_MODEL);
+    reply = cleanChatResponse(rawReply);
   } catch (err) {
     const isTimeout =
       err instanceof Error &&
@@ -191,11 +210,9 @@ export async function POST(
     );
   }
 
-  // 9. Format sources and return
-  const sources = formatSources(chunks);
-
+  // 9. Return response (sources removed from client payload per Phase 1)
   return NextResponse.json(
-    { reply, sources },
+    { reply },
     { status: 200, headers: rlHeaders },
   );
 }

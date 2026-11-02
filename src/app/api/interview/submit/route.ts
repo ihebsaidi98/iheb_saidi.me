@@ -7,34 +7,32 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { aiServiceClient, AIServiceClientError } from "@/lib/ai-service-client";
-import { InMemoryRateLimiter, extractClientIp } from "@/lib/chat";
+import { aiServiceClient } from "@/lib/ai-service-client";
+import { extractClientIp } from "@/lib/chat";
+import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import {
   MAX_SUBMIT_BODY_SIZE,
   validateSubmitAnswerRequest,
 } from "@/lib/interview";
+import {
+  checkContentLength,
+  parseJsonBody,
+  validationErrorResponse,
+  handleInterviewApiError,
+  methodNotAllowedResponse,
+} from "@/lib/interview-route-helpers";
 
-const RATE_LIMIT = parseInt(process.env.INTERVIEW_RATE_LIMIT ?? "15", 10);
-const RATE_WINDOW_MS = parseInt(
-  process.env.INTERVIEW_RATE_WINDOW_MS ?? "60000",
-  10,
+const { limit: RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
+  "INTERVIEW_RATE_LIMIT",
+  15,
+  "INTERVIEW_RATE_WINDOW_MS",
+  60_000,
 );
-
-const rateLimiter = new InMemoryRateLimiter(RATE_LIMIT, RATE_WINDOW_MS);
-rateLimiter.startAutoCleanup();
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // 1. Enforce content-length limit before body parsing
-  const contentLength = request.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > MAX_SUBMIT_BODY_SIZE) {
-    return NextResponse.json(
-      {
-        error: `Payload too large. Maximum allowed size is ${MAX_SUBMIT_BODY_SIZE} bytes.`,
-        code: "PAYLOAD_TOO_LARGE",
-      },
-      { status: 413 },
-    );
-  }
+  const lengthError = checkContentLength(request, MAX_SUBMIT_BODY_SIZE);
+  if (lengthError) return lengthError;
 
   // 2. Client IP extraction & Rate limiting
   let ip: string;
@@ -76,39 +74,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 3. Parse JSON body
-  let rawBody: unknown;
-  try {
-    const text = await request.text();
-    if (text.length > MAX_SUBMIT_BODY_SIZE) {
-      return NextResponse.json(
-        {
-          error: `Payload too large. Maximum allowed size is ${MAX_SUBMIT_BODY_SIZE} bytes.`,
-          code: "PAYLOAD_TOO_LARGE",
-        },
-        { status: 413, headers: rlHeaders },
-      );
-    }
-    rawBody = text ? JSON.parse(text) : {};
-  } catch {
-    return NextResponse.json(
-      {
-        error: "Invalid JSON in request body.",
-        code: "BAD_REQUEST",
-      },
-      { status: 400, headers: rlHeaders },
-    );
+  const bodyResult = await parseJsonBody(request, MAX_SUBMIT_BODY_SIZE, rlHeaders);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
   // 4. Validate body
-  const validation = validateSubmitAnswerRequest(rawBody);
+  const validation = validateSubmitAnswerRequest(bodyResult.data);
   if (!validation.valid) {
-    return NextResponse.json(
-      {
-        error: validation.error,
-        code: "VALIDATION_ERROR",
-      },
-      { status: validation.status, headers: rlHeaders },
-    );
+    return validationErrorResponse(validation.error, validation.status, rlHeaders);
   }
 
   // 5. Verify AI Service configuration
@@ -138,89 +112,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(result, { status: 200, headers: rlHeaders });
   } catch (err) {
-    if (err instanceof AIServiceClientError) {
-      if (err.code === "TOKEN_MISMATCH") {
-        const cleanMessage = err.message.replace(/^\[AIServiceClient\]\s*/, "");
-        return NextResponse.json(
-          {
-            error: cleanMessage,
-            code: "TOKEN_MISMATCH",
-          },
-          { status: 403, headers: rlHeaders },
-        );
-      }
-
-      if (err.status === 401 || err.status === 403) {
-        console.error(
-          `[interview/submit] Upstream auth rejected (${err.code}):`,
-          err.message,
-        );
-        return NextResponse.json(
-          {
-            error:
-              "Internal interview service authentication failed. Please contact the site owner.",
-            code: "AUTH_ERROR",
-          },
-          { status: 500, headers: rlHeaders },
-        );
-      }
-
-      if (err.code === "INVALID_RESPONSE") {
-        console.error("[interview/submit] Upstream invalid response:", err.message);
-        return NextResponse.json(
-          {
-            error: "Upstream interview service returned an unexpected response format.",
-            code: "UPSTREAM_ERROR",
-          },
-          { status: 502, headers: rlHeaders },
-        );
-      }
-
-      if (err.isUnavailable || err.status === 503) {
-        const cleanMessage = err.message.replace(/^\[AIServiceClient\]\s*/, "");
-        return NextResponse.json(
-          {
-            error: cleanMessage,
-            code: err.code || "SERVICE_UNAVAILABLE",
-          },
-          { status: 503, headers: rlHeaders },
-        );
-      }
-
-      if (err.status && err.status >= 400 && err.status < 500) {
-        const cleanMessage = err.message.replace(/^\[AIServiceClient\]\s*/, "");
-        return NextResponse.json(
-          {
-            error: cleanMessage,
-            code: err.code || "REQUEST_ERROR",
-          },
-          { status: err.status, headers: rlHeaders },
-        );
-      }
-    }
-
-    console.error("[interview/submit] Unexpected failure:", err);
-    return NextResponse.json(
-      {
-        error: "Failed to evaluate technical interview answer.",
-        code: "INTERVIEW_ERROR",
-      },
-      { status: 502, headers: rlHeaders },
-    );
+    return handleInterviewApiError(err, {
+      routeLabel: "interview/submit",
+      fallbackMessage: "Failed to evaluate technical interview answer.",
+      headers: rlHeaders,
+    });
   }
 }
 
 export async function GET(): Promise<NextResponse> {
-  return NextResponse.json(
-    {
-      error: "Method Not Allowed. Use POST to submit an interview answer.",
-      code: "METHOD_NOT_ALLOWED",
-    },
-    {
-      status: 405,
-      headers: {
-        Allow: "POST",
-      },
-    },
+  return methodNotAllowedResponse(
+    "Method Not Allowed. Use POST to submit an interview answer.",
   );
 }

@@ -10,7 +10,6 @@
  *   - chunkKnowledgeDocuments — split documents into overlapping chunks
  *   - validateEmbeddingVector — enforce vector dimension and finite number checks
  *   - InMemoryVectorStore     — cosine-similarity vector store with load/export
- *   - PgVectorStore           — optional Postgres/pgvector backend (768 dims)
  *   - getDefaultEmbeddingFunction — Gemini embedContent with RETRIEVAL_QUERY/RETRIEVAL_DOCUMENT
  *   - indexPortfolioKnowledge — embed + upsert all public portfolio docs
  *   - searchPortfolioKnowledge — search against precomputed/cached index without re-indexing
@@ -88,11 +87,14 @@ export type VectorStore = {
   exportRecords?(): StoredRecord[];
 };
 
+export const DEFAULT_SEARCH_THRESHOLD = 0.35;
+
 export type PortfolioSearchOptions = {
   vectorStore?: VectorStore;
   embedder?: EmbeddingFunction;
   documents?: readonly KnowledgeDocument[];
   limit?: number;
+  threshold?: number;
   maxChunkChars?: number;
   overlapChars?: number;
 };
@@ -331,180 +333,6 @@ export class InMemoryVectorStore implements VectorStore {
   }
 }
 
-// ============================================================
-// PG VECTOR STORE
-// Optional Postgres/pgvector backend. Dimensions updated to 768.
-// ============================================================
-
-type PgClientLike = {
-  query(
-    sql: string,
-    params?: unknown[],
-  ): Promise<{ rows: Record<string, unknown>[] }>;
-};
-
-export class PgVectorStore implements VectorStore {
-  private readonly table: string;
-  private readonly dimensions: number;
-  private clientPromise: Promise<PgClientLike> | null = null;
-
-  constructor(options: { table?: string; dimensions?: number } = {}) {
-    this.table = options.table ?? "portfolio_chunks";
-    this.dimensions = options.dimensions ?? DEFAULT_EMBEDDING_DIMENSIONS;
-  }
-
-  private async getClient(): Promise<PgClientLike> {
-    if (!this.clientPromise) {
-      this.clientPromise = (async () => {
-        // eslint-disable-next-line no-new-func
-        const pg = (await new Function("m", "return import(m)")("pg")) as {
-          default?: { Client: new () => unknown };
-          Client?: new () => unknown;
-        };
-        const Client = pg.default?.Client ?? pg.Client;
-        if (!Client) throw new Error("pg module did not export a Client constructor.");
-        const client = new Client() as PgClientLike;
-        // @ts-expect-error dynamic pg client
-        await (client as { connect(): Promise<void> }).connect();
-        await client.query(`
-          CREATE EXTENSION IF NOT EXISTS vector;
-          CREATE TABLE IF NOT EXISTS ${this.table} (
-            id TEXT PRIMARY KEY,
-            document_id TEXT NOT NULL,
-            source TEXT NOT NULL,
-            type TEXT NOT NULL,
-            title TEXT NOT NULL,
-            summary TEXT NOT NULL,
-            text TEXT NOT NULL,
-            tags TEXT[] NOT NULL,
-            metadata JSONB NOT NULL,
-            vector vector(${this.dimensions}) NOT NULL
-          );
-          CREATE INDEX IF NOT EXISTS ${this.table}_vector_idx
-            ON ${this.table} USING ivfflat (vector vector_cosine_ops);
-        `);
-        return client;
-      })();
-    }
-    return this.clientPromise;
-  }
-
-  async upsert(
-    chunks: KnowledgeChunk[],
-    embedder: EmbeddingFunction,
-  ): Promise<void> {
-    const client = await this.getClient();
-    for (const chunk of chunks) {
-      const vector = await embedder(chunk.text, {
-        taskType: "RETRIEVAL_DOCUMENT",
-        title: chunk.title,
-      });
-      validateEmbeddingVector(vector, this.dimensions);
-      await client.query(
-        `INSERT INTO ${this.table}
-           (id, document_id, source, type, title, summary, text, tags, metadata, vector)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         ON CONFLICT (id) DO UPDATE SET
-           text = EXCLUDED.text,
-           vector = EXCLUDED.vector,
-           metadata = EXCLUDED.metadata`,
-        [
-          chunk.id,
-          chunk.documentId,
-          chunk.source,
-          chunk.type,
-          chunk.title,
-          chunk.summary,
-          chunk.text,
-          chunk.tags,
-          JSON.stringify(chunk.metadata),
-          `[${vector.join(",")}]`,
-        ],
-      );
-    }
-  }
-
-  async search(
-    query: string,
-    options: VectorSearchOptions,
-    embedder: EmbeddingFunction,
-  ): Promise<SearchResult[]> {
-    const client = await this.getClient();
-    const limit = options.limit ?? 5;
-    const threshold = options.threshold ?? 0;
-    const queryVector = await embedder(query, { taskType: "RETRIEVAL_QUERY" });
-    validateEmbeddingVector(queryVector, this.dimensions);
-
-    const response = await client.query(
-      `SELECT *, 1 - (vector <=> $1::vector) AS score
-       FROM ${this.table}
-       WHERE 1 - (vector <=> $1::vector) >= $2
-       ORDER BY score DESC
-       LIMIT $3`,
-      [`[${queryVector.join(",")}]`, threshold, limit],
-    );
-
-    return (response.rows ?? []).map((row) => ({
-      id: String(row["id"] ?? ""),
-      documentId: String(row["document_id"] ?? ""),
-      source: String(row["source"] ?? ""),
-      type: (row["type"] as KnowledgeDocumentType) ?? "profile",
-      title: String(row["title"] ?? ""),
-      summary: String(row["summary"] ?? ""),
-      text: String(row["text"] ?? ""),
-      tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
-      metadata: {
-        type: (row["type"] as KnowledgeDocumentType) ?? "profile",
-        title: String(row["title"] ?? ""),
-        summary: String(row["summary"] ?? ""),
-        source: String(row["source"] ?? ""),
-        ...(typeof row["metadata"] === "object" && row["metadata"] !== null
-          ? (row["metadata"] as Record<string, unknown>)
-          : {}),
-      },
-      score: typeof row["score"] === "number" ? row["score"] : 0,
-    }));
-  }
-
-  async remove(documentId: string): Promise<void> {
-    const client = await this.getClient();
-    await client.query(`DELETE FROM ${this.table} WHERE document_id = $1`, [
-      documentId,
-    ]);
-  }
-
-  async list(): Promise<SearchResult[]> {
-    const client = await this.getClient();
-    const response = await client.query(
-      `SELECT *, 1 AS score FROM ${this.table}`,
-    );
-    return (response.rows ?? []).map((row) => ({
-      id: String(row["id"] ?? ""),
-      documentId: String(row["document_id"] ?? ""),
-      source: String(row["source"] ?? ""),
-      type: (row["type"] as KnowledgeDocumentType) ?? "profile",
-      title: String(row["title"] ?? ""),
-      summary: String(row["summary"] ?? ""),
-      text: String(row["text"] ?? ""),
-      tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
-      metadata: {
-        type: (row["type"] as KnowledgeDocumentType) ?? "profile",
-        title: String(row["title"] ?? ""),
-        summary: String(row["summary"] ?? ""),
-        source: String(row["source"] ?? ""),
-        ...(typeof row["metadata"] === "object" && row["metadata"] !== null
-          ? (row["metadata"] as Record<string, unknown>)
-          : {}),
-      },
-      score: 1,
-    }));
-  }
-
-  async clear(): Promise<void> {
-    const client = await this.getClient();
-    await client.query(`DELETE FROM ${this.table}`);
-  }
-}
 
 // ============================================================
 // GOOGLE GEMINI EMBEDDING FUNCTION
@@ -512,7 +340,7 @@ export class PgVectorStore implements VectorStore {
 // Validates return dimensions, non-empty, and finite numbers.
 // ============================================================
 
-export function getDefaultEmbeddingFunction(config: {
+function getDefaultEmbeddingFunction(config: {
   apiKey?: string;
   model?: string;
   outputDimensionality?: number;
@@ -761,13 +589,14 @@ export async function searchPortfolioKnowledge(
   }
 
   const limit = options.limit ?? 5;
+  const threshold = options.threshold ?? DEFAULT_SEARCH_THRESHOLD;
 
   // Custom vector store passed (e.g., in unit tests)
   if (options.vectorStore) {
     const embedder = options.embedder ?? getDefaultEmbeddingFunction();
     const results = await options.vectorStore.search(
       trimmed,
-      { limit, threshold: 0.1 },
+      { limit, threshold },
       embedder,
     );
 
@@ -793,7 +622,7 @@ export async function searchPortfolioKnowledge(
   try {
     const results = await store.search(
       trimmed,
-      { limit, threshold: 0.1 },
+      { limit, threshold },
       embedder,
     );
 

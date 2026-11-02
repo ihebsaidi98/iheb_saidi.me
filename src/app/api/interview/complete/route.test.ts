@@ -167,4 +167,43 @@ describe("POST /api/interview/complete — Secure Proxy Route", () => {
     const data = await res.json();
     assert.equal(data.code, "SESSION_INCOMPLETE");
   });
+
+  it("returns 429 RATE_LIMITED when rate limit threshold is exceeded", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.completeInterviewSession = async () => ({
+      session_id: "session-12345",
+      track: "full_stack",
+      score_out_of_100: 88.0,
+      mcq_score: 45.0,
+      written_score: 43.0,
+      mcq_results: [],
+      written_results: [],
+      topic_breakdown: [],
+      overall_strengths: [],
+      overall_improvements: [],
+      total_questions: 10,
+    });
+
+    const fixedIp = "192.168.1.99";
+    // Default limit is 15 requests per window
+    for (let i = 0; i < 15; i++) {
+      const res = await POST(createRequest(validPayload, { ip: fixedIp }));
+      assert.equal(res.status, 200);
+    }
+
+    const blockedRes = await POST(createRequest(validPayload, { ip: fixedIp }));
+    assert.equal(blockedRes.status, 429);
+
+    const data = await blockedRes.json();
+    assert.equal(data.code, "RATE_LIMITED");
+    assert.equal(typeof data.retryAfterMs, "number");
+    assert.ok(data.retryAfterMs > 0);
+
+    assert.equal(blockedRes.headers.get("X-RateLimit-Limit"), "15");
+    assert.equal(blockedRes.headers.get("X-RateLimit-Remaining"), "0");
+    assert.ok(blockedRes.headers.get("X-RateLimit-Reset"));
+    assert.ok(Number(blockedRes.headers.get("X-RateLimit-Reset")) > 0);
+    assert.ok(blockedRes.headers.get("Retry-After"));
+    assert.ok(Number(blockedRes.headers.get("Retry-After")) > 0);
+  });
 });

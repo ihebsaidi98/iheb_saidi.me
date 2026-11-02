@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.config import Settings
-from app.interview.schemas import SubmitAnswerRequest
 from app.interview.service import InterviewSimulatorService, sanitize_candidate_answer
 from app.rag.store import PortfolioVectorStore
 
