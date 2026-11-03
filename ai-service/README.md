@@ -25,7 +25,7 @@ FastAPI AI Service (Port 8000)
 
 - **Zero Client Secret Exposure**: Browser requests communicate strictly with Next.js App Router. The browser never receives `GEMINI_API_KEY` or `AI_SERVICE_TOKEN`.
 - **Strict Boundary Security**: All internal routes under `/v1/` require an internal token validated via `secrets.compare_digest` in constant time.
-- **Fail-Fast Configuration**: Settings are validated at application startup using Pydantic Settings.
+- **Fail-Fast Configuration**: Settings are validated at application startup using Pydantic Settings. No credential has a fallback value: a missing `AI_SERVICE_TOKEN` prevents startup in `staging` and `production` (see §2).
 - **Request ID Tracking**: All requests carry or generate an `X-Request-ID` header, propagated through logging contexts and responses without leaking user prompt payloads.
 - **Payload & Latency Protection**: Enforces a strict 1MB body limit (`413 Payload Too Large`) and 15s bounded timeouts with async retries.
 
@@ -40,13 +40,44 @@ Create `.env` or set environment variables in your deployment environment:
 | `GEMINI_API_KEY` | Secret | `""` | Google Gemini API key for embeddings and generation |
 | `GEMINI_CHAT_MODEL` | String | `gemini-3.5-flash-lite` | Active Gemini chat model |
 | `GEMINI_EMBEDDING_MODEL` | String | `gemini-embedding-001` | Active Gemini embedding model (768 dimensions) |
-| `AI_SERVICE_TOKEN` | Secret | *(dev fallback)* | Shared secret for server-to-server Next.js authentication |
+| `AI_SERVICE_TOKEN` | Secret | *(none — must be set explicitly)* | Shared secret for server-to-server Next.js authentication. There is no default value; it must be at least 32 characters in `staging`/`production` (see below). |
 | `ENVIRONMENT` | String | `development` | Environment mode (`development`, `test`, `production`) |
 | `HOST` | String | `127.0.0.1` | Bind host |
-| `PORT` | Integer | `8000` | Bind port |
+| `PORT` | Integer | `8001` | Bind port used by `python -m app.main` (`app/main.py` passes `settings.port` to uvicorn). `npm run ai:dev` pins `--port 8001`, while the Docker image pins `--port 8000` (`ai-service/Dockerfile`) — that is why `docker-compose.yml` maps host `8001` to container `8000`. |
 | `ALLOWED_ORIGINS` | String/List | `http://localhost:3000,http://127.0.0.1:3000` | Allowed CORS origins |
 | `REQUEST_TIMEOUT_SECONDS` | Float | `15.0` | Default timeout for external requests |
 | `MAX_REQUEST_SIZE_BYTES` | Integer | `1048576` | Maximum request body size (1MB) |
+
+### `AI_SERVICE_TOKEN`: no default value
+
+The service ships **no fallback or development token**. `AI_SERVICE_TOKEN` must be set explicitly, and the value must be **exactly the same** in the Next.js environment (`.env.local`) and in this service (`ai-service/.env`).
+
+From the repository root:
+
+```bash
+python scripts/setup-env.py
+```
+
+The script:
+- generates a cryptographically strong secret (`secrets.token_urlsafe(32)`, 43 characters),
+- writes that single value into both `.env.local` and `ai-service/.env`,
+- reads both files back and aborts if the two values differ,
+- refuses to run when either file already exists (delete them manually to regenerate).
+
+To provision the secret by hand instead, generate one value and paste the **same** string in both files:
+
+```bash
+openssl rand -hex 32
+```
+
+Behaviour when the token is missing, empty, or too short:
+
+| Context | Behaviour |
+|---|---|
+| `development` | The service starts but logs a WARNING (the value itself is never logged) and rejects every `/v1/*` request with `401 UNAUTHORIZED` — fail closed. On the Next.js side internal delegation stays disabled: no `X-Internal-Token` header is sent and the interview endpoints answer `503 SERVICE_UNAVAILABLE`. |
+| `staging`, `production` | Startup aborts with `RuntimeError: A strong AI_SERVICE_TOKEN must be configured in <environment>.` when the token is empty, shorter than 32 characters, or still set to the former development placeholder. |
+
+The token is only ever compared server-side with `secrets.compare_digest`. It is never returned in HTTP responses, written to logs, or included in client bundles.
 
 ---
 
@@ -61,6 +92,9 @@ Create `.env` or set environment variables in your deployment environment:
 cd ai-service
 uv sync
 ```
+
+### Configuring the Internal Token
+Before starting the service, configure the shared secret as described in §2 (`python scripts/setup-env.py`). Without it, `/v1/*` calls are rejected with `401`.
 
 ### Running the Development Server
 From the project root:

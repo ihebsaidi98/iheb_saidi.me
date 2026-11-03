@@ -192,6 +192,62 @@ async def test_docs_url_available_in_development() -> None:
 
 
 # ---------------------------------------------------------------------------
+# H2 — AI_SERVICE_TOKEN must be explicitly configured
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_production_startup_fails_with_empty_token() -> None:
+    """H2: an explicitly empty AI_SERVICE_TOKEN must abort production startup."""
+    prod_settings = Settings(
+        environment="production",
+        ai_service_token=SecretStr(""),
+        gemini_api_key=SecretStr("AIzaSy-SENTINEL-GEMINI-KEY"),
+        allowed_origins=["https://portfolio.dev"],  # type: ignore[arg-type]
+    )
+    app = create_app(settings=prod_settings)
+
+    with pytest.raises(RuntimeError, match="AI_SERVICE_TOKEN"):
+        async with lifespan(app):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_production_startup_fails_when_token_is_absent(monkeypatch) -> None:
+    """H2: no default is substituted, so an unset token is treated as empty."""
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
+    prod_settings = Settings(
+        environment="production",
+        _env_file=None,
+        gemini_api_key=SecretStr("AIzaSy-SENTINEL-GEMINI-KEY"),
+        allowed_origins=["https://portfolio.dev"],  # type: ignore[arg-type]
+    )
+    assert prod_settings.ai_service_token.get_secret_value() == ""
+    app = create_app(settings=prod_settings)
+
+    with pytest.raises(RuntimeError, match="AI_SERVICE_TOKEN"):
+        async with lifespan(app):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_staging_startup_fails_when_token_is_absent(monkeypatch) -> None:
+    """H2: staging is guarded the same way as production."""
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
+    staging_settings = Settings(
+        environment="staging",
+        _env_file=None,
+        gemini_api_key=SecretStr("AIzaSy-SENTINEL-GEMINI-KEY"),
+        allowed_origins=["https://staging.portfolio.dev"],  # type: ignore[arg-type]
+    )
+    app = create_app(settings=staging_settings)
+
+    with pytest.raises(RuntimeError, match="AI_SERVICE_TOKEN"):
+        async with lifespan(app):
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

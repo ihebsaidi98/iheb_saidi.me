@@ -115,15 +115,43 @@ type RateLimitEntry = {
   resetAt: number;
 };
 
+/**
+ * Default hard cap on stored keys per limiter instance (VULN-02).
+ * ~150-200 bytes per entry, so 10 000 keys ≈ 1.5-2 MB per route module.
+ */
+export const DEFAULT_MAX_RATE_LIMIT_ENTRIES = 10_000;
+
+/**
+ * How many entries from the head of the insertion order are inspected when
+ * looking for an evictable expired entry. Bounded so eviction stays O(1)-ish
+ * even when the store is saturated.
+ */
+const MAX_EVICTION_SCAN = 32;
+
 export class InMemoryRateLimiter {
   private readonly limit: number;
   private readonly windowMs: number;
+  /**
+   * Hard upper bound on the number of tracked keys. Without it, memory grows
+   * with request volume (one entry per unique IP) instead of with a constant.
+   */
+  readonly maxEntries: number;
   private readonly store = new Map<string, RateLimitEntry>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(limit = 10, windowMs = 60_000) {
+  constructor(
+    limit = 10,
+    windowMs = 60_000,
+    maxEntries = DEFAULT_MAX_RATE_LIMIT_ENTRIES,
+  ) {
+    if (!Number.isSafeInteger(maxEntries) || maxEntries <= 0) {
+      throw new RangeError(
+        `maxEntries must be a strictly positive safe integer, received ${String(maxEntries)}.`,
+      );
+    }
     this.limit = limit;
     this.windowMs = windowMs;
+    this.maxEntries = maxEntries;
   }
 
   check(key: string): RateLimitResult {
@@ -131,6 +159,18 @@ export class InMemoryRateLimiter {
     let entry = this.store.get(key);
 
     if (!entry || entry.resetAt <= now) {
+      const isNewKey = entry === undefined;
+
+      // Capacité vérifiée uniquement pour une vraie nouvelle clé : rafraîchir
+      // une clé existante ne fait pas grossir la Map.
+      if (isNewKey && this.store.size >= this.maxEntries) {
+        this.evictOne(now);
+      }
+
+      // delete() avant set() : sinon Map conserve la position d'insertion
+      // d'origine et l'ordre ne reflète plus l'ordre d'expiration.
+      if (!isNewKey) this.store.delete(key);
+
       entry = { count: 0, resetAt: now + this.windowMs };
       this.store.set(key, entry);
     }
@@ -154,8 +194,37 @@ export class InMemoryRateLimiter {
   }
 
   /**
-   * Remove expired entries to prevent unbounded memory growth.
+   * Free exactly one slot when the store is at `maxEntries`.
+   *
+   * Order of preference:
+   *   1. An expired entry (deleting it loses no active limit information).
+   *   2. The oldest insertion. For a fixed window, insertion order is also
+   *      expiry order, so the oldest entry is the one closest to expiring —
+   *      the least harmful counter to drop.
+   *
+   * Deliberately never clears the whole store: that would hand every client
+   * (including the attacker) a fresh quota.
+   */
+  private evictOne(now: number): void {
+    let scanned = 0;
+    for (const [key, entry] of this.store) {
+      if (entry.resetAt <= now) {
+        this.store.delete(key);
+        return;
+      }
+      if (++scanned >= MAX_EVICTION_SCAN) break;
+    }
+
+    const oldest = this.store.keys().next();
+    if (!oldest.done) {
+      this.store.delete(oldest.value);
+    }
+  }
+
+  /**
+   * Remove expired entries to prevent unnecessary memory retention.
    * Safe to call at any time — does not interfere with active entries.
+   * Bounded by `maxEntries`, so the full scan stays cheap.
    */
   cleanup(): void {
     const now = Date.now();
@@ -635,8 +704,21 @@ export function formatSources(chunks: KnowledgeChunk[]): ChatSource[] {
 
 // ============================================================
 // CLIENT IP EXTRACTION
-// Reads standard proxy headers in order of preference.
-// Returns "unknown" if no header is present (never throws).
+//
+// The client IP is used ONLY as the rate-limiter key. It is never logged
+// and never used for an authorisation decision.
+//
+// Every value taken from a header or from `request.ip` is validated and
+// normalized by `normalizeClientIp()` before use (VULN-03). If the selected
+// value is not a valid IP address, a ProxyConfigurationError is thrown
+// (fail closed): the code never substitutes an arbitrary placeholder key and
+// never falls back to a different X-Forwarded-For segment.
+//
+// Note: `request.ip` does not exist on NextRequest in Next.js 15 (it was
+// removed; only cookies/nextUrl/url remain). Those branches are therefore
+// inert at runtime, which means TRUSTED_PROXY=false is only workable in
+// development/test (loopback fallback) or in a runtime that still exposes a
+// socket IP. See README § Reverse Proxy & Client IP Verification.
 // ============================================================
 
 export class ProxyConfigurationError extends Error {
@@ -646,6 +728,155 @@ export class ProxyConfigurationError extends Error {
     super(message);
     this.name = "ProxyConfigurationError";
   }
+}
+
+/** Longest textual form of an IP address (IPv6 without zone id). */
+export const MAX_CLIENT_IP_LENGTH = 45;
+
+type IpVersion = 0 | 4 | 6;
+
+/**
+ * Resolve `isIP` from `node:net`.
+ *
+ * Loaded through `process.getBuiltinModule` rather than a static
+ * `import { isIP } from "node:net"`: this module is also reachable from
+ * client components (`src/lib/interview.ts` imports `sanitizeText`), and
+ * webpack cannot resolve `node:` URIs in a client bundle, which broke
+ * `next build`. Nothing is bundled, and the function is only ever called
+ * server-side / under `node --test`.
+ */
+function resolveIsIP(): ((value: string) => number) | null {
+  const proc = (
+    globalThis as {
+      process?: { getBuiltinModule?: (specifier: string) => unknown };
+    }
+  ).process;
+  if (typeof proc?.getBuiltinModule !== "function") return null;
+  try {
+    const net = proc.getBuiltinModule("node:net") as {
+      isIP?: (value: string) => number;
+    };
+    return typeof net?.isIP === "function" ? net.isIP : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Determine the IP version of a literal via `node:net` `isIP()`.
+ *
+ * Fallback for runtimes without `process.getBuiltinModule` (Node < 20.16):
+ * strict dotted-quad for IPv4 and the WHATWG parser for IPv6, which accepts
+ * exactly the same literals `isIP()` accepts.
+ */
+function detectIpVersion(value: string): IpVersion {
+  const isIP = resolveIsIP();
+  if (isIP) {
+    const version = isIP(value);
+    if (version === 4) return 4;
+    if (version === 6) return 6;
+    return 0;
+  }
+
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)) {
+    const octets = value.split(".");
+    const valid = octets.every(
+      (octet) => String(Number(octet)) === octet && Number(octet) <= 255,
+    );
+    return valid ? 4 : 0;
+  }
+
+  try {
+    new URL(`http://[${value}]/`);
+    return 6;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Validate and normalize a client IP address taken from a proxy header or a
+ * socket.
+ *
+ * Returns a canonical string suitable as a rate-limiter key, or `null` when
+ * the input is not a valid IP address.
+ *
+ * Normalization rules:
+ *   - IPv4 is returned as-is (only validated).
+ *   - IPv6 is canonicalized (lowercase, compressed zeros) so equivalent
+ *     notations share one key: `2001:0DB8:0:0::1` === `2001:db8::1`.
+ *   - IPv4-mapped IPv6 is converted to plain IPv4 so `::ffff:192.0.2.1` and
+ *     `192.0.2.1` produce the same key.
+ *   - A well-formed IPv6 zone id (`fe80::1%eth0`, `fe80::1%25eth0`) is
+ *     stripped; a malformed one invalidates the value.
+ *
+ * Explicitly rejected: empty values, values longer than
+ * MAX_CLIENT_IP_LENGTH, ports (`1.2.3.4:80`), hostnames, the RFC 7239
+ * `unknown` token, and anything that is not an IP literal.
+ */
+export function normalizeClientIp(raw: string): string | null {
+  if (typeof raw !== "string") return null;
+
+  let value = raw.trim();
+  if (value.length === 0 || value.length > MAX_CLIENT_IP_LENGTH) return null;
+
+  // Zone id: only stripped when the zone itself looks like an interface name.
+  // `%25eth0` is the RFC 6874 percent-encoded form ("%25" + "eth0").
+  const zoneIndex = value.indexOf("%");
+  if (zoneIndex !== -1) {
+    const address = value.slice(0, zoneIndex);
+    const zone = value.slice(zoneIndex + 1);
+    if (!/^[A-Za-z0-9_.-]+$/.test(zone)) return null;
+    value = address;
+  }
+
+  const version = detectIpVersion(value);
+  if (version === 4) return value;
+  if (version !== 6) return null;
+
+  const canonical = canonicalizeIpv6(value);
+  if (canonical === null) return null;
+
+  // IPv4-mapped form is ::ffff:0:0/96, i.e. exactly `::ffff:XXXX:YYYY` once
+  // canonicalized. Re-express those 32 bits as dotted IPv4.
+  const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(canonical);
+  if (mapped) {
+    const high = parseInt(mapped[1]!, 16);
+    const low = parseInt(mapped[2]!, 16);
+    return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
+  }
+
+  return canonical;
+}
+
+/**
+ * Canonicalize an IPv6 literal using the WHATWG URL IPv6 serializer
+ * (lowercase hex, no leading zeros, longest zero run compressed).
+ * Runtime-portable and dependency-free.
+ */
+function canonicalizeIpv6(ip: string): string | null {
+  try {
+    const host = new URL(`http://[${ip}]/`).hostname;
+    if (!host.startsWith("[") || !host.endsWith("]")) return null;
+    return host.slice(1, -1);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Return a validated, normalized IP or throw (fail closed).
+ * The raw value is deliberately never echoed into the message: it is
+ * attacker-influenced input and ends up in server logs.
+ */
+function requireValidClientIp(raw: string, source: string): string {
+  const normalized = normalizeClientIp(raw);
+  if (normalized === null) {
+    throw new ProxyConfigurationError(
+      `Rate limiter cannot operate: '${source}' did not contain a valid client IP address.`,
+    );
+  }
+  return normalized;
 }
 
 export function extractClientIp(
@@ -675,12 +906,12 @@ export function extractClientIp(
     if (trustedHeader === "cf-connecting-ip") {
       const ip = request.headers.get("cf-connecting-ip");
       if (ip && ip.trim().length > 0) {
-        return ip.trim();
+        return requireValidClientIp(ip, "cf-connecting-ip");
       }
     } else if (trustedHeader === "x-real-ip") {
       const ip = request.headers.get("x-real-ip");
       if (ip && ip.trim().length > 0) {
-        return ip.trim();
+        return requireValidClientIp(ip, "x-real-ip");
       }
     } else if (trustedHeader === "x-forwarded-for") {
       const forwarded = request.headers.get("x-forwarded-for");
@@ -691,7 +922,12 @@ export function extractClientIp(
           .filter(Boolean);
         if (segments.length > 0) {
           // Read the last segment added by the closest trusted reverse proxy hop.
-          return segments[segments.length - 1]!;
+          // An invalid last segment fails closed: never fall back to an earlier,
+          // client-controllable segment.
+          return requireValidClientIp(
+            segments[segments.length - 1]!,
+            "x-forwarded-for",
+          );
         }
       }
     } else {
@@ -700,9 +936,11 @@ export function extractClientIp(
       );
     }
 
-    // Direct socket IP fallback if securely provided by the runtime (e.g. Edge runtime or test mock)
+    // Direct socket IP fallback if securely provided by the runtime (e.g. Edge runtime or test mock).
+    // An unparseable socket IP is treated as absent rather than trusted.
     if (request.ip && request.ip.trim().length > 0) {
-      return request.ip.trim();
+      const socketIp = normalizeClientIp(request.ip);
+      if (socketIp !== null) return socketIp;
     }
 
     // If the expected trusted header was not provided by the proxy, fail closed.
@@ -717,9 +955,11 @@ export function extractClientIp(
     // x-forwarded-for, meaning client-sent headers cannot be distinguished from
     // the socket remoteAddress. Therefore, headers are strictly ignored.
 
-    // 1. Direct socket IP if provided securely by the runtime (e.g. Edge runtime or test mock)
+    // 1. Direct socket IP if provided securely by the runtime (e.g. Edge runtime or test mock).
+    // An unparseable socket IP is treated as absent, never substituted.
     if (request.ip && request.ip.trim().length > 0) {
-      return request.ip.trim();
+      const socketIp = normalizeClientIp(request.ip);
+      if (socketIp !== null) return socketIp;
     }
 
     // 2. Safe loopback fallback strictly in local development and test environments

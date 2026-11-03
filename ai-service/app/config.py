@@ -10,7 +10,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("ai_service.config")
 
-_DEFAULT_DEV_TOKEN = "dev-internal-token-change-in-production"
+# H2: no development token is shipped as a default.  AI_SERVICE_TOKEN must be
+# configured explicitly on both sides (Next.js and this service).
+_MIN_TOKEN_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -30,8 +32,12 @@ class Settings(BaseSettings):
 
     # Security & Internal Authentication
     ai_service_token: SecretStr = Field(
-        default=SecretStr(_DEFAULT_DEV_TOKEN),
-        description="Internal shared secret for server-to-server Next.js proxy calls",
+        default=SecretStr(""),
+        description=(
+            "Internal shared secret for server-to-server Next.js proxy calls. "
+            "Must be set explicitly (>=32 chars); production/staging refuse to start "
+            "without it and internal endpoints stay closed until it is configured."
+        ),
     )
     allowed_origins: Annotated[
         list[str],
@@ -112,19 +118,28 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def warn_on_default_token_outside_test(self) -> "Settings":
-        """Emit a WARNING when the default dev token is used outside a test context.
+    def warn_on_missing_or_weak_token_outside_test(self) -> "Settings":
+        """WARN when AI_SERVICE_TOKEN is missing or weak outside a test context.
 
-        The production lifespan raises RuntimeError for this case, but defence in
-        depth: warn at settings-instantiation time so misconfigured staging/dev
-        deployments are visible in logs even if the lifespan check is bypassed.
+        There is no fallback token: an unset value stays empty.  Production and
+        staging refuse to start in that case (see app.main.lifespan), while a
+        development instance keeps running but rejects every internal call.  The
+        warning never includes the token value itself.
         """
         if self.environment not in ("test",):
             token = self.ai_service_token.get_secret_value()
-            if token == _DEFAULT_DEV_TOKEN or len(token) < 32:
+            if not token:
                 logger.warning(
-                    "AI_SERVICE_TOKEN appears weak or is the default development "
-                    "placeholder.  Set a strong secret before exposing this service."
+                    "AI_SERVICE_TOKEN is not configured.  Internal server-to-server "
+                    "calls will be rejected.  Set the same strong secret (>=32 chars) "
+                    "in Next.js and the AI service before enabling AI features."
+                )
+            elif len(token) < _MIN_TOKEN_LENGTH:
+                logger.warning(
+                    "AI_SERVICE_TOKEN is shorter than %d characters and will be "
+                    "refused in production/staging.  Generate one with "
+                    "`openssl rand -hex 32` or scripts/setup-env.py.",
+                    _MIN_TOKEN_LENGTH,
                 )
         return self
 

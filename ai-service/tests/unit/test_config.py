@@ -98,18 +98,48 @@ def test_explicit_origins_accepted() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_default_token_emits_warning_outside_test(caplog) -> None:
-    """The default dev token must produce a WARNING when environment != 'test'."""
+def test_missing_token_stays_empty_in_development(monkeypatch) -> None:
+    """H2: an absent AI_SERVICE_TOKEN must remain empty (no silent fallback)."""
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
+    settings = Settings(environment="development", _env_file=None)
+    assert settings.ai_service_token.get_secret_value() == ""
+
+
+def test_missing_token_emits_warning_outside_test(caplog, monkeypatch) -> None:
+    """A missing token must produce a WARNING when environment != 'test'."""
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
     with caplog.at_level(logging.WARNING, logger="ai_service.config"):
-        Settings(environment="development", _env_file=None)  # uses default dev token
+        Settings(environment="development", _env_file=None)
     assert any("AI_SERVICE_TOKEN" in r.message for r in caplog.records)
 
 
-def test_default_token_no_warning_in_test_env(caplog) -> None:
-    """The default dev token must NOT produce a WARNING in test environment."""
+def test_missing_token_warning_never_echoes_a_token_value(caplog, monkeypatch) -> None:
+    """The warning must describe the problem without logging any secret value."""
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
+    with caplog.at_level(logging.WARNING, logger="ai_service.config"):
+        Settings(environment="development", _env_file=None)
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "AI_SERVICE_TOKEN" in messages
+    assert "dev-internal-token-change-in-production" not in messages
+
+
+def test_missing_token_no_warning_in_test_env(caplog, monkeypatch) -> None:
+    """A missing token must NOT produce a WARNING in test environment."""
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
     with caplog.at_level(logging.WARNING, logger="ai_service.config"):
         Settings(environment="test", _env_file=None)
     assert not any("AI_SERVICE_TOKEN" in r.message for r in caplog.records)
+
+
+def test_explicit_development_token_is_used_verbatim() -> None:
+    """H2: local development works only with an explicitly configured token."""
+    explicit = "expl-dev-shared-secret-0123456789abcdef"
+    settings = Settings(
+        environment="development",
+        _env_file=None,
+        ai_service_token=SecretStr(explicit),
+    )
+    assert settings.ai_service_token.get_secret_value() == explicit
 
 
 def test_strong_token_no_warning_in_development(caplog) -> None:

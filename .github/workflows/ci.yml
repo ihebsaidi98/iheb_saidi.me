@@ -7,14 +7,43 @@ on:
 
 jobs:
   verify:
+    name: Typecheck, lint, tests, build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm run lint
-      - run: npm run build
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # `npm run test:py` shells out to `uv` (see ai-service/pyproject.toml and
+      # ai-service/uv.lock). The action also provisions the Python 3.12
+      # interpreter pinned by ai-service/.python-version.
+      - name: Set up uv (Python 3.12)
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Typecheck (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Lint (ESLint via Next.js)
+        run: npm run lint
+
+      - name: Unit tests (TypeScript)
+        run: npm test
+
+      - name: Unit tests (Python, FastAPI service)
+        run: npm run test:py
+
+      - name: Production build
+        run: npm run build

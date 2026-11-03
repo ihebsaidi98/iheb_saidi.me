@@ -32,6 +32,7 @@ import {
   extractGeminiResponseText,
   formatSources,
   extractClientIp,
+  normalizeClientIp,
   formatRetrievedContext,
   formatUserPrompt,
   escapeXml,
@@ -169,6 +170,156 @@ describe("InMemoryRateLimiter", () => {
     const limiter = new InMemoryRateLimiter(5, 60_000);
     const result = limiter.check("ip");
     assert.ok(result.resetAt > Date.now(), "resetAt should be in the future");
+  });
+
+  // ==========================================================
+  // VULN-02 — bounded store (maxEntries) and eviction
+  // ==========================================================
+  describe("bounded store (maxEntries) and eviction", () => {
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+    it("defaults maxEntries to 10_000", () => {
+      const limiter = new InMemoryRateLimiter();
+      assert.equal(limiter.maxEntries, 10_000);
+    });
+
+    it("rejects a non-positive, non-integer or NaN maxEntries", () => {
+      assert.throws(() => new InMemoryRateLimiter(5, 1_000, 0), RangeError);
+      assert.throws(() => new InMemoryRateLimiter(5, 1_000, -1), RangeError);
+      assert.throws(() => new InMemoryRateLimiter(5, 1_000, 1.5), RangeError);
+      assert.throws(() => new InMemoryRateLimiter(5, 1_000, Number.NaN), RangeError);
+      assert.throws(
+        () => new InMemoryRateLimiter(5, 1_000, Number.POSITIVE_INFINITY),
+        RangeError,
+      );
+    });
+
+    it("never lets the store exceed maxEntries", () => {
+      const limiter = new InMemoryRateLimiter(100, 60_000, 5);
+      for (let i = 0; i < 20; i++) {
+        limiter.check(`ip-${i}`);
+        assert.ok(
+          limiter.size <= 5,
+          `size must stay <= maxEntries, got ${limiter.size} after ${i + 1} keys`,
+        );
+      }
+      assert.equal(limiter.size, 5, "store must be capped at maxEntries");
+    });
+
+    it("evicts the oldest entry when the store is full and nothing expired", () => {
+      const limiter = new InMemoryRateLimiter(100, 60_000, 3);
+      limiter.check("ip-a"); // oldest
+      limiter.check("ip-b");
+      limiter.check("ip-c");
+      limiter.check("ip-d"); // forces an eviction
+
+      assert.equal(limiter.size, 3);
+      // ip-b kept its single hit: 100 - 1 (existing) - 1 (this call) = 98
+      assert.equal(
+        limiter.check("ip-b").remaining,
+        98,
+        "ip-b must survive with its counter intact",
+      );
+      // ip-a was evicted, so this call creates a fresh entry: 100 - 1 = 99
+      assert.equal(
+        limiter.check("ip-a").remaining,
+        99,
+        "ip-a must restart from zero after eviction",
+      );
+    });
+
+    it("evicts an expired entry rather than a live one when the store is full", async () => {
+      const limiter = new InMemoryRateLimiter(100, 100, 3); // 100 ms window
+      limiter.check("ip-expired"); // expires ~100 ms after insertion
+      await sleep(120);
+      limiter.check("ip-live-1");
+      limiter.check("ip-live-2");
+      assert.equal(limiter.size, 3, "stale entry still holds a slot before eviction");
+
+      limiter.check("ip-new"); // must drop the expired slot, not a live one
+
+      assert.equal(limiter.size, 3);
+      // ip-live-1 keeps its hit: 100 - 1 (existing) - 1 (this call) = 98
+      assert.equal(
+        limiter.check("ip-live-1").remaining,
+        98,
+        "a live entry must not be evicted while an expired one exists",
+      );
+    });
+
+    it("a key that expired and is re-inserted becomes the most recent entry", async () => {
+      const limiter = new InMemoryRateLimiter(100, 100, 3);
+      limiter.check("ip-a"); // inserted first, expires first
+      await sleep(120); // ip-a is now expired but still stored
+
+      limiter.check("ip-b");
+      limiter.check("ip-c");
+      assert.equal(limiter.size, 3);
+
+      // Re-inserting the expired key must refresh BOTH its window and its order.
+      limiter.check("ip-a");
+      assert.equal(limiter.size, 3, "a re-inserted key must not grow the store");
+
+      // The next new key must evict ip-b (oldest live), proving ip-a moved to the end.
+      limiter.check("ip-new");
+      assert.equal(limiter.size, 3);
+      assert.equal(
+        limiter.check("ip-b").remaining,
+        99,
+        "ip-b must be the evicted one because ip-a was refreshed",
+      );
+    });
+
+    it("keeps the counters of surviving keys unchanged", () => {
+      const limiter = new InMemoryRateLimiter(5, 60_000, 3);
+      limiter.check("ip-a");
+      limiter.check("ip-a"); // ip-a: 2 hits
+      limiter.check("ip-b");
+      limiter.check("ip-b"); // ip-b: 2 hits
+      limiter.check("ip-c"); // ip-c: 1 hit
+
+      limiter.check("ip-d"); // evicts ip-a (oldest)
+
+      // ip-b still has 2 hits: 5 - 2 (existing) - 1 (this call) = 2.
+      // A freshly inserted key would have returned 4.
+      assert.equal(
+        limiter.check("ip-b").remaining,
+        2,
+        "eviction must not reset other keys' counters",
+      );
+    });
+
+    it("restarts an evicted key from zero when it comes back", () => {
+      const limiter = new InMemoryRateLimiter(5, 60_000, 2);
+      limiter.check("ip-a");
+      limiter.check("ip-a");
+      limiter.check("ip-a"); // ip-a: 3 hits
+      limiter.check("ip-b");
+      limiter.check("ip-c"); // evicts ip-a
+
+      const back = limiter.check("ip-a");
+      assert.equal(back.allowed, true);
+      assert.equal(
+        back.remaining,
+        4,
+        "an evicted key must restart with a fresh window and counter",
+      );
+      assert.ok(limiter.size <= 2, "store must stay capped on the re-entry");
+    });
+
+    it("preserves the existing allow/block behaviour under the default cap", () => {
+      const limiter = new InMemoryRateLimiter(2, 60_000);
+      assert.equal(limiter.check("ip-busy").allowed, true);
+      assert.equal(limiter.check("ip-busy").allowed, true);
+      assert.equal(
+        limiter.check("ip-busy").allowed,
+        false,
+        "blocking must be unchanged below the cap",
+      );
+      // No eviction happens below the cap, so a second key is unaffected.
+      assert.equal(limiter.check("ip-other").allowed, true);
+      assert.equal(limiter.size, 2);
+    });
   });
 });
 
@@ -886,6 +1037,193 @@ describe("extractClientIp — VULN-01 trusted proxy and spoofing protection", ()
     } finally {
       envObj.NODE_ENV = origEnv;
     }
+  });
+});
+
+// ============================================================
+// VULN-03 — client IP validation & normalization
+// ============================================================
+
+describe("normalizeClientIp — VULN-03 address validation and normalization", () => {
+  it("accepts a valid IPv4 address, trimmed", () => {
+    assert.equal(normalizeClientIp("203.0.113.7"), "203.0.113.7");
+    assert.equal(normalizeClientIp("  203.0.113.7  "), "203.0.113.7");
+  });
+
+  it("accepts a valid IPv6 address", () => {
+    assert.equal(normalizeClientIp("2001:db8::1"), "2001:db8::1");
+    assert.equal(normalizeClientIp("::1"), "::1");
+  });
+
+  it("canonicalizes equivalent IPv6 notations to a single key", () => {
+    const canonical = normalizeClientIp("2001:db8::1");
+    assert.equal(canonical, "2001:db8::1");
+    assert.equal(
+      normalizeClientIp("2001:0DB8:0000:0000:0000:0000:0000:0001"),
+      canonical,
+      "expanded notation must collapse to the canonical form",
+    );
+    assert.equal(normalizeClientIp("2001:DB8:0:0:0:0:0:1"), canonical);
+    assert.equal(normalizeClientIp("2001:0db8:0:0::1"), canonical);
+  });
+
+  it("converts IPv4-mapped IPv6 to plain IPv4", () => {
+    assert.equal(normalizeClientIp("::ffff:192.0.2.1"), "192.0.2.1");
+    assert.equal(normalizeClientIp("::FFFF:192.0.2.1"), "192.0.2.1");
+    assert.equal(
+      normalizeClientIp("::ffff:c000:201"),
+      "192.0.2.1",
+      "hex-form mapped addresses must also collapse to IPv4",
+    );
+    assert.equal(
+      normalizeClientIp("::ffff:192.0.2.1"),
+      normalizeClientIp("192.0.2.1"),
+      "mapped and plain notations must share one rate-limit key",
+    );
+  });
+
+  it("rejects malformed addresses, ports and non-IP tokens", () => {
+    const invalid = [
+      "not-an-ip",
+      "unknown",
+      "1.2.3.4:1234",
+      "256.1.1.1",
+      "01.2.3.4",
+      "1.2.3",
+      "2001:db8::1:zzzz",
+      "",
+      "   ",
+    ];
+    for (const value of invalid) {
+      assert.equal(
+        normalizeClientIp(value),
+        null,
+        `must reject ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  it("rejects values longer than 45 characters", () => {
+    assert.equal(normalizeClientIp("1".repeat(46)), null);
+    assert.equal(normalizeClientIp(`${"1".repeat(40)}%eth0`), null);
+  });
+
+  it("strips a well-formed IPv6 zone id", () => {
+    assert.equal(normalizeClientIp("fe80::1%eth0"), "fe80::1");
+    assert.equal(normalizeClientIp("fe80::1%25eth0"), "fe80::1");
+  });
+
+  it("rejects an IPv6 zone id with an invalid format", () => {
+    assert.equal(normalizeClientIp("fe80::1%"), null);
+    assert.equal(normalizeClientIp("fe80::1%a b"), null);
+    assert.equal(normalizeClientIp("fe80::1%a/b"), null);
+  });
+});
+
+describe("extractClientIp — VULN-03 validation applied to every extracted IP", () => {
+  const withHeader = (name: string, value: string) => ({
+    headers: makeFakeHeaders({ [name]: value }),
+  });
+  const isProxyError = (err: unknown) => {
+    assert.ok(err instanceof ProxyConfigurationError);
+    return true;
+  };
+
+  it("normalizes an IPv6 address read from x-forwarded-for", () => {
+    const ip = extractClientIp(
+      withHeader("x-forwarded-for", "1.2.3.4, 2001:0DB8:0:0:0:0:0:1"),
+      true,
+    );
+    assert.equal(ip, "2001:db8::1");
+  });
+
+  it("keeps the last x-forwarded-for segment and normalizes it", () => {
+    const ip = extractClientIp(
+      withHeader("x-forwarded-for", "1.2.3.4, 5.6.7.8, ::ffff:192.0.2.1"),
+      true,
+    );
+    assert.equal(ip, "192.0.2.1", "last segment must be used, then normalized");
+  });
+
+  it("fails closed when the last x-forwarded-for segment is invalid (no fallback to an earlier segment)", () => {
+    assert.throws(
+      () => extractClientIp(withHeader("x-forwarded-for", "1.1.1.1, 2.2.2.2, junk"), true),
+      isProxyError,
+    );
+    assert.throws(
+      () => extractClientIp(withHeader("x-forwarded-for", "1.1.1.1, 9.9.9.9:80"), true),
+      isProxyError,
+    );
+    assert.throws(
+      () => extractClientIp(withHeader("x-forwarded-for", "1.1.1.1, unknown"), true),
+      isProxyError,
+    );
+  });
+
+  it("fails closed when the configured trusted header holds an invalid value", () => {
+    assert.throws(
+      () => extractClientIp(withHeader("cf-connecting-ip", "unknown"), true, "cf-connecting-ip"),
+      isProxyError,
+    );
+    assert.throws(
+      () => extractClientIp(withHeader("x-real-ip", "1.2.3.4:443"), true, "x-real-ip"),
+      isProxyError,
+    );
+  });
+
+  it("normalizes and validates request.ip in untrusted mode", () => {
+    const ip = extractClientIp(
+      {
+        ip: "::ffff:10.0.0.7",
+        headers: makeFakeHeaders({ "x-forwarded-for": "1.1.1.1" }),
+      },
+      false,
+    );
+    assert.equal(ip, "10.0.0.7");
+  });
+
+  it("ignores an invalid request.ip in untrusted mode instead of using it", () => {
+    const envObj = process.env as Record<string, string | undefined>;
+    const origEnv = envObj.NODE_ENV;
+    try {
+      envObj.NODE_ENV = "production";
+      assert.throws(
+        () =>
+          extractClientIp(
+            { ip: "not-an-ip", headers: makeFakeHeaders({}) },
+            false,
+          ),
+        isProxyError,
+      );
+    } finally {
+      envObj.NODE_ENV = origEnv;
+    }
+  });
+
+  it("keeps ignoring untrusted headers in untrusted mode when request.ip is valid", () => {
+    const ip = extractClientIp(
+      {
+        ip: "192.168.1.50",
+        headers: makeFakeHeaders({
+          "x-forwarded-for": "203.0.113.195",
+          "x-real-ip": "203.0.113.195",
+          "cf-connecting-ip": "203.0.113.195",
+        }),
+      },
+      false,
+    );
+    assert.equal(ip, "192.168.1.50");
+  });
+
+  it("still fails closed in trusted mode when the configured header is absent", () => {
+    assert.throws(
+      () => extractClientIp({ headers: makeFakeHeaders({}) }, true, "cf-connecting-ip"),
+      (err: unknown) => {
+        assert.ok(err instanceof ProxyConfigurationError);
+        assert.ok((err as Error).message.includes("cf-connecting-ip"));
+        return true;
+      },
+    );
   });
 });
 

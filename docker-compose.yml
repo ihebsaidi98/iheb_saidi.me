@@ -36,6 +36,13 @@ services:
     env_file:
       - ./.env.local
     environment:
+      # Every request reaches this container through the bundled Nginx proxy,
+      # which overwrites X-Forwarded-For with the verified socket address
+      # ($remote_addr, see nginx/nginx.conf). Compose `environment` always wins
+      # over `env_file`, so the TRUSTED_PROXY=false that setup-env.py writes for
+      # direct local development cannot silently make the API fail closed here.
+      - TRUSTED_PROXY=true
+      - TRUSTED_PROXY_HEADER=x-forwarded-for
       - AI_SERVICE_URL=http://ai-service:8000
     volumes:
       - ./src/data/rag-index.json:/app/src/data/rag-index.json:ro

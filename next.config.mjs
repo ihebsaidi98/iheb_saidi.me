@@ -49,7 +49,25 @@ const nextConfig = {
     ];
   },
 
-  webpack(config) {
+  webpack(config, { nextRuntime, webpack }) {
+    // H3-3 / H3-4: src/instrumentation.ts is compiled for both runtimes because
+    // src/app/opengraph-image.tsx is an Edge route. The proxy validators are
+    // Node-only, so the Edge compilation resolves them to an empty module.
+    // register() already bails out there; this keeps the code out of the Edge
+    // bundle instead of merely unreachable — Next.js 15.5.28 otherwise inlines
+    // the dynamic import into edge-instrumentation.js.
+    //
+    // IgnorePlugin rather than resolve.alias: `@/lib/env-config` is resolved by
+    // Next's jsconfig-paths plugin before webpack's alias step, so an alias on
+    // that specifier has no effect (measured on 15.5.28).
+    if (nextRuntime === "edge") {
+      config.plugins.push(
+        new webpack.IgnorePlugin({
+          resourceRegExp: /[\\/]lib[\\/]env-config(\.[cm]?[jt]sx?)?$/,
+        }),
+      );
+    }
+
     // Grab the existing rule that handles SVG imports
     const fileLoaderRule = config.module.rules.find((rule) =>
       rule.test?.test?.(".svg")

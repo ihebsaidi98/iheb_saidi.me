@@ -3,9 +3,11 @@ import { describe, it, afterEach } from "node:test";
 import { AIServiceClient } from "./ai-service-client";
 
 describe("AIServiceClient", () => {
-  it("initializes with default localhost URL and token", () => {
+  it("initializes with no URL and no token (no silent default)", () => {
     const client = new AIServiceClient();
     assert.ok(client);
+    // H2: absence of configuration must not imply "configured".
+    assert.equal(client.isConfigured(), false);
   });
 
   it("handles trailing slashes cleanly", () => {
@@ -92,22 +94,139 @@ describe("AIServiceClient", () => {
       assert.equal(client.isConfigured(), false);
     });
 
-    it("returns true when baseUrl option is provided", () => {
-      const client = new AIServiceClient({ baseUrl: "http://127.0.0.1:8001" });
+    it("returns true when baseUrl option is provided together with a token", () => {
+      const client = new AIServiceClient({
+        baseUrl: "http://127.0.0.1:8001",
+        token: "a-shared-secret-of-at-least-32-characters",
+      });
       assert.equal(client.isConfigured(), true);
     });
 
-    it("returns true when AI_SERVICE_URL env var is provided", () => {
+    it("returns true when AI_SERVICE_URL and AI_SERVICE_TOKEN env vars are provided", () => {
       process.env.AI_SERVICE_URL = "http://127.0.0.1:8001";
+      process.env.AI_SERVICE_TOKEN = "a-shared-secret-of-at-least-32-characters";
       const client = new AIServiceClient();
       assert.equal(client.isConfigured(), true);
     });
 
     it("returns false when AI_SERVICE_ENABLED is false", () => {
       process.env.AI_SERVICE_URL = "http://127.0.0.1:8001";
+      process.env.AI_SERVICE_TOKEN = "a-shared-secret-of-at-least-32-characters";
       process.env.AI_SERVICE_ENABLED = "false";
       const client = new AIServiceClient();
       assert.equal(client.isConfigured(), false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // H2 — AI_SERVICE_TOKEN: no silent development fallback
+  // ---------------------------------------------------------------------------
+  describe("H2 — internal token configuration", () => {
+    const originalEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it("is not configured when a URL is set but no token is available", () => {
+      process.env.AI_SERVICE_URL = "http://127.0.0.1:8001";
+      delete process.env.AI_SERVICE_TOKEN;
+      delete process.env.AI_SERVICE_ENABLED;
+
+      const client = new AIServiceClient();
+      assert.equal(
+        client.isConfigured(),
+        false,
+        "a URL without a token must not enable internal delegation",
+      );
+    });
+
+    it("is configured in local dev when URL and token are both explicit", () => {
+      process.env.AI_SERVICE_URL = "http://127.0.0.1:8001";
+      process.env.AI_SERVICE_TOKEN = "a-shared-secret-of-at-least-32-characters";
+      delete process.env.AI_SERVICE_ENABLED;
+
+      const client = new AIServiceClient();
+      assert.equal(client.isConfigured(), true);
+    });
+
+    it("never transmits a built-in default token when none is configured", async () => {
+      const originalFetch = globalThis.fetch;
+      let interceptedHeaders: Headers | undefined;
+
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        interceptedHeaders = new Headers(init?.headers);
+        return new Response(
+          JSON.stringify({
+            service: "portfolio-ai-service",
+            version: "0.1.0",
+            phase: 2,
+            environment: "development",
+            active_chat_model: "gemini-3.5-flash-lite",
+            active_embedding_model: "gemini-embedding-001",
+            capabilities: ["internal_token_auth"],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      try {
+        delete process.env.AI_SERVICE_TOKEN;
+        const client = new AIServiceClient({ baseUrl: "http://127.0.0.1:8001" });
+
+        await client.getServiceInfo();
+
+        assert.equal(
+          interceptedHeaders?.get("X-Internal-Token"),
+          null,
+          "no credential header may be sent when no token is configured",
+        );
+        const serialized = String(interceptedHeaders);
+        assert.ok(
+          !serialized.includes("dev-internal-token-change-in-production"),
+          "the legacy development token must never be transmitted",
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("sends exactly the configured token, never a substitute", async () => {
+      const originalFetch = globalThis.fetch;
+      let interceptedHeaders: Headers | undefined;
+
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        interceptedHeaders = new Headers(init?.headers);
+        return new Response(
+          JSON.stringify({
+            service: "portfolio-ai-service",
+            version: "0.1.0",
+            phase: 2,
+            environment: "development",
+            active_chat_model: "gemini-3.5-flash-lite",
+            active_embedding_model: "gemini-embedding-001",
+            capabilities: ["internal_token_auth"],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      try {
+        delete process.env.AI_SERVICE_TOKEN;
+        const client = new AIServiceClient({
+          baseUrl: "http://127.0.0.1:8001",
+          token: "explicit-shared-secret-value",
+        });
+
+        await client.getServiceInfo();
+
+        assert.equal(
+          interceptedHeaders?.get("X-Internal-Token"),
+          "explicit-shared-secret-value",
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     });
   });
 

@@ -303,11 +303,18 @@ test.describe("ChatWidget Responsive Layout & Scrolling", () => {
     }
 
     const messageContainer = dialog.locator('[role="log"][aria-label="Chat messages"]');
-    await page.waitForTimeout(500);
-    const isAtBottom = await messageContainer.evaluate((el) => {
-      return el.scrollHeight - el.scrollTop - el.clientHeight <= 80;
-    });
-    expect(isAtBottom).toBe(true);
+    await expect
+      .poll(
+        () =>
+          messageContainer.evaluate(
+            (el) => el.scrollHeight - el.scrollTop - el.clientHeight,
+          ),
+        {
+          timeout: 3000,
+          message: "chat thread should scroll back to the bottom",
+        },
+      )
+      .toBeLessThanOrEqual(80);
   });
 });
 

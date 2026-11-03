@@ -228,21 +228,38 @@ export class AIServiceClient {
       envUrl ??
       "http://127.0.0.1:8001"
     ).replace(/\/+$/, "");
-    this.internalToken =
+    // H2: no built-in fallback credential.  A client without an explicit token
+    // sends no authentication header at all instead of presenting a secret that
+    // is public in the repository.
+    this.internalToken = (
       options.token ??
       process.env.AI_SERVICE_TOKEN ??
-      "dev-internal-token-change-in-production";
+      ""
+    ).trim();
   }
 
   /**
-   * Returns true if AI_SERVICE_URL was provided (via options or env)
-   * and delegation is not explicitly disabled.
+   * Build the internal authentication header, or nothing when no token is set.
+   * Omitting the header keeps the AI service's 401 path authoritative.
+   */
+  private authHeaders(): Record<string, string> {
+    return this.internalToken
+      ? { "X-Internal-Token": this.internalToken }
+      : {};
+  }
+
+  /**
+   * Returns true only when a base URL AND an internal token are available
+   * (via options or env) and delegation is not explicitly disabled.
+   *
+   * H2: a URL alone is not a valid configuration — delegating without a
+   * credential would just produce 401s, so callers treat this as unavailable.
    */
   isConfigured(): boolean {
     if (process.env.AI_SERVICE_ENABLED === "false") {
       return false;
     }
-    return this.explicitlyConfigured;
+    return this.explicitlyConfigured && this.internalToken.length > 0;
   }
 
   /**
@@ -301,7 +318,7 @@ export class AIServiceClient {
 
     const headers: Record<string, string> = {
       Accept: "application/json",
-      "X-Internal-Token": this.internalToken,
+      ...this.authHeaders(),
     };
 
     if (options.requestId) {
@@ -371,7 +388,7 @@ export class AIServiceClient {
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "X-Internal-Token": this.internalToken,
+      ...this.authHeaders(),
     };
 
     if (options.requestId) {
@@ -529,7 +546,7 @@ export class AIServiceClient {
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "X-Internal-Token": this.internalToken,
+      ...this.authHeaders(),
     };
 
     if (options.requestId) {
@@ -668,7 +685,7 @@ export class AIServiceClient {
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "X-Internal-Token": this.internalToken,
+      ...this.authHeaders(),
     };
 
     if (options.requestId) {
@@ -797,7 +814,7 @@ export class AIServiceClient {
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "X-Internal-Token": this.internalToken,
+      ...this.authHeaders(),
     };
 
     if (options.requestId) {

@@ -18,7 +18,7 @@ FRONTEND_TEMPLATE = """# =======================================================
 # Get a key at https://aistudio.google.com/apikey
 # Real keys start with "AIza" and are 39 chars total.
 GEMINI_API_KEY=AIza...PASTE_YOUR_REAL_KEY_HERE
-GEMINI_CHAT_MODEL=gemini-2.5-flash
+GEMINI_CHAT_MODEL=gemini-3.5-flash-lite
 GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 # --- Internal AI Service ---
 # URL of the Python FastAPI service. Use port 8001 locally
@@ -29,13 +29,25 @@ AI_SERVICE_TOKEN={token}
 # --- Rate Limiting ---
 CHAT_RATE_LIMIT=10
 CHAT_RATE_WINDOW_MS=60000
+INTERVIEW_RATE_LIMIT=15
+INTERVIEW_RATE_WINDOW_MS=60000
+# Upper bound for a single Gemini call, in milliseconds.
+LLM_TIMEOUT_MS=45000
 # --- Reverse Proxy Trust ---
-# false for local dev. Set to true ONLY when deployed behind a
-# trusted reverse proxy (Vercel, Cloudflare, Nginx) that
-# rewrites X-Forwarded-For. See README.md "Docker Quickstart".
+# false for local dev: client-supplied IP headers are ignored.
+# docker-compose.yml sets TRUSTED_PROXY=true explicitly for the frontend
+# service, because there every request arrives through the bundled Nginx
+# proxy. See README.md "Reverse Proxy & Client IP Verification".
 TRUSTED_PROXY=false
+# Header guaranteed by the reverse proxy when TRUSTED_PROXY=true.
+TRUSTED_PROXY_HEADER=x-forwarded-for
 # --- Tech News (optional) ---
 # DEV_TO_API_KEY=your_devto_api_key_here
+# --- Public read-only endpoints rate limits (per client IP) ---
+TECH_NEWS_RATE_LIMIT=30
+TECH_NEWS_RATE_WINDOW_MS=60000
+CSP_REPORT_RATE_LIMIT=60
+CSP_REPORT_RATE_WINDOW_MS=60000
 """
 
 BACKEND_TEMPLATE = """# =============================================================

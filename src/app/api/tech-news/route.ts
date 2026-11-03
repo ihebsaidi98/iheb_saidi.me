@@ -9,10 +9,16 @@
  * Caching strategy:
  *   - `export const revalidate = 1800` → Next.js ISR revalidates every 30 min
  *   - Module-level `cache` Map → same-instance requests skip re-fetching
+ *
+ * M2-01: the endpoint stays public but is rate limited per client IP, so a
+ * caller cannot use it to amplify outbound feed requests. The quota is applied
+ * before the cache lookup and before any external call.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchAllFeeds, type TechNewsApiResponse } from "@/lib/tech-news";
+import { extractClientIp } from "@/lib/chat";
+import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 
 export const revalidate = 1800; // 30 minutes
 
@@ -20,7 +26,55 @@ type CacheEntry = { data: TechNewsApiResponse; ts: number };
 const CACHE_TTL_MS = 30 * 60 * 1_000;
 let cache: CacheEntry | null = null;
 
-export async function GET(): Promise<NextResponse<TechNewsApiResponse>> {
+// Module-level singleton — persists across requests in the same process.
+const { limit: TECH_NEWS_RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
+  "TECH_NEWS_RATE_LIMIT",
+  30,
+  "TECH_NEWS_RATE_WINDOW_MS",
+  60_000,
+);
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  // 1. Client IP + quota, before the cache lookup and any external call.
+  let ip: string;
+  try {
+    ip = extractClientIp(request);
+  } catch (err) {
+    console.error("[tech-news/route] Client IP verification failed:", err);
+    return NextResponse.json(
+      {
+        error: "Unable to process request: client IP cannot be verified safely.",
+        code: "IP_VERIFICATION_FAILED",
+      },
+      { status: 500 },
+    );
+  }
+
+  const rl = rateLimiter.check(ip);
+  const rlHeaders: Record<string, string> = {
+    "X-RateLimit-Limit": String(TECH_NEWS_RATE_LIMIT),
+    "X-RateLimit-Remaining": String(rl.remaining),
+    "X-RateLimit-Reset": String(Math.ceil(rl.resetAt / 1000)),
+  };
+
+  if (!rl.allowed) {
+    return NextResponse.json(
+      {
+        error: "Too many news requests. Please wait before fetching the feed again.",
+        code: "RATE_LIMITED",
+        retryAfterMs: rl.retryAfterMs,
+      },
+      {
+        status: 429,
+        headers: {
+          ...rlHeaders,
+          "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)),
+        },
+      },
+    );
+  }
+
+  // 2. Cached payload (unchanged behaviour).
   const now = Date.now();
 
   if (cache && now - cache.ts < CACHE_TTL_MS) {
