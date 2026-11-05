@@ -45,7 +45,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const rl = rateLimiter.check(clientIpRateLimitKey(ip));
+  const clientIpKey = clientIpRateLimitKey(ip);
+  const rl = rateLimiter.check(clientIpKey);
   const rlHeaders: Record<string, string> = {
     "X-RateLimit-Limit": String(RATE_LIMIT),
     "X-RateLimit-Remaining": String(rl.remaining),
@@ -107,6 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const result = await aiServiceClient.startInterview({
       ...validation.data,
+      clientIpKey,
       requestId: correlationId,
     });
 

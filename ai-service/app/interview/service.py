@@ -47,6 +47,7 @@ logger = logging.getLogger("ai_service.interview.service")
 
 SESSION_TTL_SECONDS = 7200  # 2 hours
 MAX_ACTIVE_SESSIONS = 1000
+MAX_ACTIVE_SESSIONS_PER_CLIENT = 3
 TOTAL_QUESTIONS = 10
 
 # ---------------------------------------------------------------------------
@@ -158,6 +159,7 @@ class ActiveSession:
     completion_report: SessionCompletionReport | None = None
     created_at: float = field(default_factory=time.time)
     last_activity: float = field(default_factory=time.time)
+    client_key: str | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     @property
@@ -194,12 +196,13 @@ def _prune_expired_sessions() -> None:
     for sid in expired:
         _ACTIVE_SESSIONS.pop(sid, None)
 
-    if len(_ACTIVE_SESSIONS) > MAX_ACTIVE_SESSIONS:
-        sorted_by_activity = sorted(
-            _ACTIVE_SESSIONS.items(), key=lambda item: item[1].last_activity
-        )
-        for sid, _ in sorted_by_activity[: len(_ACTIVE_SESSIONS) - MAX_ACTIVE_SESSIONS]:
-            _ACTIVE_SESSIONS.pop(sid, None)
+
+def _count_active_sessions_for_client(client_key: str) -> int:
+    return sum(
+        1
+        for session in _ACTIVE_SESSIONS.values()
+        if session.client_key == client_key and not session.completed
+    )
 
 
 def get_active_session(session_id: str) -> ActiveSession | None:
@@ -271,14 +274,47 @@ class InterviewSimulatorService:
         self.gemini_client = gemini_client
 
     async def start_interview(
-        self, request: StartInterviewRequest
+        self, request: StartInterviewRequest, client_ip_key: str | None = None
     ) -> StartInterviewResponse:
         """Initialize a new 10-question interview session for the given track.
 
         Pre-selects all 10 questions ordered by difficulty. Issues a cryptographically
         random session_token for subsequent ownership verification.
+
+        ``client_ip_key`` is the normalized client IP rate-limit key. It is used only
+        to cap concurrent incomplete sessions per client; ``None`` disables that cap
+        for direct internal calls.
         """
         _prune_expired_sessions()
+
+        if len(_ACTIVE_SESSIONS) >= MAX_ACTIVE_SESSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "code": "SERVER_CAPACITY_REACHED",
+                    "message": (
+                        "Interview service is at capacity. "
+                        "Please retry later."
+                    ),
+                },
+            )
+
+        if (
+            client_ip_key is not None
+            and _count_active_sessions_for_client(client_ip_key)
+            >= MAX_ACTIVE_SESSIONS_PER_CLIENT
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "CLIENT_SESSION_LIMIT_REACHED",
+                    "message": (
+                        "You already have the maximum number of interviews in "
+                        "progress. Please finish or wait for an existing "
+                        "interview to expire before starting a new one."
+                    ),
+                },
+            )
 
         # Select questions for this track, ordered by difficulty
         track_questions = get_questions_for_session(request.track)
@@ -300,6 +336,7 @@ class InterviewSimulatorService:
             session_token=session_token,
             track=request.track,
             question_order=question_order,
+            client_key=client_ip_key,
         )
         _ACTIVE_SESSIONS[session_id] = session
 

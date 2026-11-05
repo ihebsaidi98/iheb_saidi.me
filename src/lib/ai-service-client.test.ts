@@ -552,6 +552,93 @@ describe("AIServiceClient", () => {
       }
     });
 
+    it("sends X-Client-IP-Key when clientIpKey is provided", async () => {
+      const originalFetch = globalThis.fetch;
+      let interceptedHeaders: Headers | undefined;
+      globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+        interceptedHeaders = new Headers(init?.headers);
+        return new Response(
+          JSON.stringify({
+            session_id: "session-key-1",
+            session_token: "token-key-1",
+            track: "full_stack",
+            total_questions: 10,
+            initial_question: {
+              question_id: "fs-mcq-01",
+              question_number: 1,
+              total_questions: 10,
+              question_text: "Q1",
+              question_type: "mcq",
+              track: "full_stack",
+              topic: "HTTP",
+              options: ["A", "B", "C", "D"],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      try {
+        const client = new AIServiceClient({
+          baseUrl: "http://127.0.0.1:8001",
+          token: "test-token-xyz",
+        });
+        await client.startInterview({
+          track: "full_stack",
+          clientIpKey: "2001:db8:abcd:12::",
+          requestId: "trace-key-1",
+        });
+
+        assert.equal(
+          interceptedHeaders?.get("X-Client-IP-Key"),
+          "2001:db8:abcd:12::",
+        );
+        assert.equal(interceptedHeaders?.get("X-Internal-Token"), "test-token-xyz");
+        assert.equal(interceptedHeaders?.get("X-Request-ID"), "trace-key-1");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("omits X-Client-IP-Key when clientIpKey is not provided", async () => {
+      const originalFetch = globalThis.fetch;
+      let interceptedHeaders: Headers | undefined;
+      globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+        interceptedHeaders = new Headers(init?.headers);
+        return new Response(
+          JSON.stringify({
+            session_id: "session-key-2",
+            session_token: "token-key-2",
+            track: "full_stack",
+            total_questions: 10,
+            initial_question: {
+              question_id: "fs-mcq-01",
+              question_number: 1,
+              total_questions: 10,
+              question_text: "Q1",
+              question_type: "mcq",
+              track: "full_stack",
+              topic: "HTTP",
+              options: ["A", "B", "C", "D"],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      try {
+        const client = new AIServiceClient({
+          baseUrl: "http://127.0.0.1:8001",
+          token: "test-token-xyz",
+        });
+        await client.startInterview({ track: "full_stack" });
+
+        assert.equal(interceptedHeaders?.get("X-Client-IP-Key"), null);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it("throws AIServiceClientError on HTTP 401 unauthorized", async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = async () => {

@@ -326,4 +326,83 @@ describe("POST /api/interview/start — Secure Proxy Route", () => {
       env.TRUSTED_PROXY = originalProxy;
     }
   });
+
+  it("forwards the server-derived client IP key to the AI service", async () => {
+    aiServiceClient.isConfigured = () => true;
+    let receivedKey: string | undefined;
+    aiServiceClient.startInterview = async (opts = {}) => {
+      receivedKey = opts.clientIpKey;
+      return {
+        session_id: "s-key",
+        session_token: "tok-key",
+        track: "full_stack",
+        total_questions: 10,
+        initial_question: {
+          question_id: "fs-mcq-01",
+          question_number: 1,
+          total_questions: 10,
+          question_text: "Q1",
+          question_type: "mcq",
+          track: "full_stack",
+          topic: "HTTP",
+          options: ["A", "B", "C", "D"],
+        },
+      };
+    };
+
+    const res = await POST(createRequest({}, { ip: "192.168.1.150" }));
+    assert.equal(res.status, 200);
+    assert.equal(receivedKey, "192.168.1.150");
+  });
+
+  it("ignores a browser-supplied X-Client-IP-Key header", async () => {
+    aiServiceClient.isConfigured = () => true;
+    let receivedKey: string | undefined;
+    aiServiceClient.startInterview = async (opts = {}) => {
+      receivedKey = opts.clientIpKey;
+      return {
+        session_id: "s-spoof",
+        session_token: "tok-spoof",
+        track: "full_stack",
+        total_questions: 10,
+        initial_question: {
+          question_id: "fs-mcq-01",
+          question_number: 1,
+          total_questions: 10,
+          question_text: "Q1",
+          question_type: "mcq",
+          track: "full_stack",
+          topic: "HTTP",
+          options: ["A", "B", "C", "D"],
+        },
+      };
+    };
+
+    const res = await POST(
+      createRequest(
+        {},
+        {
+          ip: "192.168.1.151",
+          headers: { "X-Client-IP-Key": "10.0.0.1" },
+        },
+      ),
+    );
+    assert.equal(res.status, 200);
+    assert.equal(receivedKey, "192.168.1.151");
+  });
+
+  it("propagates 429 CLIENT_SESSION_LIMIT_REACHED from the AI service", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => {
+      throw new AIServiceClientError(
+        "You already have the maximum number of interviews in progress.",
+        { status: 429, code: "CLIENT_SESSION_LIMIT_REACHED" },
+      );
+    };
+
+    const res = await POST(createRequest({}, { ip: "192.168.1.152" }));
+    assert.equal(res.status, 429);
+    const data = await res.json();
+    assert.equal(data.code, "CLIENT_SESSION_LIMIT_REACHED");
+  });
 });

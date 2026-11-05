@@ -86,6 +86,7 @@ export type StartInterviewOptions = {
   track?: InterviewTrack;
   difficulty?: InterviewDifficulty;
   focus_areas?: string[];
+  clientIpKey?: string;
   requestId?: string;
   timeoutMs?: number;
 };
@@ -551,6 +552,10 @@ export class AIServiceClient {
 
     if (options.requestId) {
       headers["X-Request-ID"] = options.requestId;
+    }
+
+    if (options.clientIpKey) {
+      headers["X-Client-IP-Key"] = options.clientIpKey;
     }
 
     const payload: {

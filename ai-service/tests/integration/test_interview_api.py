@@ -120,7 +120,10 @@ async def test_interview_disabled_by_feature_flag(
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        headers = {"X-Internal-Token": "valid-test-internal-token"}
+        headers = {
+            "X-Internal-Token": "valid-test-internal-token",
+            "X-Client-IP-Key": "203.0.113.7",
+        }
         resp = await client.post(
             "/v1/interview/start",
             json={"track": "full_stack"},
@@ -138,7 +141,10 @@ async def test_interview_start_success(
     interview_client: AsyncClient, mock_interview_service: MagicMock
 ) -> None:
     """Successful start returns 200 with initial question and session token."""
-    headers = {"X-Internal-Token": "valid-test-internal-token"}
+    headers = {
+        "X-Internal-Token": "valid-test-internal-token",
+        "X-Client-IP-Key": "203.0.113.7",
+    }
     mock_interview_service.start_interview.return_value = StartInterviewResponse(
         session_id="session-test-123",
         session_token="token-abc-123",
@@ -234,3 +240,160 @@ async def test_interview_complete_success(
     data = resp.json()
     assert data["score_out_of_100"] == 90.0
     assert data["session_id"] == "session-test-123"
+
+
+# --- Client IP Key Header Tests (RISQUE-04) ---
+
+
+def _start_response() -> StartInterviewResponse:
+    return StartInterviewResponse(
+        session_id="session-test-123",
+        session_token="token-abc-123",
+        track="full_stack",
+        total_questions=10,
+        initial_question=InterviewQuestion(
+            question_id="fs-mcq-01",
+            question_number=1,
+            total_questions=10,
+            question_text="Which status code?",
+            question_type="mcq",
+            track="full_stack",
+            topic="HTTP",
+            options=["200", "201", "204", "301"],
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_interview_start_forwards_client_ip_key(
+    interview_client: AsyncClient, mock_interview_service: MagicMock
+) -> None:
+    """A valid X-Client-IP-Key header is validated and passed to the service."""
+    mock_interview_service.start_interview.return_value = _start_response()
+
+    resp = await interview_client.post(
+        "/v1/interview/start",
+        json={"track": "full_stack"},
+        headers={
+            "X-Internal-Token": "valid-test-internal-token",
+            "X-Client-IP-Key": "203.0.113.7",
+        },
+    )
+
+    assert resp.status_code == 200
+    mock_interview_service.start_interview.assert_awaited_once()
+    _, kwargs = mock_interview_service.start_interview.call_args
+    assert kwargs["client_ip_key"] == "203.0.113.7"
+
+
+@pytest.mark.asyncio
+async def test_interview_start_accepts_ipv6_client_ip_key(
+    interview_client: AsyncClient, mock_interview_service: MagicMock
+) -> None:
+    """A canonical IPv6 /64 key is accepted."""
+    mock_interview_service.start_interview.return_value = _start_response()
+
+    resp = await interview_client.post(
+        "/v1/interview/start",
+        json={"track": "full_stack"},
+        headers={
+            "X-Internal-Token": "valid-test-internal-token",
+            "X-Client-IP-Key": "2001:db8:abcd:12::",
+        },
+    )
+
+    assert resp.status_code == 200
+    _, kwargs = mock_interview_service.start_interview.call_args
+    assert kwargs["client_ip_key"] == "2001:db8:abcd:12::"
+
+
+@pytest.mark.asyncio
+async def test_interview_start_rejects_missing_client_ip_key(
+    interview_client: AsyncClient, mock_interview_service: MagicMock
+) -> None:
+    """The header is mandatory on the HTTP endpoint."""
+    resp = await interview_client.post(
+        "/v1/interview/start",
+        json={"track": "full_stack"},
+        headers={"X-Internal-Token": "valid-test-internal-token"},
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    mock_interview_service.start_interview.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "   ",
+        "not-an-ip",
+        "unknown",
+        "203.0.113.7:443",
+        "203.0.113.999",
+        "1" * 46,
+        "203.0.113.7, 198.51.100.9",
+    ],
+)
+async def test_interview_start_rejects_invalid_client_ip_key(
+    interview_client: AsyncClient, mock_interview_service: MagicMock, value: str
+) -> None:
+    """Arbitrary, empty, placeholder or over-long values are rejected."""
+    resp = await interview_client.post(
+        "/v1/interview/start",
+        json={"track": "full_stack"},
+        headers={
+            "X-Internal-Token": "valid-test-internal-token",
+            "X-Client-IP-Key": value,
+        },
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "INVALID_CLIENT_IP_KEY"
+    mock_interview_service.start_interview.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_interview_start_client_ip_key_requires_internal_token(
+    interview_client: AsyncClient, mock_interview_service: MagicMock
+) -> None:
+    """A valid client key does not bypass internal authentication."""
+    resp = await interview_client.post(
+        "/v1/interview/start",
+        json={"track": "full_stack"},
+        headers={"X-Client-IP-Key": "203.0.113.7"},
+    )
+
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+    mock_interview_service.start_interview.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_interview_start_propagates_client_session_limit(
+    interview_client: AsyncClient, mock_interview_service: MagicMock
+) -> None:
+    """A 429 CLIENT_SESSION_LIMIT_REACHED from the service is returned unchanged."""
+    from fastapi import HTTPException, status
+
+    mock_interview_service.start_interview.side_effect = HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={
+            "code": "CLIENT_SESSION_LIMIT_REACHED",
+            "message": "You already have the maximum number of interviews in progress.",
+        },
+    )
+
+    resp = await interview_client.post(
+        "/v1/interview/start",
+        json={"track": "full_stack"},
+        headers={
+            "X-Internal-Token": "valid-test-internal-token",
+            "X-Client-IP-Key": "203.0.113.7",
+        },
+    )
+
+    assert resp.status_code == 429
+    assert resp.json()["error"]["code"] == "CLIENT_SESSION_LIMIT_REACHED"

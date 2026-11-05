@@ -599,3 +599,31 @@ describe("test wiring for the startup guards", () => {
     );
   });
 });
+
+describe("X-Client-IP-Key header consistency (RISQUE-04)", () => {
+  const HEADER = "X-Client-IP-Key";
+
+  it("is emitted by the AI service client", () => {
+    assert.ok(
+      readFile("src/lib/ai-service-client.ts").includes(`"${HEADER}"`),
+      `ai-service-client.ts must send the ${HEADER} header`,
+    );
+  });
+
+  it("is required by the FastAPI interview start endpoint", () => {
+    const source = readFile("ai-service/app/api/v1/interview.py");
+    assert.ok(
+      source.includes(`Header(alias="${HEADER}")`),
+      `interview.py must declare the ${HEADER} header`,
+    );
+  });
+
+  it("is not read from incoming browser headers by the Next.js route", () => {
+    const source = readFile("src/app/api/interview/start/route.ts");
+    assert.ok(
+      !source.includes(`headers.get("${HEADER}")`) &&
+        !source.includes(`headers.get("${HEADER.toLowerCase()}")`),
+      "the route must derive the key from clientIpRateLimitKey(), never from the request",
+    );
+  });
+});

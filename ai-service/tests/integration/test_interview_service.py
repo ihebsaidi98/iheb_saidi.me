@@ -1,9 +1,9 @@
-"""Integration tests for InterviewSimulatorService with real vector store."""
-
+import asyncio
+import time
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.config import Settings
 from app.interview.schemas import (
@@ -11,7 +11,14 @@ from app.interview.schemas import (
     StartInterviewRequest,
     SubmitAnswerRequest,
 )
-from app.interview.service import InterviewSimulatorService, clear_active_sessions
+from app.interview.service import (
+    _ACTIVE_SESSIONS,
+    MAX_ACTIVE_SESSIONS,
+    SESSION_TTL_SECONDS,
+    ActiveSession,
+    InterviewSimulatorService,
+    clear_active_sessions,
+)
 from app.rag.store import PortfolioVectorStore
 
 
@@ -556,3 +563,432 @@ async def test_interview_service_incorrect_candidate_control_scores_zero(
         assert mcq.is_correct is False
     for wr in report.written_results:
         assert wr.rubric.overall_score == 1.0
+
+
+def _seed_dummy_sessions(count: int, start_idx: int = 0) -> list[str]:
+    """Helper to populate _ACTIVE_SESSIONS with dummy valid sessions."""
+    created_ids = []
+    now = time.time()
+    for i in range(start_idx, start_idx + count):
+        sid = f"dummy-session-{i:04d}"
+        _ACTIVE_SESSIONS[sid] = ActiveSession(
+            session_id=sid,
+            session_token=f"token-{i:04d}",
+            track="backend",
+            question_order=[f"be-q-{j}" for j in range(10)],
+            created_at=now,
+            last_activity=now,
+        )
+        created_ids.append(sid)
+    return created_ids
+
+
+@pytest.mark.asyncio
+async def test_interview_capacity_at_999_accepts_new_session(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """When 999 sessions exist, a new session is accepted and capacity reaches exactly 1000."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_dummy_sessions(999)
+    assert len(_ACTIVE_SESSIONS) == 999
+
+    res = await service.start_interview(StartInterviewRequest(track="backend"))
+    assert res.session_id.startswith("session-")
+    assert len(_ACTIVE_SESSIONS) == 1000
+    assert res.session_id in _ACTIVE_SESSIONS
+
+
+@pytest.mark.asyncio
+async def test_interview_capacity_at_1000_rejects_with_503(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """When 1000 active sessions exist, start_interview fails with HTTP 503 SERVER_CAPACITY_REACHED."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_dummy_sessions(1000)
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.start_interview(StartInterviewRequest(track="backend"))
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    detail = exc_info.value.detail
+    assert isinstance(detail, dict)
+    assert detail.get("code") == "SERVER_CAPACITY_REACHED"
+    assert "capacity" in detail.get("message", "").lower()
+    # The dictionary must NOT be modified
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+
+@pytest.mark.asyncio
+async def test_interview_capacity_rejection_preserves_existing_sessions(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """When capacity is reached, existing in-progress and completed sessions are preserved completely."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+
+    # 1. Start a real in-progress session and answer question 1
+    start_res = await service.start_interview(StartInterviewRequest(track="full_stack"))
+    active_sid = start_res.session_id
+    active_token = start_res.session_token
+    q1_id = start_res.initial_question.question_id
+    await service.submit_answer(
+        SubmitAnswerRequest(
+            session_id=active_sid,
+            session_token=active_token,
+            question_id=q1_id,
+            answer="201 Created",
+        )
+    )
+
+    # 2. Start and fully complete a session to get a cached report
+    comp_start = await service.start_interview(StartInterviewRequest(track="backend"))
+    comp_sid = comp_start.session_id
+    comp_token = comp_start.session_token
+    cur_q = comp_start.initial_question
+    for _ in range(1, 11):
+        ack = await service.submit_answer(
+            SubmitAnswerRequest(
+                session_id=comp_sid,
+                session_token=comp_token,
+                question_id=cur_q.question_id,
+                answer="Sample answer",
+            )
+        )
+        if ack.next_question:
+            cur_q = ack.next_question
+    report_orig = await service.complete_session(
+        CompleteSessionRequest(session_id=comp_sid, session_token=comp_token)
+    )
+
+    # Currently we have 2 sessions in _ACTIVE_SESSIONS.
+    # Seed 998 dummy sessions to bring total to exactly 1000.
+    _seed_dummy_sessions(998, start_idx=2)
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+    # 3. Attempt to start a 1001st session: should be rejected
+    with pytest.raises(HTTPException) as exc_info:
+        await service.start_interview(StartInterviewRequest(track="ai_ml"))
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+    # 4. Verify existing in-progress session is preserved and can submit question 2
+    active_session = _ACTIVE_SESSIONS[active_sid]
+    assert active_session.answered_count == 1
+    next_qid = active_session.current_question_id
+    assert next_qid is not None
+    ack2 = await service.submit_answer(
+        SubmitAnswerRequest(
+            session_id=active_sid,
+            session_token=active_token,
+            question_id=next_qid,
+            answer="Sample answer 2",
+        )
+    )
+    assert ack2.answered_count == 2
+
+    # 5. Verify completed session still exists with its cached report
+    comp_session = _ACTIVE_SESSIONS[comp_sid]
+    assert comp_session.completed is True
+    assert comp_session.completion_report is not None
+    report_cached = await service.complete_session(
+        CompleteSessionRequest(session_id=comp_sid, session_token=comp_token)
+    )
+    assert report_cached.session_id == comp_sid
+    assert report_cached.score_out_of_100 == report_orig.score_out_of_100
+
+
+@pytest.mark.asyncio
+async def test_interview_expired_sessions_pruned_before_capacity_check(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Expired sessions are pruned before checking capacity, freeing slots for new sessions."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_dummy_sessions(1000)
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+    # Mark 5 sessions as expired
+    old_time = time.time() - (SESSION_TTL_SECONDS + 30)
+    for i in range(5):
+        _ACTIVE_SESSIONS[f"dummy-session-{i:04d}"].last_activity = old_time
+
+    # Starting an interview should prune the 5 expired sessions and accept the new one
+    res = await service.start_interview(StartInterviewRequest(track="backend"))
+    assert res.session_id.startswith("session-")
+    # 1000 - 5 expired + 1 new = 996
+    assert len(_ACTIVE_SESSIONS) == 996
+    for i in range(5):
+        assert f"dummy-session-{i:04d}" not in _ACTIVE_SESSIONS
+
+
+@pytest.mark.asyncio
+async def test_interview_completed_non_expired_session_not_evicted(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """A completed session within TTL is not evicted when new session requests arrive."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+
+    # Seed 1 completed session with recent activity
+    now = time.time()
+    comp_sid = "completed-session-target"
+    _ACTIVE_SESSIONS[comp_sid] = ActiveSession(
+        session_id=comp_sid,
+        session_token="comp-token",
+        track="frontend",
+        question_order=[f"fe-q-{j}" for j in range(10)],
+        completed=True,
+        created_at=now,
+        last_activity=now - 60,  # 1 minute ago, definitely not expired
+    )
+
+    # Seed 999 other sessions. Total = 1000
+    _seed_dummy_sessions(999, start_idx=1)
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+    # Starting a new session must fail with 503 and NOT evict the completed session
+    with pytest.raises(HTTPException) as exc_info:
+        await service.start_interview(StartInterviewRequest(track="frontend"))
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    # Completed session MUST still be in _ACTIVE_SESSIONS
+    assert comp_sid in _ACTIVE_SESSIONS
+    assert _ACTIVE_SESSIONS[comp_sid].completed is True
+
+
+@pytest.mark.asyncio
+async def test_interview_concurrent_start_interview_single_worker(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Under single-worker asyncio, concurrent start_interview requests strictly respect the 1000 ceiling."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_dummy_sessions(998)
+    assert len(_ACTIVE_SESSIONS) == 998
+
+    # Launch 5 concurrent start_interview requests
+    tasks = [
+        service.start_interview(StartInterviewRequest(track="backend"))
+        for _ in range(5)
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    successes = [r for r in results if not isinstance(r, Exception)]
+    failures = [r for r in results if isinstance(r, HTTPException)]
+
+    # Exactly 2 should succeed to reach 1000, 3 should fail with 503
+    assert len(successes) == 2
+    assert len(failures) == 3
+    for f in failures:
+        assert f.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert f.detail.get("code") == "SERVER_CAPACITY_REACHED"
+
+    assert len(_ACTIVE_SESSIONS) == 1000
+
+
+
+# ---------------------------------------------------------------------------
+# Per-client-key session limit (RISQUE-04)
+# ---------------------------------------------------------------------------
+
+
+def _seed_client_sessions(
+    client_key: str,
+    count: int,
+    *,
+    completed: bool = False,
+    expired: bool = False,
+    start_idx: int = 0,
+) -> list[str]:
+    """Seed sessions bound to *client_key* with a controlled state."""
+    now = time.time()
+    last_activity = now - (SESSION_TTL_SECONDS + 30) if expired else now
+    created_ids: list[str] = []
+    for i in range(start_idx, start_idx + count):
+        sid = f"client-session-{client_key}-{i:04d}"
+        _ACTIVE_SESSIONS[sid] = ActiveSession(
+            session_id=sid,
+            session_token=f"token-{i:04d}",
+            track="backend",
+            question_order=[f"be-q-{j}" for j in range(10)],
+            completed=completed,
+            created_at=last_activity,
+            last_activity=last_activity,
+            client_key=client_key,
+        )
+        created_ids.append(sid)
+    return created_ids
+
+
+@pytest.mark.asyncio
+async def test_client_limit_rejects_fourth_incomplete_session(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """A client key already holding 3 incomplete sessions is rejected with 429."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_client_sessions("203.0.113.7", 3)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.start_interview(
+            StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+        )
+
+    assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+    detail = exc_info.value.detail
+    assert isinstance(detail, dict)
+    assert detail.get("code") == "CLIENT_SESSION_LIMIT_REACHED"
+    assert detail.get("message")
+    assert len(_ACTIVE_SESSIONS) == 3
+
+
+@pytest.mark.asyncio
+async def test_client_limit_allows_third_session(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """A client key holding 2 incomplete sessions may start a third."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_client_sessions("203.0.113.7", 2)
+
+    res = await service.start_interview(
+        StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+    )
+
+    assert res.session_id in _ACTIVE_SESSIONS
+    assert _ACTIVE_SESSIONS[res.session_id].client_key == "203.0.113.7"
+    assert len(_ACTIVE_SESSIONS) == 3
+
+
+@pytest.mark.asyncio
+async def test_client_limit_does_not_affect_other_keys(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """A saturated client key does not block a different client key."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_client_sessions("203.0.113.7", 3)
+
+    res = await service.start_interview(
+        StartInterviewRequest(track="backend"), client_ip_key="198.51.100.9"
+    )
+
+    assert _ACTIVE_SESSIONS[res.session_id].client_key == "198.51.100.9"
+    assert len(_ACTIVE_SESSIONS) == 4
+
+
+@pytest.mark.asyncio
+async def test_client_limit_ignores_completed_sessions(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Completed sessions do not count toward the per-client limit."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_client_sessions("203.0.113.7", 3, completed=True)
+
+    res = await service.start_interview(
+        StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+    )
+
+    assert res.session_id in _ACTIVE_SESSIONS
+    assert len(_ACTIVE_SESSIONS) == 4
+
+
+@pytest.mark.asyncio
+async def test_client_limit_ignores_expired_sessions(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Expired sessions are pruned and do not count toward the per-client limit."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_client_sessions("203.0.113.7", 3, expired=True)
+
+    res = await service.start_interview(
+        StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+    )
+
+    assert res.session_id in _ACTIVE_SESSIONS
+    assert len(_ACTIVE_SESSIONS) == 1
+
+
+@pytest.mark.asyncio
+async def test_client_limit_skipped_when_key_is_none(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Direct service calls without a client key are not subject to the per-client limit."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_client_sessions("203.0.113.7", 3)
+
+    for _ in range(3):
+        res = await service.start_interview(StartInterviewRequest(track="backend"))
+        assert _ACTIVE_SESSIONS[res.session_id].client_key is None
+
+    assert len(_ACTIVE_SESSIONS) == 6
+
+
+@pytest.mark.asyncio
+async def test_client_limit_preserves_global_capacity_check(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """The global 1000-session ceiling still applies independently of the per-client limit."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    _seed_dummy_sessions(MAX_ACTIVE_SESSIONS)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.start_interview(
+            StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+        )
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert exc_info.value.detail.get("code") == "SERVER_CAPACITY_REACHED"
+    assert len(_ACTIVE_SESSIONS) == MAX_ACTIVE_SESSIONS
+
+
+@pytest.mark.asyncio
+async def test_client_limit_preserves_existing_sessions_on_rejection(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Rejecting a client does not delete or mutate any of its existing sessions."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+    seeded = _seed_client_sessions("203.0.113.7", 3)
+    before = {
+        sid: (
+            _ACTIVE_SESSIONS[sid].session_token,
+            _ACTIVE_SESSIONS[sid].completed,
+            _ACTIVE_SESSIONS[sid].last_activity,
+        )
+        for sid in seeded
+    }
+
+    with pytest.raises(HTTPException):
+        await service.start_interview(
+            StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+        )
+
+    assert set(_ACTIVE_SESSIONS) == set(seeded)
+    for sid in seeded:
+        session = _ACTIVE_SESSIONS[sid]
+        assert (
+            session.session_token,
+            session.completed,
+            session.last_activity,
+        ) == before[sid]
+
+
+@pytest.mark.asyncio
+async def test_client_limit_concurrent_starts_same_key(
+    real_vector_store: PortfolioVectorStore, test_settings: Settings
+) -> None:
+    """Concurrent starts for one client key never exceed the per-client ceiling."""
+    service = InterviewSimulatorService(store=real_vector_store, settings=test_settings)
+
+    tasks = [
+        service.start_interview(
+            StartInterviewRequest(track="backend"), client_ip_key="203.0.113.7"
+        )
+        for _ in range(6)
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    successes = [r for r in results if not isinstance(r, Exception)]
+    failures = [r for r in results if isinstance(r, HTTPException)]
+
+    assert len(successes) == 3
+    assert len(failures) == 3
+    for f in failures:
+        assert f.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert f.detail.get("code") == "CLIENT_SESSION_LIMIT_REACHED"
+
+    assert len(_ACTIVE_SESSIONS) == 3

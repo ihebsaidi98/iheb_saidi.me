@@ -23,7 +23,10 @@ from app.rag.schemas import SearchResultItem
 from app.rag.service import RAGGenerationError, RAGService
 from app.rag.store import PortfolioVectorStore
 
-AUTH_HEADERS = {"X-Internal-Token": "valid-test-internal-token"}
+AUTH_HEADERS = {
+    "X-Internal-Token": "valid-test-internal-token",
+    "X-Client-IP-Key": "203.0.113.7",
+}
 SENTINEL_SECRET = "SENTINEL_AI_KEY_SECRET_987654321"
 
 
