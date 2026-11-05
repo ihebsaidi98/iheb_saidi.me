@@ -112,7 +112,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       requestId: correlationId,
     });
 
-    return NextResponse.json(result, { status: 200, headers: rlHeaders });
+    // AUD-10: this is the only response in the app that carries a session
+    // token (`StartInterviewResponse.session_token`). `no-store` keeps it out
+    // of the browser cache and of any shared proxy cache, whatever the
+    // deployment puts in front of the app. AUD-09 quota headers are preserved.
+    return NextResponse.json(result, {
+      status: 200,
+      headers: { ...rlHeaders, "Cache-Control": "no-store" },
+    });
   } catch (err) {
     return handleInterviewApiError(err, {
       routeLabel: "interview/start",

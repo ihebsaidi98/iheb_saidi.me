@@ -85,6 +85,74 @@ describe("POST /api/interview/start — Secure Proxy Route", () => {
     assert.ok(res.headers.get("X-RateLimit-Limit"));
   });
 
+  // ============================================================
+  // AUD-10 — the session token must never be stored by a cache
+  // ============================================================
+
+  /** The only payload that carries `session_token` (StartInterviewResponse). */
+  function startResponse(token: string) {
+    return {
+      session_id: "session-aud10",
+      session_token: token,
+      track: "full_stack" as const,
+      total_questions: 10,
+      initial_question: {
+        question_id: "fs-mcq-01",
+        question_number: 1,
+        total_questions: 10,
+        question_text: "Which HTTP status code indicates resource creation?",
+        question_type: "mcq" as const,
+        track: "full_stack" as const,
+        topic: "HTTP",
+        options: ["200", "201", "204", "301"],
+        expected_talking_points: ["RFC 7231"],
+      },
+    };
+  }
+
+  it("marks the session-token response with Cache-Control: no-store", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => startResponse("token-aud10-secret");
+
+    const res = await POST(
+      createRequest({ track: "full_stack", difficulty: "senior" }, { ip: "192.168.1.150" }),
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(
+      res.headers.get("cache-control"),
+      "no-store",
+      "a response carrying a session token must be non-cacheable",
+    );
+
+    // The token is still delivered, and AUD-09 quota headers survive.
+    const data = await res.json();
+    assert.equal(data.session_token, "token-aud10-secret");
+    for (const header of ["x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"]) {
+      assert.ok(res.headers.get(header) !== null, `${header} must stay on the success response`);
+    }
+    assert.equal(res.headers.get("retry-after"), null);
+  });
+
+  it("keeps error responses free of any cache directive", async () => {
+    // No session is created here, so no token can leak: the error contract must
+    // stay exactly as it was before AUD-10.
+    aiServiceClient.isConfigured = () => false;
+    const res = await POST(
+      createRequest({ track: "full_stack", difficulty: "senior" }, { ip: "192.168.1.151" }),
+    );
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get("cache-control"), null);
+    const data = await res.json();
+    assert.equal(data.code, "SERVICE_UNAVAILABLE");
+    assert.ok(res.headers.get("x-ratelimit-limit"), "AUD-09 quota headers must stay present");
+
+    const methodNotAllowed = await GET();
+    assert.equal(methodNotAllowed.status, 405);
+    assert.equal(methodNotAllowed.headers.get("allow"), "POST");
+    assert.equal(methodNotAllowed.headers.get("cache-control"), null);
+  });
+
   it("handles empty body by applying default track and difficulty", async () => {
     aiServiceClient.isConfigured = () => true;
     aiServiceClient.startInterview = async (opts = {}) => {
