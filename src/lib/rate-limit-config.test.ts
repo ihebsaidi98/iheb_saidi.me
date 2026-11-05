@@ -55,6 +55,77 @@ describe("parseEnvInt", () => {
     assert.equal(parseEnvInt(" 15 ", 10), 15);
     assert.equal(parseEnvInt("60000", 1000), 60000);
   });
+
+  // ============================================================
+  // AUD-11 — strict parsing of environment integers
+  //
+  // A value that merely *starts* with digits must never be silently
+  // truncated: `parseInt` turned "1e3" into 1 and "2abc" into 2, i.e. a typo
+  // rewrote the quota instead of falling back to the documented default.
+  // The fallback is 7 here (never equal to the truncated value) so every
+  // assertion below distinguishes "accepted" from "fell back".
+  // ============================================================
+
+  it("rejects a numeric prefix followed by junk ('10abc')", () => {
+    assert.equal(parseEnvInt("10abc", 7), 7);
+    assert.equal(parseEnvInt("15 req/min", 7), 7);
+    assert.equal(parseEnvInt("10-", 7), 7);
+  });
+
+  it("rejects scientific notation ('1e3', '1E3')", () => {
+    assert.equal(parseEnvInt("1e3", 7), 7);
+    assert.equal(parseEnvInt("1E3", 7), 7);
+    assert.equal(parseEnvInt("1e+3", 7), 7);
+  });
+
+  it("rejects decimal values ('10.5', '10.0')", () => {
+    assert.equal(parseEnvInt("10.5", 7), 7);
+    assert.equal(parseEnvInt("10.0", 7), 7);
+    assert.equal(parseEnvInt("10,5", 7), 7);
+  });
+
+  it("rejects an explicit plus sign ('+10') on top of negative values ('-10')", () => {
+    assert.equal(parseEnvInt("+10", 7), 7);
+    assert.equal(parseEnvInt("-10", 7), 7);
+    assert.equal(parseEnvInt("- 10", 7), 7);
+  });
+
+  it("rejects digit separators, hexadecimal and internal whitespace", () => {
+    assert.equal(parseEnvInt("1_000", 7), 7);
+    assert.equal(parseEnvInt("0x10", 7), 7);
+    assert.equal(parseEnvInt("1 0", 7), 7);
+    assert.equal(parseEnvInt("1\n0", 7), 7);
+  });
+
+  it("still accepts surrounding whitespace and leading zeros (valid values stay valid)", () => {
+    assert.equal(parseEnvInt(" 15 ", 7), 15);
+    assert.equal(parseEnvInt("\t42\n", 7), 42);
+    assert.equal(parseEnvInt("015", 7), 15);
+    assert.equal(parseEnvInt("60000", 7), 60000);
+  });
+
+  it("accepts Number.MAX_SAFE_INTEGER and rejects anything above it", () => {
+    assert.equal(parseEnvInt("9007199254740991", 7), 9007199254740991);
+    assert.equal(parseEnvInt("9007199254740992", 7), 7);
+    assert.equal(parseEnvInt("99999999999999999999", 7), 7);
+  });
+
+  it("keeps every documented rate-limit value compatible (.env.example and README)", () => {
+    // Limits and windows shipped in the example env file; none may regress.
+    const documented: Record<string, number> = {
+      "10": 10,
+      "15": 15,
+      "2": 2,
+      "30": 30,
+      "60": 60,
+      "60000": 60000,
+      "45000": 45000,
+      " 60000 ": 60000,
+    };
+    for (const [raw, expected] of Object.entries(documented)) {
+      assert.equal(parseEnvInt(raw, 1), expected, `documented value ${JSON.stringify(raw)} must stay valid`);
+    }
+  });
 });
 
 describe("createRouteRateLimiter", () => {
@@ -169,6 +240,22 @@ describe("createRouteRateLimiter", () => {
       60_000,
     );
     assert.equal(windowMs, 60_000);
+  });
+
+  it("ignores a truncated env value instead of silently lowering the quota", () => {
+    // Before AUD-11, "2abc" was parsed as 2 and replaced the default of 10.
+    process.env.TEST_RATE_LIMIT = "2abc";
+    const { limit, rateLimiter } = createRouteRateLimiter(
+      "TEST_RATE_LIMIT",
+      10,
+      "TEST_RATE_WINDOW_MS",
+      60_000,
+    );
+    assert.equal(limit, 10, "a malformed limit must fall back, not be truncated");
+    for (let i = 0; i < 10; i++) {
+      assert.equal(rateLimiter.check("truncated-ip").allowed, true);
+    }
+    assert.equal(rateLimiter.check("truncated-ip").allowed, false);
   });
 
   it("creates an InMemoryRateLimiter instance", () => {

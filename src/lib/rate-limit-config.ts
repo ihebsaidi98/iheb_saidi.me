@@ -10,8 +10,10 @@
  *     once when the module is first imported — never per request.
  *   - Auto-cleanup is started immediately (same 60s default interval as
  *     `InMemoryRateLimiter.startAutoCleanup()`).
- *   - Env vars are safely validated after parsing: invalid, non-positive,
- *     or non-safe integers fallback to defaults (fixes VULN-01).
+ *   - Env vars are safely validated after parsing: anything that is not plain
+ *     decimal digits, non-positive, or non-safe integers falls back to the
+ *     defaults, so a typo can neither disable nor silently shrink a quota
+ *     (VULN-01, AUD-11).
  *
  * What this factory intentionally does NOT do:
  *   - It does not change the in-memory (per-process, volatile) nature of the
@@ -29,14 +31,36 @@ export type RouteRateLimit = {
 };
 
 /**
+ * A value is accepted only when it is plain ASCII decimal digits.
+ *
+ * `parseInt` is deliberately NOT used: it stops at the first non-digit, so
+ * `"1e3"` became 1 and `"2abc"` became 2 — a typo silently replaced the quota
+ * instead of falling back to the documented default. Signs, dashes, decimal
+ * points, exponents, digit separators, hex prefixes and internal whitespace
+ * are all rejected here, then reported as a fallback.
+ */
+const DECIMAL_INT_PATTERN = /^[0-9]+$/;
+
+/**
  * Safely parse an environment variable as a strictly positive safe integer.
- * Falls back to default if absent, empty, NaN, <= 0, or not a safe integer.
+ *
+ * Accepted: `undefined`/blank -> `fallback`; surrounding whitespace is trimmed
+ * (`" 15 "` -> 15); leading zeros are kept harmless (`"015"` -> 15); anything
+ * from 1 up to `Number.MAX_SAFE_INTEGER` -> its numeric value.
+ * Rejected (-> `fallback`): empty, `0`, negative, `NaN`/`Infinity`, values
+ * above `Number.MAX_SAFE_INTEGER`, and any non-digit character anywhere
+ * (`"10abc"`, `"1e3"`, `"10.5"`, `"+10"`, `"1_000"`, `"0x10"`).
  */
 export function parseEnvInt(raw: string | undefined, fallback: number): number {
-  if (raw === undefined || raw.trim() === "") {
+  if (raw === undefined) {
     return fallback;
   }
-  const parsed = parseInt(raw, 10);
+  const trimmed = raw.trim();
+  if (!DECIMAL_INT_PATTERN.test(trimmed)) {
+    // Covers the empty string and whitespace-only input as well.
+    return fallback;
+  }
+  const parsed = Number(trimmed);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     return fallback;
   }
