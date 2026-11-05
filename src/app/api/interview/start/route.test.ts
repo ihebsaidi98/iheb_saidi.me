@@ -4,6 +4,15 @@ import { NextRequest } from "next/server";
 import { POST, GET } from "./route";
 import { aiServiceClient, AIServiceClientError } from "@/lib/ai-service-client";
 
+let freshInstance = 0;
+
+/** Load a brand-new instance of the route module (cold per-IP quota). */
+async function freshRoute(): Promise<typeof import("./route")> {
+  freshInstance += 1;
+  const url = new URL("./route.ts", import.meta.url);
+  return (await import(`${url.href}?fresh=${freshInstance}`)) as typeof import("./route");
+}
+
 describe("POST /api/interview/start — Secure Proxy Route", () => {
   const originalIsConfigured = aiServiceClient.isConfigured;
   const originalStartInterview = aiServiceClient.startInterview;
@@ -257,5 +266,64 @@ describe("POST /api/interview/start — Secure Proxy Route", () => {
     const data = await blockedRes.json();
     assert.equal(data.code, "RATE_LIMITED");
     assert.ok(blockedRes.headers.get("Retry-After"));
+  });
+
+  it("answers 429 before the Content-Length check once the IP quota is spent (F5)", async () => {
+    const route = await freshRoute();
+    aiServiceClient.isConfigured = () => false;
+
+    const ip = "192.168.1.240";
+    for (let i = 0; i < 15; i++) {
+      assert.equal((await route.POST(createRequest({}, { ip }))).status, 503);
+    }
+
+    const blockedRes = await route.POST(
+      createRequest({}, { ip, headers: { "content-length": "20000" } }),
+    );
+
+    assert.equal(blockedRes.status, 429);
+    const data = await blockedRes.json();
+    assert.equal(data.code, "RATE_LIMITED");
+    assert.equal(typeof data.retryAfterMs, "number");
+    assert.equal(blockedRes.headers.get("X-RateLimit-Limit"), "15");
+    assert.equal(blockedRes.headers.get("X-RateLimit-Remaining"), "0");
+    assert.ok(blockedRes.headers.get("Retry-After"));
+  });
+
+  it("still returns 413 for an oversized body when the IP is under quota (F5)", async () => {
+    const route = await freshRoute();
+
+    const res = await route.POST(
+      createRequest({}, { ip: "192.168.1.241", headers: { "content-length": "20000" } }),
+    );
+
+    assert.equal(res.status, 413);
+    const data = await res.json();
+    assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+  });
+
+  it("keeps failing closed on an unverifiable client IP (500, never 429)", async () => {
+    const route = await freshRoute();
+    const env = process.env as Record<string, string | undefined>;
+    const originalNodeEnv = env.NODE_ENV;
+    const originalProxy = env.TRUSTED_PROXY;
+    try {
+      env.NODE_ENV = "production";
+      delete env.TRUSTED_PROXY;
+
+      const req = new NextRequest("http://localhost:3000/api/interview/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const res = await route.POST(req);
+
+      assert.equal(res.status, 500);
+      const data = await res.json();
+      assert.equal(data.code, "IP_VERIFICATION_FAILED");
+    } finally {
+      env.NODE_ENV = originalNodeEnv;
+      env.TRUSTED_PROXY = originalProxy;
+    }
   });
 });

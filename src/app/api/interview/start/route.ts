@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { aiServiceClient } from "@/lib/ai-service-client";
-import { extractClientIp } from "@/lib/chat";
+import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import {
   MAX_START_BODY_SIZE,
@@ -30,11 +30,7 @@ const { limit: RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
 );
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  // 1. Enforce content-length limit before body parsing
-  const lengthError = checkContentLength(request, MAX_START_BODY_SIZE);
-  if (lengthError) return lengthError;
-
-  // 2. Client IP extraction & Rate limiting
+  // 1. Client IP + quota first: never inspect the body of a rejected request
   let ip: string;
   try {
     ip = extractClientIp(request);
@@ -49,7 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const rl = rateLimiter.check(ip);
+  const rl = rateLimiter.check(clientIpRateLimitKey(ip));
   const rlHeaders: Record<string, string> = {
     "X-RateLimit-Limit": String(RATE_LIMIT),
     "X-RateLimit-Remaining": String(rl.remaining),
@@ -72,6 +68,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     );
   }
+
+  // 2. Enforce content-length limit before body parsing
+  const lengthError = checkContentLength(request, MAX_START_BODY_SIZE);
+  if (lengthError) return lengthError;
 
   // 3. Parse JSON body
   const bodyResult = await parseJsonBody(request, MAX_START_BODY_SIZE, rlHeaders);

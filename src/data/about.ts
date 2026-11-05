@@ -1,4 +1,4 @@
-export type AboutSkill = {
+type AboutSkill = {
   name: string;
   note?: string;
 };

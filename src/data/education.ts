@@ -1,4 +1,4 @@
-export type EducationEntry = {
+type EducationEntry = {
   degree: string;
   school?: string;
   institution?: string;

@@ -1,4 +1,4 @@
-export type ProjectMetric = {
+type ProjectMetric = {
   value: string;
   label: string;
 };

@@ -33,27 +33,27 @@ export const MAX_HISTORY_TURNS_IN_PROMPT = 6;
 // TYPES
 // ============================================================
 
-export type ChatMessage = {
+type ChatMessage = {
   role: "user" | "assistant";
   content: string;
 };
 
 /** Standard message format for multi-turn role-based chat. */
-export type ChatApiMessage = {
+type ChatApiMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
 /** Google Gemini content part. */
-export type GeminiPart = {
+type GeminiPart = {
   text: string;
 };
 
 /** Google Gemini role. */
-export type GeminiRole = "user" | "model";
+type GeminiRole = "user" | "model";
 
 /** Google Gemini content item. */
-export type GeminiContent = {
+type GeminiContent = {
   role: GeminiRole;
   parts: GeminiPart[];
 };
@@ -81,19 +81,19 @@ export type ChatErrorResponse = {
   code: string;
 };
 
-export type ChatValidationSuccess = {
+type ChatValidationSuccess = {
   valid: true;
   message: string;
   history: ChatMessage[];
 };
 
-export type ChatValidationError = {
+type ChatValidationError = {
   valid: false;
   error: string;
   status: 400;
 };
 
-export type ChatValidationResult = ChatValidationSuccess | ChatValidationError;
+type ChatValidationResult = ChatValidationSuccess | ChatValidationError;
 
 export type RateLimitResult = {
   allowed: boolean;
@@ -111,8 +111,9 @@ export type RateLimitResult = {
 // ============================================================
 
 type RateLimitEntry = {
-  count: number;
-  resetAt: number;
+  prevCount: number;
+  curCount: number;
+  windowStart: number;
 };
 
 /**
@@ -156,41 +157,92 @@ export class InMemoryRateLimiter {
 
   check(key: string): RateLimitResult {
     const now = Date.now();
+    const T = this.windowMs;
     let entry = this.store.get(key);
 
-    if (!entry || entry.resetAt <= now) {
-      const isNewKey = entry === undefined;
-
-      // Capacité vérifiée uniquement pour une vraie nouvelle clé : rafraîchir
-      // une clé existante ne fait pas grossir la Map.
-      if (isNewKey && this.store.size >= this.maxEntries) {
-        this.evictOne(now);
+    if (!entry || entry.windowStart + T <= now) {
+      if (!entry) {
+        // Capacité vérifiée uniquement pour une vraie nouvelle clé : rafraîchir
+        // une clé existante ne fait pas grossir la Map.
+        if (this.store.size >= this.maxEntries) {
+          this.evictOne(now);
+        }
+        const newWs = Math.floor(now / T) * T;
+        entry = { prevCount: 0, curCount: 0, windowStart: newWs };
+      } else {
+        // delete() avant set() : sinon Map conserve la position d'insertion
+        // d'origine et l'ordre ne reflète plus l'ordre d'expiration.
+        // La fenêtre a expiré : on la fait rouler. prevCount est le compte
+        // de la fenêtre précédente (celle qui vient de finir).
+        const prevCount =
+          now >= entry.windowStart + 2 * T ? 0 : entry.curCount;
+        const newWs = Math.floor(now / T) * T;
+        entry = { prevCount, curCount: 0, windowStart: newWs };
+        this.store.delete(key);
       }
-
-      // delete() avant set() : sinon Map conserve la position d'insertion
-      // d'origine et l'ordre ne reflète plus l'ordre d'expiration.
-      if (!isNewKey) this.store.delete(key);
-
-      entry = { count: 0, resetAt: now + this.windowMs };
       this.store.set(key, entry);
     }
 
-    if (entry.count >= this.limit) {
+    const age = now - entry.windowStart;
+    const n = entry.curCount * T + entry.prevCount * (T - age);
+    const limitN = this.limit * T;
+    const blocked = n >= limitN;
+
+    if (blocked) {
       return {
         allowed: false,
         remaining: 0,
-        resetAt: entry.resetAt,
-        retryAfterMs: entry.resetAt - now,
+        resetAt: entry.windowStart + T,
+        retryAfterMs: this.computeRetryAfterMs(entry, now, T),
       };
     }
 
-    entry.count++;
+    entry.curCount++;
+    const nAfter = entry.curCount * T + entry.prevCount * (T - age);
+    const used = this.floorDiv(nAfter, T);
     return {
       allowed: true,
-      remaining: this.limit - entry.count,
-      resetAt: entry.resetAt,
+      remaining: Math.max(0, this.limit - used),
+      resetAt: entry.windowStart + T,
       retryAfterMs: 0,
     };
+  }
+
+  /**
+   * Pour un `check()` bloqué, combien de millisecondes jusqu’à ce que la prochaine
+   * requête soit à nouveau autorisée (compteur glissant pondéré).
+   */
+  private computeRetryAfterMs(
+    entry: RateLimitEntry,
+    now: number,
+    T: number,
+  ): number {
+    const excess = entry.curCount * T + entry.prevCount * (T - (now - entry.windowStart)) - this.limit * T;
+    if (entry.prevCount === 0) {
+      const toRoll = T - (now - entry.windowStart);
+      return toRoll + this.retryAfterMsAfterRoll(entry.curCount, T);
+    }
+    const dtInWindow = Math.floor(excess / entry.prevCount) + 1;
+    if (dtInWindow < T - (now - entry.windowStart)) {
+      return dtInWindow;
+    }
+    const toRoll = T - (now - entry.windowStart);
+    return toRoll + this.retryAfterMsAfterRoll(entry.curCount, T);
+  }
+
+  /**
+   * Temps (ms) après le roulement de fenêtre avant que le compte ne tombe sous la
+   * limite, sachant qu’au roulement `curCount` devient le compte précédent.
+   */
+  private retryAfterMsAfterRoll(curCount: number, T: number): number {
+    if (curCount < this.limit) return 0;
+    if (curCount === this.limit) return 1;
+    const raw = T * (1 - this.limit / curCount);
+    return Math.max(1, Math.floor(raw) + 1);
+  }
+
+  private floorDiv(n: number, d: number): number {
+    return (n - (n % d)) / d;
   }
 
   /**
@@ -208,7 +260,7 @@ export class InMemoryRateLimiter {
   private evictOne(now: number): void {
     let scanned = 0;
     for (const [key, entry] of this.store) {
-      if (entry.resetAt <= now) {
+      if (entry.windowStart + this.windowMs <= now) {
         this.store.delete(key);
         return;
       }
@@ -229,7 +281,7 @@ export class InMemoryRateLimiter {
   cleanup(): void {
     const now = Date.now();
     this.store.forEach((entry, key) => {
-      if (entry.resetAt <= now) {
+      if (entry.windowStart + this.windowMs <= now) {
         this.store.delete(key);
       }
     });
@@ -289,7 +341,7 @@ export function sanitizeText(raw: string): string {
 // and LLM calls, returning a direct, natural greeting response.
 // ============================================================
 
-export const GREETING_REGEX =
+const GREETING_REGEX =
   /^(?:hi(?: there)?|hello(?: there)?|hey(?: there)?|greetings|good (?:morning|afternoon|evening)|howdy|sup|yo|who are you|what can you do|help)(?:[, ]+(?:good (?:morning|afternoon|evening)|there|hello|hi))?[.!? ]*$/i;
 
 export function isGreeting(text: string): boolean {
@@ -862,6 +914,142 @@ function canonicalizeIpv6(ip: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Length, in bits, of the IPv6 prefix used as the rate-limit key for global
+ * unicast addresses. `/64` is the smallest prefix delegated to a single
+ * subscriber site (RFC 6177), so grouping by `/64` never merges two
+ * independent subscriptions, while a client that controls a whole `/64`
+ * (typical residential or VPS allocation) can no longer rotate source
+ * addresses to multiply its quota.
+ */
+export const IPV6_RATE_LIMIT_PREFIX_BITS = 64;
+
+/**
+ * Number of leading 16-bit groups covered by the prefix (4 for a /64).
+ * An IPv6 address is eight 16-bit groups, not 32 hex digits, so the divisor
+ * is 16 and not 4.
+ */
+const IPV6_RATE_LIMIT_PREFIX_HEXTETS = IPV6_RATE_LIMIT_PREFIX_BITS / 16;
+
+/**
+ * Expand a canonical IPv6 literal into its eight 16-bit groups.
+ *
+ * Operates on the output of `canonicalizeIpv6()`, but does not rely on a
+ * naive textual slice: `::` is expanded explicitly, so any number of
+ * compressed zero groups is handled (":", "::", "2001:db8::1",
+ * "::ffff:c000:201"). Returns `null` for anything that is not exactly eight
+ * groups of 1-4 hex digits.
+ */
+function expandIpv6ToHextets(canonical: string): number[] | null {
+  const parseGroups = (part: string): number[] | null => {
+    if (part.length === 0) return [];
+    const groups: number[] = [];
+    for (const group of part.split(":")) {
+      if (!/^[0-9a-f]{1,4}$/.test(group)) return null;
+      groups.push(parseInt(group, 16));
+    }
+    return groups;
+  };
+
+  const halves = canonical.split("::");
+  if (halves.length > 2) return null;
+
+  const head = parseGroups(halves[0]!);
+  if (head === null) return null;
+  if (halves.length === 1) return head.length === 8 ? head : null;
+
+  const tail = parseGroups(halves[1]!);
+  if (tail === null) return null;
+
+  const missing = 8 - head.length - tail.length;
+  if (missing < 1) return null;
+  return [...head, ...new Array<number>(missing).fill(0), ...tail];
+}
+
+/** `2000::/3` — the current global unicast allocation block (RFC 4291). */
+function isIpv6GlobalUnicast(hextets: number[]): boolean {
+  return (hextets[0]! & 0xe000) === 0x2000;
+}
+
+/**
+ * Transition prefixes that live inside `2000::/3` but must NOT be grouped by
+ * `/64`, because their low bits carry an encapsulated IPv4 address:
+ *
+ *   - `2002::/16` (6to4): the /64 mask zeroes the low 16 bits of the embedded
+ *     IPv4, merging unrelated senders of the same /16 into one quota.
+ *   - `2001::/32` (Teredo): the /64 mask merges unrelated TunnelBroker-style
+ *     clients, which share no administrative domain.
+ *
+ * Their address is kept whole: under-grouping a rare transition path is
+ * preferable to over-grouping unrelated clients. A distinct strategy (e.g.
+ * decoding the embedded IPv4 into an IPv4 key) is deliberately not adopted
+ * here.
+ */
+function isIpv6TransitionPrefix(hextets: number[]): boolean {
+  if (hextets[0] === 0x2002) return true;
+  return hextets[0] === 0x2001 && hextets[1] === 0;
+}
+
+/**
+ * Derive the rate-limiter key from an already-extracted client IP (F2).
+ *
+ * `extractClientIp()` returns the validated, canonical address, which is used
+ * directly as the limiter key. That key is per-address, so any client holding
+ * an IPv6 prefix can rotate source addresses and get a fresh counter each
+ * time. This function narrows the key while preserving the existing
+ * "one client, one quota" intent:
+ *
+ *   - IPv4 is returned unchanged (per-host allocation; grouping a /24 would
+ *     merge unrelated users behind mobile networks and CGNAT).
+ *   - IPv4-mapped IPv6 keeps collapsing onto the plain IPv4 key, via
+ *     `normalizeClientIp()`.
+ *   - Global unicast IPv6 (`2000::/3`) is masked to its `/64` and rendered in
+ *     canonical form, so every host of one subscriber shares one bucket.
+ *   - Every other IPv6 category (loopback, link-local, ULA, NAT64
+ *     `64:ff9b::/96`, 6to4, Teredo) keeps its full address: either it is not
+ *     internet-facing, or grouping it would merge unrelated clients.
+ *
+ * Invalid input throws `ProxyConfigurationError` (fail closed), exactly like
+ * `extractClientIp()`: a placeholder key would silently pool unrelated
+ * callers into one permissive bucket. Routes derive the key from a value that
+ * already passed `normalizeClientIp()`, so this throw is unreachable in
+ * practice.
+ */
+export function clientIpRateLimitKey(ip: string): string {
+  const normalized = normalizeClientIp(ip);
+  if (normalized === null) {
+    throw new ProxyConfigurationError(
+      "Rate limiter cannot operate: client IP is not a valid IP address.",
+    );
+  }
+
+  // IPv4 (including the IPv4-mapped form normalized above) is kept per host.
+  if (detectIpVersion(normalized) !== 6) return normalized;
+
+  const hextets = expandIpv6ToHextets(normalized);
+  if (hextets === null) {
+    throw new ProxyConfigurationError(
+      "Rate limiter cannot operate: client IP is not a valid IP address.",
+    );
+  }
+
+  if (!isIpv6GlobalUnicast(hextets) || isIpv6TransitionPrefix(hextets)) {
+    return normalized;
+  }
+
+  const masked = hextets.slice();
+  for (let i = IPV6_RATE_LIMIT_PREFIX_HEXTETS; i < masked.length; i++) {
+    masked[i] = 0;
+  }
+
+  // Re-serialize through the WHATWG serializer so the masked prefix keeps the
+  // same canonical (compressed, lowercase) shape as any other key.
+  return (
+    canonicalizeIpv6(masked.map((group) => group.toString(16)).join(":")) ??
+    normalized
+  );
 }
 
 /**

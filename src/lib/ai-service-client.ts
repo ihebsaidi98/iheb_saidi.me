@@ -17,7 +17,7 @@ export type AIServiceHealth = {
   gemini_configured: boolean;
 };
 
-export type AIServiceInfo = {
+type AIServiceInfo = {
   service: string;
   version: string;
   phase: number;
@@ -27,7 +27,7 @@ export type AIServiceInfo = {
   capabilities: string[];
 };
 
-export type AIServiceError = {
+type AIServiceError = {
   error: {
     code: string;
     message: string;
@@ -35,7 +35,7 @@ export type AIServiceError = {
   };
 };
 
-export type AIServiceChatMessage = {
+type AIServiceChatMessage = {
   role: "user" | "assistant";
   content: string;
 };

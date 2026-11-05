@@ -33,6 +33,7 @@ import {
   formatSources,
   extractClientIp,
   normalizeClientIp,
+  clientIpRateLimitKey,
   formatRetrievedContext,
   formatUserPrompt,
   escapeXml,
@@ -171,6 +172,256 @@ describe("InMemoryRateLimiter", () => {
     const result = limiter.check("ip");
     assert.ok(result.resetAt > Date.now(), "resetAt should be in the future");
   });
+
+  // ============================================================
+  // F6 — characterize the existing sliding-window-counter (SWC) implementation
+  //
+  // Production already implements an epoch-bucket sliding-window COUNTER
+  // approximation, not an exact request-timestamp store:
+  //
+  //   - Active window is back-aligned to epoch multiples of T:
+  //       windowStart = floor(now / T) * T,
+  //     with expiry when windowStart + T <= now (F6/EXPIRY).
+  //
+  //   - Decision math inside the active bucket:
+  //       age = now - windowStart
+  //       n = curCount * T + prevCount * (T - age)
+  //       blocked if n >= limit * T
+  //
+  //     This is the standard two-bucket weighted estimate: the current bucket
+  //     is counted fully, and the previous bucket's count is decayed linearly
+  //     as prevCount * (T - age) / T. It assumes requests are spread uniformly
+  //     across the previous bucket, which is why it is an approximation.
+  //
+  //   - resetAt = windowStart + T (end of the active epoch bucket).
+  //   - remaining = max(0, limit - floor((curCount*T + prevCount*(T-age)) / T))
+  //     so it is always an integer.
+  //
+  // IMPORTANT: this can undercount (and over-count) relative to an exact rolling
+  // count when requests are concentrated near a bucket boundary, because it does
+  // not remember the actual timestamps of the previous bucket's requests.
+  // We deliberately do NOT claim that 20 requests fit inside one strict
+  // 60-second interval, and we use monotonic timestamps only.
+  // ============================================================
+  describe("F6 — characterize SWC behavior", () => {
+    const T = 60_000;
+    const L = 10;
+
+    /**
+     * Controlled clock for F6 only. Exposes an explicit setTime() so every
+     * time change is visible to Date.now() and can be asserted.
+     */
+    function withClock(
+      fn: (clock: {
+        now: () => number;
+        setTime: (t: number) => void;
+      }) => void,
+    ) {
+      const save = Date.now;
+      let t = 0;
+      Date.now = () => t;
+      const clock = {
+        now: () => t,
+        setTime: (next: number) => {
+          assert.ok(
+            next >= t,
+            `clock must advance monotonically: attempted ${next} after ${t}`,
+          );
+          t = next;
+        },
+      };
+      try {
+        fn(clock);
+      } finally {
+        Date.now = save;
+      }
+    }
+
+    it("uses epoch-bucket windows and expires exactly at windowStart + T (F6/EXPIRY)", () => {
+      withClock((clock) => {
+        const m = new InMemoryRateLimiter(L, T);
+
+        // First request anchors the active bucket for this key.
+        clock.setTime(5);
+        const r0 = m.check("ip");
+        assert.equal(r0.allowed, true);
+        // windowStart is epoch-aligned, so the only epoch bucket start <= 5 is 0.
+        assert.equal(
+          r0.resetAt,
+          T,
+          "resetAt must be the end of the epoch bucket that contains the first request",
+        );
+
+        // Exactly at windowStart + T the previous window is considered expired.
+        clock.setTime(T);
+        const atBoundary = m.check("ip");
+        assert.equal(
+          atBoundary.allowed,
+          true,
+          "at t=T the epoch bucket has just rolled, so the next request must be allowed",
+        );
+        assert.equal(atBoundary.resetAt, 2 * T);
+      });
+    });
+
+    it("counts current-bucket requests and includes the previous bucket with decay (F6/WEIGHTS)", () => {
+      withClock((clock) => {
+        const m = new InMemoryRateLimiter(L, T);
+
+        // Fill the current bucket [0, T) to the limit: 10 requests.
+        for (let i = 0; i < L; i++) {
+          clock.setTime(i);
+          const r = m.check("ip");
+          assert.equal(r.allowed, true);
+          // remaining = limit - used, where used = curCount (prevCount is 0 here).
+          assert.equal(r.remaining, L - (i + 1));
+        }
+
+        // One more in the same bucket must be blocked.
+        clock.setTime(L);
+        const blocked = m.check("ip");
+        assert.equal(blocked.allowed, false);
+        assert.equal(blocked.remaining, 0);
+      });
+    });
+
+    it("transitions to a new epoch bucket resets the active count but not prevCount (F6/TRANSITION)", () => {
+      withClock((clock) => {
+        const m = new InMemoryRateLimiter(L, T);
+
+        // Burn the bucket [0, T): L requests, one per millisecond.
+        for (let i = 0; i < L; i++) {
+          clock.setTime(i);
+          m.check("ip");
+        }
+        // After L requests curCount=L, remaining must be 0.
+        const burn = m.check("ip"); // (L+1)th attempt — must be blocked
+        assert.equal(burn.allowed, false);
+        assert.equal(burn.remaining, 0);
+
+        // Just before the bucket boundary, still no room.
+        clock.setTime(T - 1);
+        assert.equal(m.check("ip").allowed, false);
+
+        // At the boundary t=T: windowStart rolls to T, age=0, prevCount=L, curCount=0.
+        // n = curCount*T + prevCount*(T-age) = 0 + L*T = L*T = limit*T.
+        // used = floor(L*T / T) = L => remaining = 0 => blocked.
+        clock.setTime(T);
+        const afterRoll = m.check("ip");
+        assert.equal(afterRoll.allowed, false);
+        assert.equal(afterRoll.remaining, 0);
+        assert.equal(afterRoll.resetAt, 2 * T);
+      });
+    });
+
+    it("keeps remaining an integer under decay math (F6/INTEGER)", () => {
+      withClock((clock) => {
+        const m = new InMemoryRateLimiter(L, T);
+
+        // Fill bucket [0, T) with L requests (one per millisecond).
+        for (let i = 0; i < L; i++) {
+          clock.setTime(i);
+          m.check("ip");
+        }
+
+        // Advance partway into the next bucket.
+        clock.setTime(T + 15_000);
+        const r = m.check("ip");
+        assert.equal(r.allowed, true);
+        assert.ok(Number.isInteger(r.remaining), "remaining must be an integer");
+        // used = floor((1*T + 10*(T-15000)) / T) = floor(1 + 10*45000/60000) = floor(8.5) = 8
+        // remaining = 10 - 8 = 2
+        assert.equal(r.remaining, 2);
+      });
+    });
+
+    it("documents the SWC uniform-distribution approximation with a concentrated boundary burst (F6/APPROX)", () => {
+      withClock((clock) => {
+        // Each APPROX test uses its own limiter — no state shared with other tests.
+        const m = new InMemoryRateLimiter(L, T);
+
+        // Step 1: place L requests at t=59_900, all in bucket [0, T).
+        // After this loop curCount=L, bucket=[0,T), remaining=0.
+        clock.setTime(59_900);
+        for (let i = 0; i < L; i++) m.check("ip");
+
+        // Step 2: advance monotonically into the next bucket [T, 2T).
+        clock.setTime(89_900);
+
+        // Step 3: request until blocked.
+        //
+        // At t=89_900: windowStart=T, age=89_900-T=29_900.
+        //   prevCount=10, curCount=0 (new bucket, no requests yet).
+        //   nBefore = 0*T + 10*(T-29_900) = 10*30_100 = 301_000 < 600_000 => allowed.
+        //
+        // After the 1st accepted request (curCount=1):
+        //   nAfter = 1*T + 10*(T-29_900) = 60_000 + 301_000 = 361_000
+        //   used   = floor(361_000 / 60_000) = 6
+        //   remaining = 10 - 6 = 4
+        //
+        // Pattern: after k accepted requests in this bucket, age fixed at 29_900:
+        //   nAfter  = k*T + 301_000
+        //   used    = floor(nAfter / T)
+        //   remaining = L - used
+        //
+        // Blocking happens when nBefore = k*T + 301_000 >= 600_000, i.e. k >= 5.
+        // So: 5 requests accepted (k=1..5), 6th blocked.
+        //   k=1: used=6, remaining=4
+        //   k=2: used=7, remaining=3
+        //   k=3: used=8, remaining=2
+        //   k=4: used=9, remaining=1
+        //   k=5: used=10, remaining=0  (still allowed — nBefore=541_000<600_000)
+        //   k=6: nBefore=601_000>=600_000 => blocked, remaining=0
+
+        const r1 = m.check("ip");
+        assert.equal(r1.allowed, true, "first request in the new bucket must be allowed");
+        assert.equal(r1.remaining, 4);
+        assert.equal(r1.resetAt, 2 * T);
+
+        // Continue until blocked; track accepted count starting at 1 (r1).
+        let accepted = 1;
+        for (;;) {
+          const r = m.check("ip");
+          if (r.allowed) {
+            accepted++;
+            const age = 89_900 - T; // 29_900
+            const expectedUsed = Math.floor((accepted * T + 10 * (T - age)) / T);
+            const expectedRemaining = Math.max(0, L - expectedUsed);
+            assert.equal(
+              r.remaining,
+              expectedRemaining,
+              `after ${accepted} accepted requests remaining should be ${expectedRemaining}`,
+            );
+            continue;
+          }
+          // Blocked.
+          assert.equal(r.remaining, 0);
+          // Verify blocking happens exactly at the right count.
+          // nBefore = accepted*T + 10*(T-age) must be >= limit*T.
+          const age = 89_900 - T;
+          const nBefore = accepted * T + 10 * (T - age);
+          assert.ok(
+            nBefore >= L * T,
+            `should block when nBefore=${nBefore} >= limit*T=${L * T}`,
+          );
+          // And the previous step (accepted-1) must have been below the limit.
+          const nPrev = (accepted - 1) * T + 10 * (T - age);
+          assert.ok(
+            nPrev < L * T,
+            `previous step nPrev=${nPrev} must be < limit*T=${L * T}`,
+          );
+          break;
+        }
+
+        // The SWC approximation allows 5 requests in bucket [T,2T) even though
+        // 10 requests were placed at t=59_900 (only 100ms before the boundary).
+        // This demonstrates that the approximation can allow up to 15 requests
+        // within a 30-second interval when previous-bucket requests are concentrated
+        // near the boundary, because it assumes uniform distribution over [0,T).
+        assert.equal(accepted, 5, "exactly 5 requests must be accepted in the new bucket");
+      });
+    });
+  })
 
   // ==========================================================
   // VULN-02 — bounded store (maxEntries) and eviction
@@ -1117,6 +1368,149 @@ describe("normalizeClientIp — VULN-03 address validation and normalization", (
     assert.equal(normalizeClientIp("fe80::1%"), null);
     assert.equal(normalizeClientIp("fe80::1%a b"), null);
     assert.equal(normalizeClientIp("fe80::1%a/b"), null);
+  });
+});
+
+// ============================================================
+// F2 — IPv6 /64 rate-limit key derivation
+//
+// The limiter key is not the client address itself: a client that controls a
+// whole IPv6 prefix can rotate source addresses to multiply its quota. Keys
+// are therefore derived with `clientIpRateLimitKey()`, which groups global
+// unicast IPv6 (`2000::/3`) by /64 and leaves every other category alone.
+// ============================================================
+
+describe("clientIpRateLimitKey — F2 IPv6 /64 quota grouping", () => {
+  const key = clientIpRateLimitKey;
+
+  it("groups two distinct hosts of the same /64 under one key", () => {
+    const first = key("2001:db8:abcd:1234:aaaa:bbbb:cccc:dddd");
+    const second = key("2001:db8:abcd:1234:1111:2222:3333:4444");
+    assert.equal(first, second);
+    assert.equal(
+      first,
+      "2001:db8:abcd:1234::",
+      "the /64 must be rendered in canonical (compressed) form",
+    );
+  });
+
+  it("keeps two neighbouring /64 blocks on different keys", () => {
+    assert.notEqual(
+      key("2001:db8:abcd:1234::1"),
+      key("2001:db8:abcd:1235::1"),
+      "the fifth hextet is inside the /64 and must not leak into the key",
+    );
+    assert.notEqual(
+      key("2001:db8:abcd:1234::1"),
+      key("2001:db8:abcd:1233:ffff:ffff:ffff:ffff"),
+    );
+  });
+
+  it("collapses equivalent notations to the same key", () => {
+    const canonical = key("2001:db8:abcd:1234::1");
+    const equivalents = [
+      "2001:0DB8:ABCD:1234:0000:0000:0000:0001",
+      "2001:db8:abcd:1234:0:0:0:1",
+      "2001:0db8:abcd:1234::1",
+      "  2001:db8:ABCD:1234::1  ",
+    ];
+    for (const value of equivalents) {
+      assert.equal(key(value), canonical, `must collapse ${JSON.stringify(value)}`);
+    }
+  });
+
+  it("masks a /64 written without compression, including the boundary case", () => {
+    assert.equal(key("2001:db8::1"), "2001:db8::");
+    assert.equal(key("2001:db8:0:0:1:2:3:4"), "2001:db8::");
+    assert.equal(key("2a01:e0a:1234:5678::1"), "2a01:e0a:1234:5678::");
+    assert.equal(key("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"), "2001:db8:ffff:ffff::");
+  });
+
+  it("keeps IPv4 addresses unchanged and does NOT group them by /24", () => {
+    assert.equal(key("203.0.113.7"), "203.0.113.7");
+    assert.equal(key("  203.0.113.7  "), "203.0.113.7");
+    assert.notEqual(
+      key("203.0.113.7"),
+      key("203.0.113.8"),
+      "IPv4 addresses are per-host allocations: grouping a /24 would merge unrelated users",
+    );
+  });
+
+  it("maps every IPv4-mapped notation onto the plain IPv4 key", () => {
+    assert.equal(key("::ffff:192.0.2.1"), "192.0.2.1");
+    assert.equal(key("::ffff:c000:201"), "192.0.2.1");
+    assert.equal(key("::FFFF:192.0.2.1"), key("192.0.2.1"));
+  });
+
+  it("does not group loopback, link-local, or ULA addresses", () => {
+    assert.equal(key("::1"), "::1");
+    assert.notEqual(key("::1"), key("::2"));
+
+    assert.equal(key("fe80::1"), "fe80::1");
+    assert.equal(key("fe80::1%eth0"), "fe80::1");
+    assert.notEqual(
+      key("fe80::1"),
+      key("fe80::2"),
+      "link-local neighbours share a /64 but are distinct layer-2 peers",
+    );
+
+    assert.equal(key("fd12:3456:789a:1::5"), "fd12:3456:789a:1::5");
+    assert.notEqual(key("fd12:3456:789a:1::5"), key("fd12:3456:789a:1::6"));
+  });
+
+  it("does not group transition prefixes 6to4 and Teredo", () => {
+    // 2002::/16 — a /64 mask would zero the low 16 bits of the embedded IPv4.
+    assert.equal(key("2002:c000:0201::1"), "2002:c000:201::1");
+    assert.notEqual(key("2002:c000:0201::1"), key("2002:c000:0201::2"));
+
+    // 2001::/32 — a /64 mask would merge unrelated Teredo clients.
+    const teredo = "2001:0:4136:e378:8000:63bf:3fff:fdd2";
+    assert.equal(key(teredo), teredo);
+    assert.notEqual(
+      key(teredo),
+      key("2001:0:4136:e378:8000:63bf:3fff:fdd3"),
+    );
+  });
+
+  it("does not group the well-known NAT64 prefix", () => {
+    assert.equal(key("64:ff9b::c000:201"), "64:ff9b::c000:201");
+    assert.notEqual(key("64:ff9b::c000:201"), key("64:ff9b::c000:202"));
+  });
+
+  it("fails closed on an invalid address instead of returning a permissive key", () => {
+    const invalid = ["", "   ", "unknown", "not-an-ip", "1.2.3.4:80", "2001:db8::zzzz"];
+    for (const value of invalid) {
+      assert.throws(
+        () => key(value),
+        (err: unknown) => {
+          assert.ok(err instanceof ProxyConfigurationError);
+          return true;
+        },
+        `must reject ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  it("produces a usable key for every normalized client IP", () => {
+    const samples = [
+      "203.0.113.7",
+      "::1",
+      "2001:db8::1",
+      "fe80::1",
+      "fd00::1",
+    ];
+    for (const sample of samples) {
+      const normalized = normalizeClientIp(sample);
+      assert.ok(normalized !== null);
+      const derived = key(sample);
+      assert.equal(typeof derived, "string");
+      assert.ok(derived.length > 0);
+      assert.equal(
+        key(normalized),
+        derived,
+        "derivation must be stable when applied to already-normalized input",
+      );
+    }
   });
 });
 

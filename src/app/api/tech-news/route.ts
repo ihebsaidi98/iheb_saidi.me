@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllFeeds, type TechNewsApiResponse } from "@/lib/tech-news";
-import { extractClientIp } from "@/lib/chat";
+import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 
 export const revalidate = 1800; // 30 minutes
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const rl = rateLimiter.check(ip);
+  const rl = rateLimiter.check(clientIpRateLimitKey(ip));
   const rlHeaders: Record<string, string> = {
     "X-RateLimit-Limit": String(TECH_NEWS_RATE_LIMIT),
     "X-RateLimit-Remaining": String(rl.remaining),

@@ -99,9 +99,11 @@ describe("POST /api/chat — Rate Limiting & Proxy Tests", () => {
       "Too many requests. Please wait a moment before sending another message.",
     );
 
-    // In POST /api/chat, retryAfterMs is NOT present in the JSON body (unlike interview routes)
-    // The retry delay is exclusively communicated via the standard Retry-After HTTP header
-    assert.equal((data as Record<string, unknown>).retryAfterMs, undefined);
+    // F3: the retry delay is exposed in the body, like the interview routes
+    // and /api/csp-report, so a client can back off without parsing headers.
+    const retryAfterMs = (data as Record<string, unknown>).retryAfterMs;
+    assert.equal(typeof retryAfterMs, "number");
+    assert.ok(Number(retryAfterMs) > 0 && Number(retryAfterMs) <= 60_000);
 
     // Verify all rate limit response headers
     assert.equal(blockedRes.headers.get("X-RateLimit-Limit"), "10");
@@ -113,6 +115,70 @@ describe("POST /api/chat — Rate Limiting & Proxy Tests", () => {
     assert.ok(retryAfter);
     const retryAfterSeconds = Number(retryAfter);
     assert.ok(retryAfterSeconds > 0 && retryAfterSeconds <= 60);
+    assert.equal(retryAfterSeconds, Math.ceil(Number(retryAfterMs) / 1000));
+  });
+
+  it("exposes the remaining window in retryAfterMs on a 429 (F3)", async () => {
+    const fixedNow = 1_700_000_000_500;
+    const realNow = Date.now;
+    Date.now = () => fixedNow;
+    try {
+      const ip = "10.0.1.31";
+      for (let i = 0; i < 10; i++) {
+        const res = await POST(createRequest({ message: "Hello" }, { ip }));
+        assert.equal(res.status, 200);
+      }
+
+      const blocked = await POST(createRequest({ message: "Hello" }, { ip }));
+      assert.equal(blocked.status, 429);
+      const data = (await blocked.json()) as Record<string, unknown>;
+
+      assert.equal(data.code, "RATE_LIMITED");
+      // Under SWC epoch-aligned window:
+      // windowStart = Math.floor(1_700_000_000_500 / 60_000) * 60_000 = 1_699_999_980_000 ms.
+      // age = 20_500 ms. Time to window roll: 60_000 - 20_500 = 39_500 ms.
+      // When curCount = limit, retryAfterMsAfterRoll adds 1 ms -> retryAfterMs = 39_501 ms.
+      assert.equal(data.retryAfterMs, 39_501);
+      // Retry-After header is Math.ceil(39_501 / 1000) = 40 seconds.
+      assert.equal(blocked.headers.get("Retry-After"), "40");
+      assert.equal(
+        blocked.headers.get("Retry-After"),
+        String(Math.ceil(Number(data.retryAfterMs) / 1000)),
+      );
+      assert.notEqual(
+        blocked.headers.get("Retry-After"),
+        String(Math.floor(Number(data.retryAfterMs) / 1000)),
+      );
+      assert.equal(blocked.headers.get("X-RateLimit-Limit"), "10");
+      assert.equal(blocked.headers.get("X-RateLimit-Remaining"), "0");
+      // resetAt = windowStart + 60_000 = 1_700_000_040_000 ms -> 1_700_000_040 s.
+      assert.equal(blocked.headers.get("X-RateLimit-Reset"), "1700000040");
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  it("exposes the active epoch window reset timestamp in X-RateLimit-Reset (F4)", async () => {
+    const fixedNow = 1_700_000_050_250;
+    const realNow = Date.now;
+    Date.now = () => fixedNow;
+    try {
+      const res = await POST(createRequest({ message: "Hello" }, { ip: "10.0.1.32" }));
+      assert.equal(res.status, 200);
+
+      // In production, windows are epoch-aligned:
+      // windowStart = Math.floor(1_700_000_050_250 / 60_000) * 60_000 = 1_700_000_040_000 ms.
+      // resetAt = windowStart + 60_000 = 1_700_000_100_000 ms.
+      // Because windowMs (60_000 ms) is a multiple of 1_000 ms, resetAt % 1_000 is always 0.
+      // Therefore, Math.ceil(resetAt / 1000) === Math.floor(resetAt / 1000) under real route configuration.
+      const resetAtMs = Math.floor(fixedNow / 60_000) * 60_000 + 60_000;
+      const expected = String(Math.ceil(resetAtMs / 1000));
+
+      assert.equal(res.headers.get("X-RateLimit-Reset"), expected);
+      assert.equal(res.headers.get("X-RateLimit-Reset"), "1700000100");
+    } finally {
+      Date.now = realNow;
+    }
   });
 
   it("isolates rate limit counters between different IP addresses", async () => {
@@ -132,6 +198,27 @@ describe("POST /api/chat — Rate Limiting & Proxy Tests", () => {
     const allowedB = await POST(createRequest({ message: "Hello" }, { ip: ipB }));
     assert.equal(allowedB.status, 200);
     assert.equal(allowedB.headers.get("X-RateLimit-Remaining"), "9");
+  });
+
+  it("shares one quota between two IPv6 addresses of the same /64 (F2)", async () => {
+    const firstHost = "2001:db8:abcd:1234::1";
+    const siblingHost = "2001:db8:abcd:1234::2";
+    const otherPrefix = "2001:db8:abcd:1235::1";
+
+    for (let i = 0; i < 10; i++) {
+      const res = await POST(createRequest({ message: "Hello" }, { ip: firstHost }));
+      assert.equal(res.status, 200);
+    }
+
+    // Rotating to another host inside the same /64 must not buy a fresh quota.
+    const blocked = await POST(createRequest({ message: "Hello" }, { ip: siblingHost }));
+    assert.equal(blocked.status, 429);
+    assert.equal(blocked.headers.get("X-RateLimit-Remaining"), "0");
+
+    // A different /64 is a different subscriber and keeps its own window.
+    const allowed = await POST(createRequest({ message: "Hello" }, { ip: otherPrefix }));
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.headers.get("X-RateLimit-Remaining"), "9");
   });
 
   it("returns 405 Method Not Allowed on GET with Allow header", async () => {

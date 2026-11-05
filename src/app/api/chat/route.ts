@@ -32,6 +32,7 @@ import {
   isGreeting,
   GREETING_RESPONSE,
   INSUFFICIENT_EVIDENCE_REPLY,
+  clientIpRateLimitKey,
   extractClientIp,
   type ChatResponse,
   type ChatErrorResponse,
@@ -74,21 +75,24 @@ export async function POST(
       { status: 500 },
     );
   }
-  const rl = rateLimiter.check(ip);
+  const rl = rateLimiter.check(clientIpRateLimitKey(ip));
 
   const rlHeaders: Record<string, string> = {
     "X-RateLimit-Limit": String(CHAT_RATE_LIMIT),
     "X-RateLimit-Remaining": String(rl.remaining),
-    "X-RateLimit-Reset": String(Math.floor(rl.resetAt / 1000)),
+    "X-RateLimit-Reset": String(Math.ceil(rl.resetAt / 1000)),
   };
 
   if (!rl.allowed) {
+    const rateLimitedBody: ChatErrorResponse & { retryAfterMs: number } = {
+      error:
+        "Too many requests. Please wait a moment before sending another message.",
+      code: "RATE_LIMITED",
+      retryAfterMs: rl.retryAfterMs,
+    };
+
     return NextResponse.json(
-      {
-        error:
-          "Too many requests. Please wait a moment before sending another message.",
-        code: "RATE_LIMITED",
-      },
+      rateLimitedBody,
       {
         status: 429,
         headers: {

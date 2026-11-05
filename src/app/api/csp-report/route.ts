@@ -10,12 +10,16 @@
  *   - the body is capped at MAX_CSP_REPORT_BYTES, both via a cheap
  *     `Content-Length` pre-flight and via a real byte counter while streaming,
  *     so a chunked request or a lying `Content-Length` cannot force the process
- *     to buffer an arbitrarily large payload in memory.
+ *     to buffer an arbitrarily large payload in memory: at most
+ *     MAX_CSP_REPORT_BYTES of text are accumulated, plus the single chunk that
+ *     crossed the cap before the read was cancelled.
+ *   - control order is quota (429) → announced size (413/400) → media type (415)
+ *     → body read.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { sanitizeCspReportData } from "@/lib/csp-report";
-import { extractClientIp } from "@/lib/chat";
+import { MAX_LOG_SNIPPET_CHARS, sanitizeCspReportData } from "@/lib/csp-report";
+import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import { checkContentLength } from "@/lib/interview-route-helpers";
 
@@ -74,6 +78,14 @@ async function readBodyWithLimit(
     // A broken/aborted body stream is treated as an empty report below.
     await reader.cancel().catch(() => undefined);
     throw err;
+  } finally {
+    // Never leave the request body locked: nothing downstream may assume it is
+    // still readable, and a locked stream is the only thing that can outlive us.
+    try {
+      reader.releaseLock();
+    } catch {
+      // Pending read: nothing to release, the stream is already unusable.
+    }
   }
 }
 
@@ -103,7 +115,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const rl = rateLimiter.check(ip);
+  const rl = rateLimiter.check(clientIpRateLimitKey(ip));
   const rlHeaders: Record<string, string> = {
     "X-RateLimit-Limit": String(CSP_REPORT_RATE_LIMIT),
     "X-RateLimit-Remaining": String(rl.remaining),
@@ -163,7 +175,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       parsed = JSON.parse(rawText);
     } catch {
       // If not strictly JSON, sanitize raw text snippet and log
-      const safeSnippet = sanitizeCspReportData(rawText.slice(0, 500));
+      const safeSnippet = sanitizeCspReportData(rawText, MAX_LOG_SNIPPET_CHARS);
       console.warn(`[csp-report] Received non-JSON violation report: ${safeSnippet}`);
       return new NextResponse(null, { status: 204 });
     }

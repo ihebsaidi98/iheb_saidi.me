@@ -73,6 +73,8 @@ const CODE_DEFAULTS = {
   CHAT_RATE_WINDOW_MS: "60000",
   INTERVIEW_RATE_LIMIT: "15",
   INTERVIEW_RATE_WINDOW_MS: "60000",
+  INTERVIEW_COMPLETE_RATE_LIMIT: "2",
+  INTERVIEW_COMPLETE_RATE_WINDOW_MS: "60000",
   LLM_TIMEOUT_MS: "45000",
   GEMINI_CHAT_MODEL: "gemini-3.5-flash-lite",
 } as const;
@@ -146,6 +148,14 @@ describe(".env.example (H3-2, M1)", () => {
       values.get("INTERVIEW_RATE_WINDOW_MS"),
       CODE_DEFAULTS.INTERVIEW_RATE_WINDOW_MS,
     );
+    assert.equal(
+      values.get("INTERVIEW_COMPLETE_RATE_LIMIT"),
+      CODE_DEFAULTS.INTERVIEW_COMPLETE_RATE_LIMIT,
+    );
+    assert.equal(
+      values.get("INTERVIEW_COMPLETE_RATE_WINDOW_MS"),
+      CODE_DEFAULTS.INTERVIEW_COMPLETE_RATE_WINDOW_MS,
+    );
   });
 
   it("documents the chat rate limits and the LLM timeout with the code defaults", () => {
@@ -190,10 +200,14 @@ describe("scripts/setup-env.py generated frontend env (H3-2, M1)", () => {
       "CHAT_RATE_WINDOW_MS",
       "INTERVIEW_RATE_LIMIT",
       "INTERVIEW_RATE_WINDOW_MS",
+      "INTERVIEW_COMPLETE_RATE_LIMIT",
+      "INTERVIEW_COMPLETE_RATE_WINDOW_MS",
       "TECH_NEWS_RATE_LIMIT",
       "TECH_NEWS_RATE_WINDOW_MS",
       "CSP_REPORT_RATE_LIMIT",
       "CSP_REPORT_RATE_WINDOW_MS",
+      "AI_HEALTH_RATE_LIMIT",
+      "AI_HEALTH_RATE_WINDOW_MS",
       "LLM_TIMEOUT_MS",
       "TRUSTED_PROXY",
       "TRUSTED_PROXY_HEADER",
@@ -244,6 +258,8 @@ describe("README.md environment documentation (H3-2, M1)", () => {
       "CHAT_RATE_WINDOW_MS",
       "INTERVIEW_RATE_LIMIT",
       "INTERVIEW_RATE_WINDOW_MS",
+      "INTERVIEW_COMPLETE_RATE_LIMIT",
+      "INTERVIEW_COMPLETE_RATE_WINDOW_MS",
       "AI_SERVICE_ENABLED",
       "LLM_TIMEOUT_MS",
     ]) {
