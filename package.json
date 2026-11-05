@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/lib/knowledge-base.test.ts src/lib/rag.test.ts src/lib/chat.test.ts src/lib/tech-news.test.ts src/hooks/useChat.test.ts src/hooks/useInterview.test.ts src/lib/ai-service-client.test.ts src/app/api/chat/route.test.ts src/app/api/csp-report/route.test.ts src/app/api/tech-news/route.test.ts src/app/api/ai/health/route.test.ts src/app/api/interview/start/route.test.ts src/app/api/interview/submit/route.test.ts src/app/api/interview/complete/route.test.ts src/components/chat/ChatWidget.test.ts src/components/SmoothScroll.test.ts src/components/ui/components.test.ts src/lib/rag-factual-eval.test.ts src/lib/config-consistency.test.ts src/lib/env-config.test.ts",
+    "test": "tsx --test src/lib/knowledge-base.test.ts src/lib/rag.test.ts src/lib/chat.test.ts src/lib/redact.test.ts src/lib/tech-news.test.ts src/hooks/useChat.test.ts src/hooks/useInterview.test.ts src/lib/ai-service-client.test.ts src/app/api/chat/route.test.ts src/app/api/csp-report/route.test.ts src/app/api/tech-news/route.test.ts src/app/api/ai/health/route.test.ts src/app/api/interview/start/route.test.ts src/app/api/interview/submit/route.test.ts src/app/api/interview/complete/route.test.ts src/components/chat/ChatWidget.test.ts src/components/SmoothScroll.test.ts src/components/ui/components.test.ts src/lib/rag-factual-eval.test.ts src/lib/config-consistency.test.ts src/lib/env-config.test.ts",
     "test:py": "npm run ai:test",
     "test:all": "npm test && npm run test:py",
     "test:e2e": "playwright test",

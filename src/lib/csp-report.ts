@@ -4,22 +4,11 @@
  * Helper utilities for sanitizing Content Security Policy (CSP) violation reports.
  */
 
-const API_KEY_PATTERN = /AIza[0-9A-Za-z-_]{35}/g;
-const BEARER_PATTERN = /Bearer\s+[A-Za-z0-9_.-]+/gi;
-// Base64 credentials contain `=` padding and `+`/`/`, so the value class is
-// bounded by delimiters only: the whole credential is dropped, never a prefix.
-const BASIC_AUTH_PATTERN = /\bauthorization:\s*basic\s+[^\s&"'<>,;)]+/gi;
-const JWT_PATTERN = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g;
-// The value class accepts every non-delimiter character, so URL-encoded values
-// (`%2F`, `%3D`, …) are redacted as a whole instead of up to their first `%`.
-// `(?!\[REDACTED)` keeps an already-redacted value from being rewritten a
-// second time, which would erase the marker that identifies the kind of secret.
-// The leading group requires the name to start a word (`?key=`, `&key=`) or to
-// be a suffix (`api_key=`, `client_secret=`), so `monkey=` is not a secret.
-const SENSITIVE_PARAM_PATTERN =
-  /(^|[^A-Za-z0-9])(token|secret|key|password|passwd|pwd|signature|sig|session|auth)=(?!\[REDACTED)[^\s&"'<>]+/gi;
-const CONTROL_CHARS_PATTERN = /[\u0000-\u001F\u007F]/g;
-const INVISIBLE_CHARS_PATTERN = /[\u0085\u061C\u200E\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069]/g;
+import {
+  CONTROL_CHARS_PATTERN,
+  INVISIBLE_CHARS_PATTERN,
+  redactSecrets,
+} from "./redact";
 
 /** Longest value written to the log for one report field, marker included. */
 export const MAX_LOG_FIELD_CHARS = 200;
@@ -55,12 +44,7 @@ function truncateWithMarker(value: string, maxChars: number): string {
  * neutralise anything that could break a log line, and bound the result.
  */
 export function sanitizeCspReportData(raw: string, maxChars = MAX_LOG_FIELD_CHARS): string {
-  const redacted = raw
-    .replace(API_KEY_PATTERN, "[REDACTED_API_KEY]")
-    .replace(BEARER_PATTERN, "Bearer [REDACTED_TOKEN]")
-    .replace(BASIC_AUTH_PATTERN, "Authorization: Basic [REDACTED]")
-    .replace(JWT_PATTERN, "[REDACTED_JWT]")
-    .replace(SENSITIVE_PARAM_PATTERN, "$1$2=[REDACTED_SECRET]");
+  const redacted = redactSecrets(raw);
 
   const cleaned = redacted
     .replace(CONTROL_CHARS_PATTERN, " ")

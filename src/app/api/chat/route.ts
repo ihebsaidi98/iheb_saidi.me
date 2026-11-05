@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { searchPortfolioKnowledge } from "@/lib/rag";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
+import { sanitizeLogMessage } from "@/lib/redact";
 import {
   validateChatRequest,
   sanitizeText,
@@ -40,7 +41,6 @@ import {
 } from "@/lib/chat";
 
 // ---- Configuration (env vars — all server-side) ----
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_CHAT_MODEL =
   process.env.GEMINI_CHAT_MODEL ?? "gemini-3.5-flash-lite";
 const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS ?? "45000", 10);
@@ -139,7 +139,8 @@ export async function POST(
   }
 
   // 5. Guard: API key must exist before any external call
-  if (!GEMINI_API_KEY) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     console.error("[chat/route] GEMINI_API_KEY is not set.");
     return NextResponse.json(
       {
@@ -182,7 +183,7 @@ export async function POST(
   // 8. Call Gemini with timeout
   let reply: string;
   try {
-    const rawReply = await callGemini(payload, GEMINI_API_KEY, GEMINI_CHAT_MODEL);
+    const rawReply = await callGemini(payload, apiKey, GEMINI_CHAT_MODEL);
     reply = cleanChatResponse(rawReply);
   } catch (err) {
     const isTimeout =
@@ -201,7 +202,7 @@ export async function POST(
         { status: 504, headers: rlHeaders },
       );
     }
-    const safeError = redactSecrets(
+    const safeError = sanitizeLogMessage(
       err instanceof Error ? err.message : String(err),
     );
     console.error("[chat/route] LLM call failed:", safeError);
@@ -229,12 +230,6 @@ export async function GET(): Promise<NextResponse> {
   );
 }
 
-function redactSecrets(msg: string): string {
-  return msg
-    .replace(/key=[^&\s]+/gi, "key=[REDACTED]")
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [REDACTED]");
-}
-
 function isRetryableModelError(err: unknown): boolean {
   if (
     err instanceof Error &&
@@ -253,10 +248,16 @@ function isRetryableModelError(err: unknown): boolean {
   }
 
   const rawMsg = err instanceof Error ? err.message : String(err);
+
+  // Catch permanent errors from message string when SDK doesn't set status
   if (
     rawMsg.includes("API_KEY_INVALID") ||
+    rawMsg.includes("API key not valid") ||
     rawMsg.includes("PERMISSION_DENIED") ||
-    rawMsg.includes("INVALID_ARGUMENT")
+    rawMsg.includes("INVALID_ARGUMENT") ||
+    rawMsg.includes("400 Bad Request") ||
+    rawMsg.includes("401 Unauthorized") ||
+    rawMsg.includes("403 Forbidden")
   ) {
     return false;
   }
@@ -347,7 +348,7 @@ async function callGemini(
           throw err;
         }
 
-        const safeErrMsg = redactSecrets(
+        const safeErrMsg = sanitizeLogMessage(
           err instanceof Error ? err.message : String(err),
         );
         console.warn(

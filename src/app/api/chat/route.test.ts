@@ -229,3 +229,207 @@ describe("POST /api/chat — Rate Limiting & Proxy Tests", () => {
     assert.equal(data.code, "METHOD_NOT_ALLOWED");
   });
 });
+
+describe("POST /api/chat — Secret Redaction & Log Sanitization (Elements 2.6 & 3.2)", () => {
+  let POST: typeof import("./route").POST;
+  const originalEnv = { ...process.env };
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+
+  before(async () => {
+    process.env.TRUSTED_PROXY = "true";
+    process.env.GEMINI_API_KEY = "AIzaSyFakeKeyForChatTest1234567890abcdef";
+    const route = await import("./route");
+    POST = route.POST;
+  });
+
+  after(() => {
+    process.env = { ...originalEnv };
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
+  });
+
+  function createRequest(
+    body: unknown,
+    options: {
+      ip?: string;
+    } = {},
+  ) {
+    const ip = options.ip ?? "10.0.99.1";
+    return new NextRequest("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-real-ip": ip,
+        "x-forwarded-for": ip,
+      },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    });
+  }
+
+  it("redacts secrets and sanitizes control characters during candidate fallback warnings (console.warn)", async () => {
+    const warnLogs: string[] = [];
+    console.warn = (...args: unknown[]) => {
+      warnLogs.push(args.map(String).join(" "));
+    };
+
+    let fetchCount = 0;
+    const leakedKey = "AIzaSyD-1234567890abcdefghijklmnopqrstu";
+    const leakedBearer = "Bearer secret_token_abc123";
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: new Array(768).fill(0.01) }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        fetchCount++;
+        if (fetchCount === 1) {
+          // First candidate fails with a retryable error containing secrets and CR/LF
+          const err = new Error(
+            `503 UNAVAILABLE: Model overloaded key=${leakedKey}\r\nAuth: ${leakedBearer}\nAttempting next candidate`,
+          );
+          throw err;
+        }
+
+        // Second candidate (fallback) succeeds
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "Java and Spring Boot are core skills." }],
+                },
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const req = createRequest(
+        {
+          message: "What backend experience does Iheb have?",
+          history: [{ role: "user", content: "Hi" }],
+        },
+        { ip: "10.0.99.10" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.ok(data.reply.includes("Java and Spring Boot"));
+
+      // Check fallback warning log
+      const fallbackWarning = warnLogs.find((l) => l.includes("attempting next fallback..."));
+      assert.ok(fallbackWarning, "fallback warning must be logged");
+      assert.ok(!fallbackWarning.includes(leakedKey), "raw API key must not leak into console.warn");
+      assert.ok(
+        fallbackWarning.includes("key=[REDACTED_API_KEY]"),
+        "API key must be redacted with [REDACTED_API_KEY]",
+      );
+      assert.ok(
+        !fallbackWarning.includes("secret_token_abc123"),
+        "raw Bearer token must not leak into console.warn",
+      );
+      assert.ok(
+        fallbackWarning.includes("Bearer [REDACTED_TOKEN]"),
+        "Bearer token must be redacted with Bearer [REDACTED_TOKEN]",
+      );
+      assert.ok(!fallbackWarning.includes("\r"), "CR must be sanitized");
+      assert.ok(!fallbackWarning.includes("\n"), "LF must be sanitized to prevent log splitting");
+    } finally {
+      console.warn = originalConsoleWarn;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("redacts secrets and sanitizes control characters during global LLM failures (console.error)", async () => {
+    const errorLogs: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(" "));
+    };
+
+    const leakedKey = "AIzaSyD-9999999999abcdefghijklmnopqrstu";
+    const leakedPassword = "password=SuperSecretPassword123!";
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: new Array(768).fill(0.01) }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        throw new Error(
+          `Fatal LLM failure: key=${leakedKey}\r\nQuery: ${leakedPassword}\n[500 Internal Server Error]`,
+        );
+      }
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const req = createRequest(
+        {
+          message: "Can you summarize his background?",
+          history: [{ role: "user", content: "Hi" }],
+        },
+        { ip: "10.0.99.11" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 502);
+      const data = await res.json();
+      assert.equal(data.code, "LLM_ERROR");
+      assert.equal(data.error, "Failed to generate a response. Please try again.");
+
+      // Ensure HTTP client response NEVER leaks secrets or upstream messages
+      const serializedResponse = JSON.stringify(data);
+      assert.ok(!serializedResponse.includes(leakedKey));
+      assert.ok(!serializedResponse.includes("SuperSecretPassword123!"));
+
+      // Check console.error log
+      const errorLog = errorLogs.find((l) => l.includes("[chat/route] LLM call failed:"));
+      assert.ok(errorLog, "LLM call failure must be logged to console.error");
+      assert.ok(!errorLog.includes(leakedKey), "raw API key must not leak into console.error");
+      assert.ok(
+        errorLog.includes("key=[REDACTED_API_KEY]"),
+        "API key must be redacted with [REDACTED_API_KEY]",
+      );
+      assert.ok(
+        !errorLog.includes("SuperSecretPassword123!"),
+        "password must not leak into console.error",
+      );
+      assert.ok(
+        errorLog.includes("password=[REDACTED_SECRET]"),
+        "password parameter must be redacted with [REDACTED_SECRET]",
+      );
+      assert.ok(!errorLog.includes("\r"), "CR must be sanitized");
+      assert.ok(!errorLog.includes("\n"), "LF must be sanitized to prevent log splitting");
+      assert.ok(errorLog.includes("[500 Internal Server Error]"), "diagnostic detail preserved");
+    } finally {
+      console.error = originalConsoleError;
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
