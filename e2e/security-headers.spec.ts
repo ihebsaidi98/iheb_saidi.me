@@ -46,5 +46,11 @@ test.describe("Production Security Headers", () => {
     expect(headers["permissions-policy"]).toContain("camera=()");
     expect(headers["permissions-policy"]).toContain("microphone=()");
     expect(headers["permissions-policy"]).toContain("geolocation=()");
+
+    // 7. No HSTS over plain HTTP (AUD-05). TLS is terminated outside this
+    // repository (README → "HTTPS Termination & HSTS"): the terminator owns
+    // the header, and browsers ignore it on an http:// response anyway. This
+    // asserts the app does not serve a blind, scheme-independent HSTS header.
+    expect(headers["strict-transport-security"]).toBeUndefined();
   });
 });

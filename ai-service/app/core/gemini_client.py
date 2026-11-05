@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from google import genai
+from google.genai import types
 
 from app.config import Settings
 
@@ -28,7 +29,15 @@ def get_gemini_client(settings: Settings) -> Any:
         )
         return None
 
-    _client_instance = genai.Client(api_key=api_key)
+    # `HttpOptions.timeout` is in MILLISECONDS (google-genai divides it by 1000
+    # before handing it to httpx), so mirror the per-request budget used by
+    # `asyncio.wait_for`. `wait_for` only stops *awaiting* the worker thread and
+    # leaves the HTTP request running; this bounds the socket itself.
+    timeout_ms = max(1, int(settings.request_timeout_seconds * 1000))
+    _client_instance = genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=timeout_ms),
+    )
     return _client_instance
 
 

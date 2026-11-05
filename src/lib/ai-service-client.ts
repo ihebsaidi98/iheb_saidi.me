@@ -812,7 +812,11 @@ export class AIServiceClient {
   async completeInterviewSession(
     options: CompleteInterviewOptions,
   ): Promise<SessionCompletionReport> {
-    const timeoutMs = options.timeoutMs ?? 30_000;
+    // 40s: above the AI service's 20s completion-wide LLM budget, below the
+    // reverse proxy's 60s `proxy_read_timeout`. Scoring five written answers
+    // used to outlast the old 30s value and report a timeout for work that
+    // would have completed.
+    const timeoutMs = options.timeoutMs ?? 40_000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 

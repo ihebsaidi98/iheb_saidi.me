@@ -50,6 +50,13 @@ MAX_ACTIVE_SESSIONS = 1000
 MAX_ACTIVE_SESSIONS_PER_CLIENT = 3
 TOTAL_QUESTIONS = 10
 
+# Wall-clock budget for ALL LLM enrichment performed while building one
+# completion report. `request_timeout_seconds` bounds a single call; nothing
+# bounded their sum, so five slow calls could hold the session lock for ~75 s
+# while the Next.js client gives up after 40 s. Enrichment is optional feedback,
+# so once this budget is spent the deterministic rubric is kept as-is.
+COMPLETION_LLM_BUDGET_SECONDS = 20.0
+
 # ---------------------------------------------------------------------------
 # Synonym / abbreviation expansion for the written-answer coverage matcher.
 #
@@ -512,13 +519,20 @@ class InterviewSimulatorService:
                     },
                 )
 
+            # Completion counts as activity: refresh before the (potentially
+            # long) report build so a concurrent prune cannot drop the session
+            # while it is being scored.
+            session.last_activity = time.time()
+
             # Idempotent: return cached report
             if session.completed and session.completion_report is not None:
+                session.last_activity = time.time()
                 return session.completion_report
 
             report = await self._build_completion_report(session)
             session.completed = True
             session.completion_report = report
+            session.last_activity = time.time()
 
         return report
 
@@ -529,6 +543,9 @@ class InterviewSimulatorService:
         mcq_results: list[MCQResult] = []
         written_results: list[WrittenResult] = []
         topic_scores: dict[str, dict] = {}
+
+        # Single deadline shared by every enrichment call of this report.
+        enrichment_deadline = time.monotonic() + COMPLETION_LLM_BUDGET_SECONDS
 
         for q_index, qid in enumerate(session.question_order):
             q_data = get_question_by_id(qid)
@@ -547,7 +564,10 @@ class InterviewSimulatorService:
                 topic_scores[topic]["score"] += 10.0 if result.is_correct else 0.0
             else:
                 result = await self._score_written(
-                    q_data, submitted_answer, question_number
+                    q_data,
+                    submitted_answer,
+                    question_number,
+                    enrichment_deadline,
                 )
                 written_results.append(result)
                 # Written worth 10 points each (5 written = 50 points total)
@@ -642,7 +662,11 @@ class InterviewSimulatorService:
         )
 
     async def _score_written(
-        self, q_data: dict, submitted_answer: str, question_number: int
+        self,
+        q_data: dict,
+        submitted_answer: str,
+        question_number: int,
+        enrichment_deadline: float | None = None,
     ) -> WrittenResult:
         """Evaluate an open-ended answer using deterministic rubric + optional LLM enrichment.
 
@@ -799,8 +823,19 @@ class InterviewSimulatorService:
             overall_score=overall,
         )
 
-        # LLM enrichment for feedback quality
-        if self.gemini_client is not None and coverage > 0:
+        # LLM enrichment for feedback quality. `enrichment_deadline` is the
+        # completion-wide deadline; `None` means this call owns the full budget
+        # (direct invocations such as the scoring unit tests).
+        budget_remaining = (
+            COMPLETION_LLM_BUDGET_SECONDS
+            if enrichment_deadline is None
+            else enrichment_deadline - time.monotonic()
+        )
+        if (
+            self.gemini_client is not None
+            and coverage > 0
+            and budget_remaining > 0
+        ):
             try:
                 safe_answer = sanitize_candidate_answer(submitted_answer)
                 prompt = (
@@ -836,9 +871,12 @@ class InterviewSimulatorService:
                         config=config,
                     )
 
+                # Never let one call run past the shared deadline.
                 resp = await asyncio.wait_for(
                     asyncio.to_thread(_call),
-                    timeout=self.settings.request_timeout_seconds,
+                    timeout=min(
+                        self.settings.request_timeout_seconds, budget_remaining
+                    ),
                 )
                 if resp and getattr(resp, "text", None):
                     text = resp.text.strip()

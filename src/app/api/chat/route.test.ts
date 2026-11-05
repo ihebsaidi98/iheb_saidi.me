@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { describe, it, before, beforeEach, afterEach, after } from "node:test";
+import { describe, it, before, beforeEach, afterEach, after, mock } from "node:test";
 import { NextRequest } from "next/server";
-import { GREETING_RESPONSE } from "@/lib/chat";
+import { GREETING_RESPONSE, MAX_CHAT_BODY_SIZE } from "@/lib/chat";
 
 describe("POST /api/chat — Rate Limiting & Proxy Tests", () => {
   let POST: typeof import("./route").POST;
@@ -429,6 +429,270 @@ describe("POST /api/chat — Secret Redaction & Log Sanitization (Elements 2.6 &
     } finally {
       console.error = originalConsoleError;
       globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+// ============================================================
+// AUD-02 — the chat body must be bounded BEFORE it is buffered.
+//
+// The cap is checked against the declared Content-Length when present and
+// against the bytes actually pulled from the stream otherwise. These tests
+// count pulled bytes rather than measuring heap: a handler that calls
+// `request.json()` pulls everything and only then could compare sizes, so a
+// full drain is observable even when the final status happens to be 413.
+// ============================================================
+
+describe("POST /api/chat — AUD-02 request body limit", () => {
+  let POST: typeof import("./route").POST;
+  const originalEnv = { ...process.env };
+
+  before(async () => {
+    delete process.env.CHAT_RATE_LIMIT;
+    delete process.env.CHAT_RATE_WINDOW_MS;
+    delete process.env.GEMINI_API_KEY;
+    process.env.TRUSTED_PROXY = "true";
+    POST = (await import("./route")).POST;
+  });
+
+  after(() => {
+    process.env = { ...originalEnv };
+  });
+
+  type StreamProbe = { pulledBytes: number; cancelled: boolean };
+
+  /** POST with a deterministic chunked stream and no Content-Length unless given. */
+  function chunkedPost(
+    bytes: Uint8Array,
+    options: { ip: string; chunkSize?: number; contentLength?: string },
+  ): { request: NextRequest; probe: StreamProbe } {
+    const chunkSize = options.chunkSize ?? 1024;
+    const probe: StreamProbe = { pulledBytes: 0, cancelled: false };
+    let offset = 0;
+
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (offset >= bytes.byteLength) {
+          controller.close();
+          return;
+        }
+        const end = Math.min(offset + chunkSize, bytes.byteLength);
+        probe.pulledBytes += end - offset;
+        controller.enqueue(bytes.subarray(offset, end));
+        offset = end;
+      },
+      cancel() {
+        probe.cancelled = true;
+      },
+    });
+
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-real-ip": options.ip,
+      "x-forwarded-for": options.ip,
+    };
+    if (options.contentLength !== undefined) {
+      headers["content-length"] = options.contentLength;
+    }
+
+    const request = new NextRequest("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers,
+      body: stream,
+      duplex: "half",
+    } as unknown as ConstructorParameters<typeof NextRequest>[1]);
+
+    return { request, probe };
+  }
+
+  /** Valid JSON of exactly `targetBytes` UTF-8 bytes (unknown keys are ignored). */
+  function payloadOfSize(targetBytes: number): string {
+    const overhead = Buffer.byteLength(JSON.stringify({ message: "hello", pad: "" }));
+    const padding = targetBytes - overhead;
+    assert.ok(padding >= 0, "target size must exceed the JSON overhead");
+    const payload = JSON.stringify({ message: "hello", pad: "a".repeat(padding) });
+    assert.equal(Buffer.byteLength(payload), targetBytes);
+    return payload;
+  }
+
+  function plainPost(payload: string, ip: string): NextRequest {
+    return new NextRequest("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-real-ip": ip,
+        "x-forwarded-for": ip,
+      },
+      body: payload,
+    });
+  }
+
+  it("accepts a valid payload of exactly the maximum size", async () => {
+    const payload = payloadOfSize(MAX_CHAT_BODY_SIZE);
+    const res = await POST(plainPost(payload, "10.0.3.1"));
+
+    assert.equal(res.status, 200, "the cap must be inclusive");
+    const data = (await res.json()) as { reply?: string };
+    assert.equal(data.reply, GREETING_RESPONSE);
+  });
+
+  it("rejects a body one byte over the maximum with 413 PAYLOAD_TOO_LARGE", async () => {
+    const bytes = new TextEncoder().encode(payloadOfSize(MAX_CHAT_BODY_SIZE + 1));
+    const { request, probe } = chunkedPost(bytes, { ip: "10.0.3.2" });
+    assert.equal(request.headers.get("content-length"), null);
+
+    const res = await POST(request);
+
+    assert.equal(res.status, 413);
+    const data = (await res.json()) as { code?: string; error?: string };
+    assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+    assert.equal(
+      data.error,
+      `Payload too large. Maximum allowed size is ${MAX_CHAT_BODY_SIZE} bytes.`,
+    );
+    assert.equal(probe.cancelled, true, "the stream must be cancelled, not drained");
+    assert.ok(
+      probe.pulledBytes <= MAX_CHAT_BODY_SIZE + 2 * 1024,
+      `consumed ${probe.pulledBytes} bytes for a ${bytes.byteLength}-byte body`,
+    );
+  });
+
+  it("bounds a chunked body far above the cap instead of draining it", async () => {
+    const bytes = new TextEncoder().encode(payloadOfSize(MAX_CHAT_BODY_SIZE * 3));
+    const { request, probe } = chunkedPost(bytes, { ip: "10.0.3.3" });
+
+    const res = await POST(request);
+
+    assert.equal(res.status, 413);
+    assert.ok(
+      probe.pulledBytes < bytes.byteLength / 2,
+      `handler pulled ${probe.pulledBytes}/${bytes.byteLength} bytes`,
+    );
+    assert.equal(probe.cancelled, true);
+    assert.equal(request.body?.locked, false, "the reader lock must be released");
+  });
+
+  it("ignores a lying Content-Length and counts the real bytes", async () => {
+    const bytes = new TextEncoder().encode(payloadOfSize(MAX_CHAT_BODY_SIZE * 2));
+    const { request, probe } = chunkedPost(bytes, {
+      ip: "10.0.3.4",
+      contentLength: "10",
+    });
+    assert.equal(request.headers.get("content-length"), "10");
+
+    const res = await POST(request);
+
+    assert.equal(res.status, 413);
+    assert.ok(
+      probe.pulledBytes <= MAX_CHAT_BODY_SIZE + 2 * 1024,
+      `a small header must not allow a full drain (pulled ${probe.pulledBytes})`,
+    );
+    assert.equal(probe.cancelled, true);
+  });
+
+  it("rejects an oversized declared Content-Length without reading the body", async () => {
+    const bytes = new TextEncoder().encode(payloadOfSize(MAX_CHAT_BODY_SIZE * 2));
+    const { request, probe } = chunkedPost(bytes, {
+      ip: "10.0.3.5",
+      contentLength: String(MAX_CHAT_BODY_SIZE * 2),
+    });
+
+    const res = await POST(request);
+
+    assert.equal(res.status, 413);
+    const data = (await res.json()) as { code?: string };
+    assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+    // A ReadableStream primes its queue with one chunk as soon as it is
+    // constructed, so "the handler did not read" means no second chunk was
+    // requested and the stream was never cancelled.
+    assert.ok(
+      probe.pulledBytes <= 1024,
+      `the pre-flight must decide before reading (pulled ${probe.pulledBytes} bytes)`,
+    );
+    assert.equal(probe.cancelled, false);
+  });
+
+  it("releases the body lock after an accepted request", async () => {
+    const { request } = chunkedPost(
+      new TextEncoder().encode(JSON.stringify({ message: "hello" })),
+      { ip: "10.0.3.6" },
+    );
+
+    const res = await POST(request);
+
+    assert.equal(res.status, 200);
+    assert.equal(request.body?.locked, false);
+  });
+
+  it("keeps the existing 400 INVALID_JSON contract for malformed JSON", async () => {
+    const res = await POST(plainPost('{"message": "hi"', "10.0.3.7"));
+
+    assert.equal(res.status, 400);
+    const data = (await res.json()) as { code?: string; error?: string };
+    assert.equal(data.code, "INVALID_JSON");
+    assert.equal(data.error, "Request body must be valid JSON.");
+  });
+
+  it("keeps the existing 400 INVALID_JSON contract for an empty body", async () => {
+    const res = await POST(plainPost("", "10.0.3.8"));
+
+    assert.equal(res.status, 400);
+    const data = (await res.json()) as { code?: string };
+    assert.equal(data.code, "INVALID_JSON");
+  });
+
+  it("applies the quota before the body cap", async () => {
+    const saturatedIp = "10.0.3.9";
+    for (let i = 0; i < 10; i++) {
+      const ok = await POST(plainPost(JSON.stringify({ message: "hello" }), saturatedIp));
+      assert.equal(ok.status, 200, `request ${i + 1} should be accepted`);
+    }
+
+    const bytes = new TextEncoder().encode(payloadOfSize(MAX_CHAT_BODY_SIZE * 2));
+    const { request, probe } = chunkedPost(bytes, {
+      ip: saturatedIp,
+      contentLength: String(MAX_CHAT_BODY_SIZE * 2),
+    });
+
+    const res = await POST(request);
+
+    assert.equal(res.status, 429, "the quota is decided before the body is looked at");
+    const data = (await res.json()) as { code?: string };
+    assert.equal(data.code, "RATE_LIMITED");
+    assert.ok(
+      probe.pulledBytes <= 1024,
+      `an over-quota request must not consume its body (pulled ${probe.pulledBytes} bytes)`,
+    );
+    assert.equal(probe.cancelled, false);
+  });
+
+  it("never reaches the AI layer when the body is oversized", async () => {
+    // Control: with no GEMINI_API_KEY a small, non-greeting request reaches the
+    // service-configuration guard and returns 503.
+    const control = await POST(
+      plainPost(
+        JSON.stringify({ message: "Summarize his backend experience please" }),
+        "10.0.3.10",
+      ),
+    );
+    assert.equal(control.status, 503);
+    assert.equal(
+      ((await control.json()) as { code?: string }).code,
+      "SERVICE_UNAVAILABLE",
+    );
+
+    const errorMock = mock.method(console, "error", () => undefined);
+    try {
+      const oversized = JSON.stringify({
+        message: "Summarize his backend experience please",
+        pad: "a".repeat(MAX_CHAT_BODY_SIZE),
+      });
+      const res = await POST(plainPost(oversized, "10.0.3.11"));
+
+      assert.equal(res.status, 413, "the size gate must answer before the AI layer");
+      assert.equal(errorMock.mock.callCount(), 0, "no AI key/RAG error may be logged");
+    } finally {
+      errorMock.mock.restore();
     }
   });
 });

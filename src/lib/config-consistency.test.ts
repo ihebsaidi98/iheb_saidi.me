@@ -562,6 +562,110 @@ describe("client IP documentation (H3-5)", () => {
   });
 });
 
+// ============================================================
+// AUD-05 — HSTS belongs to the layer that provably terminates TLS
+// ============================================================
+//
+// TLS is not terminated in this repository: the bundled Nginx declares only a
+// port-80 listener and Compose publishes it as "3000:80". These tests record
+// that fact, and guard the consequence: no layer here may emit an HSTS header,
+// because none of them can prove the public hop was HTTPS. The policy and the
+// operator-side value are documented in README.md.
+
+describe("HTTPS termination & HSTS (AUD-05)", () => {
+  const nginx = stripComments(nginxConf);
+  const nextConfigCode = stripComments(readFile("next.config.mjs"));
+
+  it("ships no TLS listener to attach HSTS to", () => {
+    assert.doesNotMatch(
+      nginx,
+      /^\s*listen\s+[^;]*\b443\b/m,
+      "nginx/nginx.conf must stay HTTP-only until TLS is configured deliberately",
+    );
+    assert.doesNotMatch(nginx, /^\s*ssl_certificate\b/m);
+    assert.doesNotMatch(nginx, /^\s*ssl_certificate_key\b/m);
+  });
+
+  it("publishes the stack as plain HTTP", () => {
+    const proxy = composeServiceBlock(compose, "proxy");
+    assert.match(
+      proxy,
+      /-\s*"?3000:80"?/,
+      "the proxy port mapping must stay 3000:80 so the ingress is plain HTTP",
+    );
+  });
+
+  it("discards any upstream scheme, so the app cannot observe the public one", () => {
+    // `$scheme` is `http` on a port-80-only listener, and the overwrite drops
+    // whatever an external terminator may have sent. Both facts are why HSTS
+    // cannot be decided here.
+    assert.match(
+      nginx,
+      /^\s*proxy_set_header\s+X-Forwarded-Proto\s+\$scheme\s*;$/m,
+      "X-Forwarded-Proto is overwritten with $scheme (always http here)",
+    );
+  });
+
+  it("emits no Strict-Transport-Security from the bundled Nginx", () => {
+    assert.doesNotMatch(nginx, /Strict-Transport-Security/i);
+    assert.doesNotMatch(nginx, /\badd_header\b[^;]*\bHSTS\b/i);
+  });
+
+  it("emits no Strict-Transport-Security from the Next.js static header set", () => {
+    // Next.js `headers()` is static for `/:path*`: it cannot vary per request
+    // scheme, so an entry here would also serve HSTS over http:// origins.
+    assert.doesNotMatch(nextConfigCode, /Strict-Transport-Security/i);
+  });
+
+  it("keeps the existing security headers intact", () => {
+    for (const [key, value] of [
+      ["X-Content-Type-Options", "nosniff"],
+      ["Referrer-Policy", "strict-origin-when-cross-origin"],
+      ["X-Frame-Options", "DENY"],
+      ["Permissions-Policy", "camera=(), microphone=(), geolocation=()"],
+      ["Content-Security-Policy", "default-src 'self'"],
+      ["Reporting-Endpoints", 'csp-endpoint="/api/csp-report"'],
+    ] as const) {
+      assert.match(
+        nextConfigCode,
+        new RegExp(`key:\\s*["']${key}["']`),
+        `${key} must stay declared in next.config.mjs`,
+      );
+      assert.ok(
+        nextConfigCode.includes(value),
+        `${key} must keep its value ${value}`,
+      );
+    }
+  });
+
+  it("documents where TLS is terminated and what the terminator must send", () => {
+    const section = markdownSection(readme, "### HTTPS Termination & HSTS");
+
+    assert.match(
+      section,
+      /TLS is not terminated in this repository/i,
+      "the README must state that TLS is terminated outside the repository",
+    );
+    assert.match(section, /3000:80/, "the plain-HTTP port mapping must be named");
+    assert.match(
+      section,
+      /Strict-Transport-Security: max-age=31536000\b/,
+      "the exact recommended header value must be documented",
+    );
+    assert.match(
+      section,
+      /no\s+`?includeSubDomains`?/i,
+      "the README must state that includeSubDomains is not sent",
+    );
+    assert.match(section, /no\s+`?preload`?/i, "the README must state that preload is not sent");
+    assert.match(
+      section,
+      /Browsers ignore HSTS[\s\S]{0,40}plain HTTP/i,
+      "the README must explain why HSTS over HTTP is ineffective",
+    );
+  });
+});
+
 describe("next.config.mjs Edge exclusion (H3-3, H3-4)", () => {
   it("resolves the validator to an empty module for the Edge compilation", () => {
     const nextConfig = readFile("next.config.mjs");

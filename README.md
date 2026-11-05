@@ -151,6 +151,33 @@ The `/api/chat` route applies rate limiting based on the client IP address. To p
 
 In both modes the selected value is validated and normalized before being used as the rate-limit key (`normalizeClientIp()`): IPv4/IPv6 literals only, IPv6 canonicalized so equivalent notations share one key, IPv4-mapped IPv6 (`::ffff:192.0.2.1`) reduced to plain IPv4, well-formed IPv6 zone ids stripped. Empty, over-long (more than 45 characters), malformed values, values carrying a port (`1.2.3.4:80`), and the RFC 7239 `unknown` token are rejected. A rejected value fails closed with `ProxyConfigurationError` (HTTP 500): it is never replaced by a placeholder key, and the limiter never falls back to another `X-Forwarded-For` segment. This prevents notation-based key rotation from multiplying quotas. The limiter key is then derived with `clientIpRateLimitKey()`: global unicast IPv6 (`2000::/3`) is grouped by `/64` in canonical form, so a client rotating source addresses inside one delegated prefix consumes a single quota. IPv4, IPv4-mapped IPv6, loopback, link-local, ULA, and the `2002::/16` (6to4), `2001::/32` (Teredo) and `64:ff9b::/96` (NAT64) transition prefixes keep their full address, because grouping them would merge unrelated clients. A client that controls several `/64` blocks still multiplies its quota — a `/56` yields 256 buckets, a `/48` 65,536 — so this mitigates rotation within one subscriber prefix, it does not eliminate prefix rotation.
 
+### HTTPS Termination & HSTS (`Strict-Transport-Security`)
+
+**TLS is not terminated in this repository.** `docker-compose.yml` publishes the bundled Nginx as `"3000:80"`, and `nginx/nginx.conf` declares only `listen 80` / `listen [::]:80` — no `listen 443`, no `ssl_certificate`, no ACME client. As shipped, the stack serves plain HTTP end to end. If the site is reachable over HTTPS, the certificate and the handshake belong to a component in front of it (host reverse proxy, cloud load balancer, CDN, tunnel), which this repository neither configures nor can inspect.
+
+Consequently **no layer here emits `Strict-Transport-Security`**, and that is deliberate:
+
+- **Browsers ignore HSTS received over plain HTTP**, so adding it to a port-80 response achieves nothing but makes the configuration look protected.
+- **The bundled Nginx cannot tell whether the public hop was HTTPS.** It overwrites `X-Forwarded-Proto` with `$scheme`, and `$scheme` is `http` on its only listener, so an upstream terminator's value is discarded before the app sees it. Reading a client-supplied `X-Forwarded-Proto` instead would let any caller dictate security headers and would contradict the IP trust boundary described above.
+- **`next.config.mjs` headers are static** for `/:path*`: they cannot vary per request scheme, so an HSTS entry there would also be served on plain-HTTP origins such as `http://localhost:3000`.
+
+CSP `upgrade-insecure-requests` (already enforced in the production policy) upgrades subresource requests, but it does not replace HSTS: only HSTS stops the very first request from going out over HTTP.
+
+**Where HSTS belongs.** Configure it on the component that actually terminates TLS, on HTTPS responses only:
+
+```http
+Strict-Transport-Security: max-age=31536000
+```
+
+Policy rules for that value:
+
+- `max-age=31536000` (one year), applied to every HTTPS response, not only the homepage.
+- **No `includeSubDomains`**: this repository cannot guarantee that every subdomain of the apex domain is HTTPS-only, and one year of HSTS on HTTP-only subdomains is not something a visitor can undo.
+- **No `preload`**: preload commits the whole domain to browser preload lists, requires submission, and cannot be reversed quickly.
+- Send the header **only when the request was actually HTTPS**, and do not rely on it as a redirect: keep the HTTP→HTTPS redirect at the terminator as well.
+
+If TLS termination ever moves into this repository (a 443 `server` block with certificates), the header belongs in that block, under the same rules. Until then, the decision is recorded by the guard tests in `src/lib/config-consistency.test.ts` and the runtime assertion in `e2e/security-headers.spec.ts`: they fail if an HSTS header appears without a deliberate TLS change.
+
 ## Notes
 
 - The active project system is the current professional experience and academic project implementations in the app.

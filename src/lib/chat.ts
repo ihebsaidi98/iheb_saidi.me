@@ -26,6 +26,19 @@ import type { KnowledgeDocumentType } from "@/lib/knowledge-base";
 export const MAX_MESSAGE_LENGTH = 500;
 export const MAX_HISTORY_TURNS = 10;
 export const MAX_HISTORY_CONTENT_LENGTH = 1000;
+
+/**
+ * Hard cap on the raw POST /api/chat body, in UTF-8 bytes (AUD-02).
+ *
+ * Derived from the fields the route actually accepts: a fully valid payload is
+ * at most MAX_MESSAGE_LENGTH + MAX_HISTORY_TURNS * MAX_HISTORY_CONTENT_LENGTH
+ * = 10,500 characters, which is ~42 KB once UTF-8 multi-byte characters and
+ * JSON overhead are counted. 64 KiB therefore accepts every valid request
+ * (including a payload that uses 4-byte characters throughout) while bounding
+ * what an unauthenticated caller can make the process buffer. The reverse
+ * proxy's `client_max_body_size` (2M) is far coarser and stays the outer limit.
+ */
+export const MAX_CHAT_BODY_SIZE = 65_536;
 /** How many history turns to include in the LLM prompt (most recent). */
 export const MAX_HISTORY_TURNS_IN_PROMPT = 6;
 

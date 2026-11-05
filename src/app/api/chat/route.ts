@@ -24,7 +24,10 @@ import { GoogleGenAI } from "@google/genai";
 import { searchPortfolioKnowledge } from "@/lib/rag";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import { sanitizeLogMessage } from "@/lib/redact";
+import { checkContentLength } from "@/lib/interview-route-helpers";
+import { readBodyWithLimit } from "@/lib/request-body";
 import {
+  MAX_CHAT_BODY_SIZE,
   validateChatRequest,
   sanitizeText,
   buildGeminiChatPayload,
@@ -103,10 +106,33 @@ export async function POST(
     );
   }
 
-  // 2. Parse body
+  // 2. Bound the body before parsing it (AUD-02): `request.json()` buffers the
+  //    whole payload first, so the declared Content-Length is checked cheaply
+  //    and the bytes actually streamed are counted as they arrive.
+  const lengthError = checkContentLength(request, MAX_CHAT_BODY_SIZE);
+  if (lengthError) {
+    // `checkContentLength` is shared with the interview routes and returns an
+    // untyped body; its payload is `{ error, code }`, which is exactly the
+    // chat error shape.
+    return lengthError as NextResponse<ChatErrorResponse>;
+  }
+
+  const bodyResult = await readBodyWithLimit(request, MAX_CHAT_BODY_SIZE);
+  if (bodyResult.tooLarge) {
+    return NextResponse.json(
+      {
+        error: `Payload too large. Maximum allowed size is ${MAX_CHAT_BODY_SIZE} bytes.`,
+        code: "PAYLOAD_TOO_LARGE",
+      },
+      { status: 413 },
+    );
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    // Same contract as `request.json()`: an empty or malformed body throws and
+    // is reported as INVALID_JSON below.
+    body = JSON.parse(bodyResult.text);
   } catch {
     return NextResponse.json(
       { error: "Request body must be valid JSON.", code: "INVALID_JSON" },
