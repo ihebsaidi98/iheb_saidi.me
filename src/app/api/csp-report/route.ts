@@ -37,13 +37,13 @@ const { limit: CSP_REPORT_RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
   60_000,
 );
 
-function payloadTooLargeResponse(): NextResponse {
+function payloadTooLargeResponse(headers: Record<string, string>): NextResponse {
   return NextResponse.json(
     {
       error: `Payload too large. Maximum allowed size is ${MAX_CSP_REPORT_BYTES} bytes.`,
       code: "PAYLOAD_TOO_LARGE",
     },
-    { status: 413 },
+    { status: 413, headers },
   );
 }
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 2. Cheap header-only rejection when the announced size is already too big.
-  const lengthError = checkContentLength(request, MAX_CSP_REPORT_BYTES);
+  const lengthError = checkContentLength(request, MAX_CSP_REPORT_BYTES, rlHeaders);
   if (lengthError) return lengthError;
 
   // 3. Content type (unchanged behaviour).
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isValidContentType) {
     return NextResponse.json(
       { error: "Unsupported Media Type. Expected application/csp-report or application/json." },
-      { status: 415 },
+      { status: 415, headers: rlHeaders },
     );
   }
 
@@ -110,12 +110,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 4. Read with a real byte counter (covers chunked and lying Content-Length).
     const bodyResult = await readBodyWithLimit(request, MAX_CSP_REPORT_BYTES);
     if (bodyResult.tooLarge) {
-      return payloadTooLargeResponse();
+      return payloadTooLargeResponse(rlHeaders);
     }
 
     const rawText = bodyResult.text;
     if (!rawText.trim()) {
-      return new NextResponse(null, { status: 204 });
+      return new NextResponse(null, { status: 204, headers: rlHeaders });
     }
 
     let parsed: any;
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // If not strictly JSON, sanitize raw text snippet and log
       const safeSnippet = sanitizeCspReportData(rawText, MAX_LOG_SNIPPET_CHARS);
       console.warn(`[csp-report] Received non-JSON violation report: ${safeSnippet}`);
-      return new NextResponse(null, { status: 204 });
+      return new NextResponse(null, { status: 204, headers: rlHeaders });
     }
 
     // Extract core fields from standard "csp-report" wrapper or Reporting API array
@@ -147,10 +147,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       `[csp-report] CSP Violation: directive="${sanitizedDirective}", blocked="${sanitizedBlocked}", document="${sanitizedDoc}"`,
     );
 
-    return new NextResponse(null, { status: 204 });
+    return new NextResponse(null, { status: 204, headers: rlHeaders });
   } catch (err) {
     console.error("[csp-report] Error processing violation report:", err);
-    return new NextResponse(null, { status: 204 });
+    return new NextResponse(null, { status: 204, headers: rlHeaders });
   }
 }
 

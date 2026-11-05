@@ -29,6 +29,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const rl = rateLimiter.check(clientIpRateLimitKey(ip));
+  const rlHeaders: Record<string, string> = {
+    "X-RateLimit-Limit": String(AI_HEALTH_RATE_LIMIT),
+    "X-RateLimit-Remaining": String(rl.remaining),
+    "X-RateLimit-Reset": String(Math.ceil(rl.resetAt / 1000)),
+  };
 
   if (!rl.allowed) {
     return NextResponse.json(
@@ -40,9 +45,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       {
         status: 429,
         headers: {
-          "X-RateLimit-Limit": String(AI_HEALTH_RATE_LIMIT),
-          "X-RateLimit-Remaining": String(rl.remaining),
-          "X-RateLimit-Reset": String(Math.ceil(rl.resetAt / 1000)),
+          ...rlHeaders,
           "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)),
         },
       },
@@ -53,10 +56,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const health = await aiServiceClient.checkHealth(3000);
     // Only the readiness verdict is public: `version`, `environment`,
     // `gemini_configured` and the index details describe the deployment.
-    return NextResponse.json({
-      status: "ok",
-      pythonService: { status: health.status },
-    });
+    return NextResponse.json(
+      {
+        status: "ok",
+        pythonService: { status: health.status },
+      },
+      { headers: rlHeaders },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Service unreachable";
     return NextResponse.json(
@@ -65,7 +71,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         error: "Python AI Service is currently unreachable or offline.",
         details: process.env.NODE_ENV === "development" ? message : undefined,
       },
-      { status: 503 },
+      { status: 503, headers: rlHeaders },
     );
   }
 }

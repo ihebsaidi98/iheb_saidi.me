@@ -109,7 +109,7 @@ export async function POST(
   // 2. Bound the body before parsing it (AUD-02): `request.json()` buffers the
   //    whole payload first, so the declared Content-Length is checked cheaply
   //    and the bytes actually streamed are counted as they arrive.
-  const lengthError = checkContentLength(request, MAX_CHAT_BODY_SIZE);
+  const lengthError = checkContentLength(request, MAX_CHAT_BODY_SIZE, rlHeaders);
   if (lengthError) {
     // `checkContentLength` is shared with the interview routes and returns an
     // untyped body; its payload is `{ error, code }`, which is exactly the
@@ -124,7 +124,7 @@ export async function POST(
         error: `Payload too large. Maximum allowed size is ${MAX_CHAT_BODY_SIZE} bytes.`,
         code: "PAYLOAD_TOO_LARGE",
       },
-      { status: 413 },
+      { status: 413, headers: rlHeaders },
     );
   }
 
@@ -136,7 +136,7 @@ export async function POST(
   } catch {
     return NextResponse.json(
       { error: "Request body must be valid JSON.", code: "INVALID_JSON" },
-      { status: 400 },
+      { status: 400, headers: rlHeaders },
     );
   }
 
@@ -145,7 +145,7 @@ export async function POST(
   if (!validated.valid) {
     return NextResponse.json(
       { error: validated.error, code: "INVALID_REQUEST" },
-      { status: 400 },
+      { status: 400, headers: rlHeaders },
     );
   }
 
@@ -173,7 +173,7 @@ export async function POST(
         error: "The chat service is not configured. Please contact the site owner.",
         code: "SERVICE_UNAVAILABLE",
       },
-      { status: 503 },
+      { status: 503, headers: rlHeaders },
     );
   }
 

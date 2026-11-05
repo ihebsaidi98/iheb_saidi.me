@@ -114,9 +114,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=300" } },
       );
     }
+    // The 502 is not publicly cacheable, so it can carry the caller's counters.
+    // The 200s above deliberately cannot: they are `Cache-Control: public`
+    // shared artefacts, and a per-client quota state must not be replayed by a
+    // shared cache (see src/lib/rate-limit-headers.test.ts).
     return NextResponse.json(
       { articles: [], fetchedAt: new Date().toISOString(), feedErrors: { global: "Failed to fetch news." }, cached: false },
-      { status: 502 },
+      { status: 502, headers: rlHeaders },
     );
   }
 }

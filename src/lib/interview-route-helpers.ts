@@ -15,10 +15,15 @@ import { readBodyWithLimit } from "./request-body";
  * 1. Pre-flight Content-Length check before body reading.
  * Returns a 413 NextResponse if Content-Length exceeds max allowed bytes,
  * a 400 NextResponse if Content-Length is malformed/invalid, or null if valid.
+ *
+ * AUD-09: `headers` carries the caller's quota headers (X-RateLimit-*), because
+ * this check runs *after* the rate limit was consumed. Emitting them here keeps
+ * a 413/400 consistent with every other post-quota response.
  */
 export function checkContentLength(
   request: NextRequest,
   maxBodySize: number,
+  headers?: Record<string, string>,
 ): NextResponse | null {
   const contentLength = request.headers.get("content-length");
   if (contentLength === null) {
@@ -32,7 +37,7 @@ export function checkContentLength(
         error: "Invalid Content-Length header.",
         code: "BAD_REQUEST",
       },
-      { status: 400 },
+      { status: 400, headers },
     );
   }
 
@@ -43,7 +48,7 @@ export function checkContentLength(
         error: `Payload too large. Maximum allowed size is ${maxBodySize} bytes.`,
         code: "PAYLOAD_TOO_LARGE",
       },
-      { status: 413 },
+      { status: 413, headers },
     );
   }
 

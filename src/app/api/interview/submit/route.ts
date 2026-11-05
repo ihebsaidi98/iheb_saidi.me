@@ -70,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 2. Enforce content-length limit before body parsing
-  const lengthError = checkContentLength(request, MAX_SUBMIT_BODY_SIZE);
+  const lengthError = checkContentLength(request, MAX_SUBMIT_BODY_SIZE, rlHeaders);
   if (lengthError) return lengthError;
 
   // 3. Parse JSON body
