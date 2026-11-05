@@ -22,6 +22,7 @@ import { MAX_LOG_SNIPPET_CHARS, sanitizeCspReportData } from "@/lib/csp-report";
 import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import { checkContentLength } from "@/lib/interview-route-helpers";
+import { readBodyWithLimit } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -35,59 +36,6 @@ const { limit: CSP_REPORT_RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
   "CSP_REPORT_RATE_WINDOW_MS",
   60_000,
 );
-
-type BodyReadResult = { tooLarge: true } | { tooLarge: false; text: string };
-
-/**
- * Read the request body while counting decoded bytes, and stop as soon as the
- * cap is crossed. `request.text()` cannot do this: it resolves only once the
- * whole body has been buffered.
- *
- * Bytes are counted on the raw UTF-8 chunks, not on the resulting string, so
- * the limit is a real byte limit and never depends on `Content-Length`.
- */
-async function readBodyWithLimit(
-  request: NextRequest,
-  maxBytes: number,
-): Promise<BodyReadResult> {
-  const body = request.body;
-  if (!body) return { tooLarge: false, text: "" };
-
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  let totalBytes = 0;
-
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-
-      totalBytes += value.byteLength;
-      if (totalBytes > maxBytes) {
-        // Discard the remainder instead of buffering it.
-        await reader.cancel().catch(() => undefined);
-        return { tooLarge: true };
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-    return { tooLarge: false, text };
-  } catch (err) {
-    // A broken/aborted body stream is treated as an empty report below.
-    await reader.cancel().catch(() => undefined);
-    throw err;
-  } finally {
-    // Never leave the request body locked: nothing downstream may assume it is
-    // still readable, and a locked stream is the only thing that can outlive us.
-    try {
-      reader.releaseLock();
-    } catch {
-      // Pending read: nothing to release, the stream is already unusable.
-    }
-  }
-}
 
 function payloadTooLargeResponse(): NextResponse {
   return NextResponse.json(

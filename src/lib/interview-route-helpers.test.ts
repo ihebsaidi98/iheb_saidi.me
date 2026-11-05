@@ -316,3 +316,215 @@ describe("interview-route-helpers", () => {
     });
   });
 });
+
+// ============================================================
+// AUD-01 — the body cap must be enforced WHILE streaming.
+//
+// These tests do not inspect wall-clock time or heap usage: they count the
+// bytes the handler actually pulls out of the stream. A handler that calls
+// `request.text()` first pulls every byte and only then compares sizes, so
+// the bound is observably not enforced at the boundary.
+// ============================================================
+
+type StreamProbe = {
+  /** Bytes actually handed to the consumer by the underlying source. */
+  pulledBytes: number;
+  chunks: number;
+  /** True when the consumer cancelled before the source was exhausted. */
+  cancelled: boolean;
+};
+
+/**
+ * POST whose body is a deterministic chunked stream, with no Content-Length
+ * unless one is explicitly supplied. `probe` records how far the handler read.
+ */
+function chunkedPost(
+  bytes: Uint8Array,
+  options: { chunkSize?: number; contentLength?: string } = {},
+): { request: NextRequest; probe: StreamProbe } {
+  const chunkSize = options.chunkSize ?? 1024;
+  const probe: StreamProbe = { pulledBytes: 0, chunks: 0, cancelled: false };
+  let offset = 0;
+
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset >= bytes.byteLength) {
+        controller.close();
+        return;
+      }
+      const end = Math.min(offset + chunkSize, bytes.byteLength);
+      probe.pulledBytes += end - offset;
+      probe.chunks += 1;
+      controller.enqueue(bytes.subarray(offset, end));
+      offset = end;
+    },
+    cancel() {
+      probe.cancelled = true;
+    },
+  });
+
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (options.contentLength !== undefined) {
+    headers["content-length"] = options.contentLength;
+  }
+
+  const request = new NextRequest("http://localhost/api/interview/start", {
+    method: "POST",
+    headers,
+    body: stream,
+    duplex: "half",
+  } as unknown as ConstructorParameters<typeof NextRequest>[1]);
+
+  return { request, probe };
+}
+
+/** Build valid JSON whose UTF-8 byte length is exactly `targetBytes`. */
+function jsonOfExactSize(targetBytes: number): string {
+  const template = (padding: number) =>
+    JSON.stringify({ answer: "a".repeat(padding) });
+  const overhead = template(0).length;
+  assert.ok(targetBytes > overhead, "target size must exceed the JSON overhead");
+  return template(targetBytes - overhead);
+}
+
+describe("parseJsonBody — AUD-01 bounded streaming", () => {
+  const MAX = 4096;
+  const CHUNK = 256;
+
+  it("stops reading a chunked body (no Content-Length) as soon as the cap is crossed", async () => {
+    // 64 KiB streamed in 256-byte chunks: 16× the cap.
+    const bytes = new TextEncoder().encode(jsonOfExactSize(MAX * 16));
+    const { request, probe } = chunkedPost(bytes, { chunkSize: CHUNK });
+    assert.equal(request.headers.get("content-length"), null);
+
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, false);
+    if (!res.success) {
+      assert.equal(res.response.status, 413);
+      const data = (await res.response.json()) as { code?: string };
+      assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+    }
+    assert.ok(
+      probe.pulledBytes < bytes.byteLength,
+      `handler consumed ${probe.pulledBytes}/${bytes.byteLength} bytes; the cap must stop the read`,
+    );
+    assert.ok(
+      probe.pulledBytes <= MAX + 2 * CHUNK,
+      `consumed ${probe.pulledBytes} bytes, expected at most cap + 2 chunks (${MAX + 2 * CHUNK})`,
+    );
+    assert.equal(probe.cancelled, true, "the body stream must be cancelled, not drained");
+  });
+
+  it("ignores a lying Content-Length and still bounds the real byte count", async () => {
+    const bytes = new TextEncoder().encode(jsonOfExactSize(MAX * 16));
+    const { request, probe } = chunkedPost(bytes, {
+      chunkSize: CHUNK,
+      contentLength: "10",
+    });
+
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, false);
+    if (!res.success) assert.equal(res.response.status, 413);
+    assert.ok(
+      probe.pulledBytes <= MAX + 2 * CHUNK,
+      `a small announced Content-Length must not allow a full drain (pulled ${probe.pulledBytes})`,
+    );
+    assert.equal(probe.cancelled, true);
+  });
+
+  it("accepts a body of exactly the maximum size", async () => {
+    const payload = jsonOfExactSize(MAX);
+    const bytes = new TextEncoder().encode(payload);
+    assert.equal(bytes.byteLength, MAX);
+
+    const { request } = chunkedPost(bytes, { chunkSize: CHUNK });
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, true);
+    if (res.success) {
+      assert.deepEqual(res.data, JSON.parse(payload));
+    }
+  });
+
+  it("rejects a body one byte over the maximum", async () => {
+    const bytes = new TextEncoder().encode(jsonOfExactSize(MAX + 1));
+    const { request } = chunkedPost(bytes, { chunkSize: CHUNK });
+
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, false);
+    if (!res.success) {
+      assert.equal(res.response.status, 413);
+      const data = (await res.response.json()) as { code?: string };
+      assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+    }
+  });
+
+  it("reassembles UTF-8 characters split across chunk boundaries", async () => {
+    // 2-byte characters forced across 3-byte chunk boundaries.
+    const answer = "é".repeat(40);
+    const payload = JSON.stringify({ answer });
+    const bytes = new TextEncoder().encode(payload);
+
+    // 3-byte chunks guarantee that some characters are split mid-sequence.
+    const { request } = chunkedPost(bytes, { chunkSize: 3 });
+    const res = await parseJsonBody(request, bytes.byteLength);
+
+    assert.equal(res.success, true);
+    if (res.success) {
+      const data = res.data as { answer?: string };
+      assert.equal(data.answer, answer);
+      assert.ok(!payload.includes("\uFFFD"), "no replacement characters may be produced");
+    }
+  });
+
+  it("releases the reader lock after a successful parse", async () => {
+    const bytes = new TextEncoder().encode(JSON.stringify({ track: "backend" }));
+    const { request } = chunkedPost(bytes);
+
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, true);
+    assert.equal(request.body?.locked, false, "the body must not stay locked after a parse");
+  });
+
+  it("releases the reader lock and keeps the 413 when the cap is exceeded", async () => {
+    const bytes = new TextEncoder().encode(jsonOfExactSize(MAX * 8));
+    const { request } = chunkedPost(bytes, { chunkSize: CHUNK });
+
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, false);
+    if (!res.success) assert.equal(res.response.status, 413);
+    assert.equal(request.body?.locked, false, "the overflowing read must still release the lock");
+  });
+
+  it("keeps the 400 contract when the body stream errors", async () => {
+    let pulls = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        if (pulls === 1) controller.enqueue(new TextEncoder().encode('{"track":'));
+        else controller.error(new Error("connection lost"));
+      },
+    });
+    const request = new NextRequest("http://localhost/api/interview/start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: stream,
+      duplex: "half",
+    } as unknown as ConstructorParameters<typeof NextRequest>[1]);
+
+    const res = await parseJsonBody(request, MAX);
+
+    assert.equal(res.success, false);
+    if (!res.success) {
+      assert.equal(res.response.status, 400);
+      const data = (await res.response.json()) as { code?: string };
+      assert.equal(data.code, "BAD_REQUEST");
+    }
+    assert.equal(request.body?.locked, false, "the error path must release the lock too");
+  });
+});

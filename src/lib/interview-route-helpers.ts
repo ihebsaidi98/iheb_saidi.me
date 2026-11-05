@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { AIServiceClientError } from "./ai-service-client";
+import { readBodyWithLimit } from "./request-body";
 
 /**
  * 1. Pre-flight Content-Length check before body reading.
@@ -55,6 +56,11 @@ export type ParseJsonBodyResult =
 
 /**
  * 2. Reads and parses JSON body safely with payload size verification in UTF-8 bytes.
+ *
+ * The cap is enforced while the body streams (see `readBodyWithLimit`), not
+ * after buffering it: a chunked request without `Content-Length` is bounded
+ * here rather than only by the reverse proxy.
+ *
  * Returns parsed body object or a 413/400 error response.
  */
 export async function parseJsonBody(
@@ -63,9 +69,8 @@ export async function parseJsonBody(
   headers?: Record<string, string>,
 ): Promise<ParseJsonBodyResult> {
   try {
-    const text = await request.text();
-    const byteLength = Buffer.byteLength(text, "utf8");
-    if (byteLength > maxBodySize) {
+    const bodyResult = await readBodyWithLimit(request, maxBodySize);
+    if (bodyResult.tooLarge) {
       return {
         success: false,
         response: NextResponse.json(
@@ -77,7 +82,7 @@ export async function parseJsonBody(
         ),
       };
     }
-    const data = text ? JSON.parse(text) : {};
+    const data = bodyResult.text ? JSON.parse(bodyResult.text) : {};
     return { success: true, data };
   } catch {
     return {
