@@ -124,9 +124,12 @@ uv run ruff format --check .
 
 ## 4. API Endpoints
 
-### Health Checks (Public / Monitoring)
+### Health Checks (Unauthenticated — internal only)
 * `GET /health/live`: Returns `200 OK` with `{"status": "ok"}` when the process is responsive.
-* `GET /health/ready`: Returns `200 OK` with `{"status": "ready", "service": "portfolio-ai-service", "version": "0.1.0", "gemini_configured": true}`.
+* `GET /health/ready`: Returns `200 OK` with `{"status": "ready", "service": "portfolio-ai-service", "version": "0.1.0", "environment": "production", "gemini_configured": true, "index_loaded": true, "index_records": 42}`, or `503` with `status: "not_ready"` when the vector index is missing (production) / the Gemini key is absent. `index_loaded` and `index_records` exist so an operator can tell *why* readiness failed; no filesystem path, error string or secret is ever returned.
+
+> [!IMPORTANT]
+> **Never publish these probes beyond loopback.** They require no authentication by design, so anything that can reach them can read deployment metadata (`environment`, `version`, index statistics). `docker-compose.yml` therefore maps the container port to `127.0.0.1:8001:8000`, the Docker image listens on `8000`, `npm run ai:dev` binds `127.0.0.1:8001`, and the bundled Nginx proxies only to the Next.js frontend. The browser-facing monitoring endpoint is the Next.js `GET /api/ai/health`, which forwards the readiness verdict alone.
 
 ### Protected API (`/v1/*`)
 All endpoints under `/v1` require `X-Internal-Token: <AI_SERVICE_TOKEN>` or `Authorization: Bearer <AI_SERVICE_TOKEN>`.

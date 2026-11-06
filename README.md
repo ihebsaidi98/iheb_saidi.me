@@ -49,7 +49,7 @@ Then open http://localhost:3000.
 
 ## Docker Quickstart
 
-Start both the Next.js frontend (`localhost:3000`) and the FastAPI AI microservice (`localhost:8000`) with a single command:
+Start both the Next.js frontend (`localhost:3000`) and the FastAPI AI microservice (`localhost:8001`, which maps to the container's port `8000`) with a single command:
 
 1. **Configure Environment Variables:**
    ```bash
@@ -68,7 +68,9 @@ Start both the Next.js frontend (`localhost:3000`) and the FastAPI AI microservi
 
 3. **Access Applications:**
    - Frontend Portfolio: [http://localhost:3000](http://localhost:3000)
-   - FastAPI Health Check: `curl http://localhost:8000/health` (or `curl http://localhost:8000/health/ready`)
+   - FastAPI Health Check: `curl http://localhost:8001/health/ready` (or `curl http://localhost:8001/health/live`)
+
+     `/health/*` is **unauthenticated by design** and returns deployment metadata (environment, version, index statistics), so the Compose stack publishes it on `127.0.0.1` only — never behind a public interface. The public monitoring endpoint is `GET /api/ai/health`, which exposes the readiness verdict alone.
 
 4. **Stop Services:**
    ```bash
