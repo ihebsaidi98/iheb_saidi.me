@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege (AUD-08): the only GitHub resource this workflow touches is
+# the repository itself — `actions/checkout` fetches the commit, and every other
+# step is a local command (npm, tsc, eslint, pytest, next build). Without this
+# key the GITHUB_TOKEN inherits the repository default, which can be read/write
+# on older repositories: the job would then be able to push commits, comment on
+# pull requests or publish packages it never needs. `contents: read` is the
+# complete requirement; the cache used by setup-node/setup-uv is served through
+# the Actions runtime token and needs no scope here. Enforced by
+# src/lib/workflow-permissions.test.ts.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, lint, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # `npm run test:py` shells out to `uv` (see ai-service/pyproject.toml and
+      # ai-service/uv.lock). The action also provisions the Python 3.12
+      # interpreter pinned by ai-service/.python-version.
+      - name: Set up uv (Python 3.12)
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Typecheck (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Lint (ESLint via Next.js)
+        run: npm run lint
+
+      - name: Unit tests (TypeScript)
+        run: npm test
+
+      - name: Unit tests (Python, FastAPI service)
+        run: npm run test:py
+
+      - name: Production build
+        run: npm run build

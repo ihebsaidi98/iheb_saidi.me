@@ -1,0 +1,11 @@
+node_modules
+.next
+ai-service/.venv
+ai-service/__pycache__
+.git
+*.md
+tests
+.env*
+coverage
+.pytest_cache
+.ruff_cache

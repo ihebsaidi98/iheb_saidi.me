@@ -4,8 +4,9 @@ import { ProjectsSection } from "@/sections/Projects";
 import { TapeSection } from "@/sections/Tape";
 import { AboutSection } from "@/sections/About";
 import { ExperienceSection } from "@/sections/Experience";
-import { EducationSection } from "@/sections/Education";
+import { InterviewSimulatorSection } from "@/sections/InterviewSimulator";
 import { ContactSection } from "@/sections/Contact";
+import { TechNewsSection } from "@/sections/TechNews";
 import { Footer } from "@/sections/Footer";
 import { SiteEnhancements } from "@/components/SiteEnhancements";
 
@@ -14,13 +15,14 @@ export default function Home() {
     <>
       <SiteEnhancements />
       <Header />
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <HeroSection />
         <AboutSection />
         <ProjectsSection />
         <TapeSection />
         <ExperienceSection />
-        <EducationSection />
+        <InterviewSimulatorSection />
+        <TechNewsSection />
         <ContactSection />
       </main>
       <Footer />

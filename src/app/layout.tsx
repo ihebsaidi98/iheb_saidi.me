@@ -5,6 +5,7 @@ import { twMerge } from "tailwind-merge";
 import { MotionProvider } from "@/components/MotionProvider";
 import { profile } from "@/data/profile";
 import { SmoothScroll } from "@/components/SmoothScroll";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const calistoga = Calistoga({
@@ -29,11 +30,15 @@ export const metadata: Metadata = {
     description:
       "Full-stack software engineer building scalable Spring Boot backends and reactive Angular frontends.",
   },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#05070a",
 };
 
 const jsonLd = {
@@ -59,12 +64,23 @@ export default function RootLayout({
         className={twMerge(
           inter.variable,
           calistoga.variable,
-          "bg-[#070a0d] text-white antialiased font-sans"
+          "relative bg-[#070a0d] text-white antialiased font-sans"
         )}
       >
+        {/* A11y audit: decorative radial background moved to a dedicated sibling layer so axe does not treat the viewport glow as text background. */}
+        <div
+          aria-hidden="true"
+          data-decorative="true"
+          className="pointer-events-none fixed inset-0 -z-10"
+          style={{
+            background:
+              "radial-gradient(ellipse 80% 45% at 50% -10%, rgba(56, 189, 248, 0.085), transparent 66%), radial-gradient(ellipse 55% 35% at 15% 20%, rgba(110, 231, 183, 0.035), transparent 70%), #05070a",
+          }}
+        />
+
         {/* Skip link: first tab stop, visible only when focused */}
         <a
-          href="#projects"
+          href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-emerald-300 focus:px-4 focus:py-2 focus:text-xs focus:font-semibold focus:text-[#05070a]"
         >
           Skip to content
@@ -74,10 +90,12 @@ export default function RootLayout({
           <SmoothScroll>{children}</SmoothScroll>
         </MotionProvider>
 
+        {/* Portfolio chatbot — fixed FAB, mounted at root to persist across pages */}
+        <ChatWidget />
+
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       </body>
     </html>
   );

@@ -1,0 +1,476 @@
+import assert from "node:assert/strict";
+import { describe, it, beforeEach, afterEach } from "node:test";
+import { NextRequest } from "next/server";
+import { POST, GET } from "./route";
+import { aiServiceClient, AIServiceClientError } from "@/lib/ai-service-client";
+
+let freshInstance = 0;
+
+/** Load a brand-new instance of the route module (cold per-IP quota). */
+async function freshRoute(): Promise<typeof import("./route")> {
+  freshInstance += 1;
+  const url = new URL("./route.ts", import.meta.url);
+  return (await import(`${url.href}?fresh=${freshInstance}`)) as typeof import("./route");
+}
+
+describe("POST /api/interview/start — Secure Proxy Route", () => {
+  const originalIsConfigured = aiServiceClient.isConfigured;
+  const originalStartInterview = aiServiceClient.startInterview;
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.TRUSTED_PROXY = "true";
+    process.env.AI_SERVICE_URL = "http://127.0.0.1:8001";
+    delete process.env.AI_SERVICE_ENABLED;
+  });
+
+  afterEach(() => {
+    aiServiceClient.isConfigured = originalIsConfigured;
+    aiServiceClient.startInterview = originalStartInterview;
+    process.env = { ...originalEnv };
+  });
+
+  function createRequest(
+    body: unknown,
+    options: {
+      ip?: string;
+      headers?: Record<string, string>;
+    } = {},
+  ) {
+    const ip = options.ip ?? "192.168.1.100";
+    return new NextRequest("http://localhost:3000/api/interview/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-real-ip": ip,
+        "x-forwarded-for": ip,
+        ...(options.headers ?? {}),
+      },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    });
+  }
+
+  it("initializes an interview session successfully and returns 200", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async (opts = {}) => {
+      assert.equal(opts.track, "full_stack");
+      assert.equal(opts.difficulty, "senior");
+      return {
+        session_id: "session-test-123",
+        session_token: "token-test-123",
+        track: "full_stack",
+        total_questions: 10,
+        initial_question: {
+          question_id: "fs-mcq-01",
+          question_number: 1,
+          total_questions: 10,
+          question_text: "Which HTTP status code indicates resource creation?",
+          question_type: "mcq",
+          track: "full_stack",
+          topic: "HTTP",
+          options: ["200", "201", "204", "301"],
+          expected_talking_points: ["RFC 7231"],
+        },
+      };
+    };
+
+    const req = createRequest({ track: "full_stack", difficulty: "senior" }, { ip: "192.168.1.101" });
+    const res = await POST(req);
+    assert.equal(res.status, 200);
+
+    const data = await res.json();
+    assert.equal(data.session_id, "session-test-123");
+    assert.equal(data.session_token, "token-test-123");
+    assert.equal(data.initial_question.question_id, "fs-mcq-01");
+    assert.ok(res.headers.get("X-RateLimit-Limit"));
+  });
+
+  // ============================================================
+  // AUD-10 — the session token must never be stored by a cache
+  // ============================================================
+
+  /** The only payload that carries `session_token` (StartInterviewResponse). */
+  function startResponse(token: string) {
+    return {
+      session_id: "session-aud10",
+      session_token: token,
+      track: "full_stack" as const,
+      total_questions: 10,
+      initial_question: {
+        question_id: "fs-mcq-01",
+        question_number: 1,
+        total_questions: 10,
+        question_text: "Which HTTP status code indicates resource creation?",
+        question_type: "mcq" as const,
+        track: "full_stack" as const,
+        topic: "HTTP",
+        options: ["200", "201", "204", "301"],
+        expected_talking_points: ["RFC 7231"],
+      },
+    };
+  }
+
+  it("marks the session-token response with Cache-Control: no-store", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => startResponse("token-aud10-secret");
+
+    const res = await POST(
+      createRequest({ track: "full_stack", difficulty: "senior" }, { ip: "192.168.1.150" }),
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(
+      res.headers.get("cache-control"),
+      "no-store",
+      "a response carrying a session token must be non-cacheable",
+    );
+
+    // The token is still delivered, and AUD-09 quota headers survive.
+    const data = await res.json();
+    assert.equal(data.session_token, "token-aud10-secret");
+    for (const header of ["x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"]) {
+      assert.ok(res.headers.get(header) !== null, `${header} must stay on the success response`);
+    }
+    assert.equal(res.headers.get("retry-after"), null);
+  });
+
+  it("keeps error responses free of any cache directive", async () => {
+    // No session is created here, so no token can leak: the error contract must
+    // stay exactly as it was before AUD-10.
+    aiServiceClient.isConfigured = () => false;
+    const res = await POST(
+      createRequest({ track: "full_stack", difficulty: "senior" }, { ip: "192.168.1.151" }),
+    );
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get("cache-control"), null);
+    const data = await res.json();
+    assert.equal(data.code, "SERVICE_UNAVAILABLE");
+    assert.ok(res.headers.get("x-ratelimit-limit"), "AUD-09 quota headers must stay present");
+
+    const methodNotAllowed = await GET();
+    assert.equal(methodNotAllowed.status, 405);
+    assert.equal(methodNotAllowed.headers.get("allow"), "POST");
+    assert.equal(methodNotAllowed.headers.get("cache-control"), null);
+  });
+
+  it("handles empty body by applying default track and difficulty", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async (opts = {}) => {
+      assert.equal(opts.track, undefined);
+      assert.equal(opts.difficulty, undefined);
+      return {
+        session_id: "session-default-456",
+        session_token: "token-default-456",
+        track: "full_stack",
+        total_questions: 10,
+        initial_question: {
+          question_id: "fs-mcq-01",
+          question_number: 1,
+          total_questions: 10,
+          question_text: "Default question text",
+          question_type: "mcq",
+          track: "full_stack",
+          topic: "HTTP",
+          options: ["A", "B", "C", "D"],
+        },
+      };
+    };
+
+    const req = createRequest({}, { ip: "192.168.1.102" });
+    const res = await POST(req);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.session_id, "session-default-456");
+  });
+
+  it("returns 405 Method Not Allowed on GET with Allow header", async () => {
+    const res = await GET();
+    assert.equal(res.status, 405);
+    assert.equal(res.headers.get("Allow"), "POST");
+    const data = await res.json();
+    assert.equal(data.code, "METHOD_NOT_ALLOWED");
+  });
+
+  it("returns 413 Payload Too Large when Content-Length exceeds maximum", async () => {
+    const req = createRequest(
+      { track: "full_stack" },
+      {
+        ip: "192.168.1.103",
+        headers: { "content-length": "20000" }, // exceeds MAX_START_BODY_SIZE (16384)
+      },
+    );
+    const res = await POST(req);
+    assert.equal(res.status, 413);
+    const data = await res.json();
+    assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+  });
+
+  it("returns 400 Bad Request on malformed JSON payload", async () => {
+    const req = createRequest("this is not valid {json}", { ip: "192.168.1.104" });
+    const res = await POST(req);
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.equal(data.code, "BAD_REQUEST");
+  });
+
+  it("returns 422 Validation Error on invalid track name", async () => {
+    const req = createRequest({ track: "cybersecurity" }, { ip: "192.168.1.105" });
+    const res = await POST(req);
+    assert.equal(res.status, 422);
+    const data = await res.json();
+    assert.equal(data.code, "VALIDATION_ERROR");
+    assert.match(data.error, /track must be one of/);
+  });
+
+  it("returns 422 Validation Error on invalid difficulty level", async () => {
+    const req = createRequest({ difficulty: "expert" }, { ip: "192.168.1.106" });
+    const res = await POST(req);
+    assert.equal(res.status, 422);
+    const data = await res.json();
+    assert.equal(data.code, "VALIDATION_ERROR");
+    assert.match(data.error, /difficulty must be one of/);
+  });
+
+  it("returns 422 Validation Error when focus_areas exceeds 10 items", async () => {
+    const focus_areas = Array.from({ length: 11 }, (_, i) => `topic-${i}`);
+    const req = createRequest({ focus_areas }, { ip: "192.168.1.107" });
+    const res = await POST(req);
+    assert.equal(res.status, 422);
+    const data = await res.json();
+    assert.equal(data.code, "VALIDATION_ERROR");
+  });
+
+  it("returns 503 SERVICE_UNAVAILABLE when AI service is not configured", async () => {
+    aiServiceClient.isConfigured = () => false;
+    const req = createRequest({ track: "full_stack" }, { ip: "192.168.1.108" });
+    const res = await POST(req);
+    assert.equal(res.status, 503);
+    const data = await res.json();
+    assert.equal(data.code, "SERVICE_UNAVAILABLE");
+  });
+
+  it("returns 500 AUTH_ERROR and does not leak credentials when upstream returns 401", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => {
+      throw new AIServiceClientError("Invalid internal token", {
+        status: 401,
+        code: "UNAUTHORIZED",
+      });
+    };
+
+    const req = createRequest({ track: "full_stack" }, { ip: "192.168.1.109" });
+    const res = await POST(req);
+    assert.equal(res.status, 500);
+    const data = await res.json();
+    assert.equal(data.code, "AUTH_ERROR");
+    // Ensure no token or sensitive details leaked
+    assert.equal(
+      data.error,
+      "Internal interview service authentication failed. Please contact the site owner.",
+    );
+  });
+
+  it("returns 503 when upstream reports interview simulator is disabled or unavailable", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => {
+      throw new AIServiceClientError("Disabled by configuration", {
+        status: 503,
+        code: "INTERVIEW_SIMULATOR_DISABLED",
+        isUnavailable: true,
+      });
+    };
+
+    const req = createRequest({ track: "full_stack" }, { ip: "192.168.1.110" });
+    const res = await POST(req);
+    assert.equal(res.status, 503);
+    const data = await res.json();
+    assert.equal(data.code, "INTERVIEW_SIMULATOR_DISABLED");
+  });
+
+  it("returns 502 UPSTREAM_ERROR when upstream returns invalid schema", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => {
+      throw new AIServiceClientError("Invalid response schema", {
+        code: "INVALID_RESPONSE",
+        isUnavailable: false,
+      });
+    };
+
+    const req = createRequest({ track: "full_stack" }, { ip: "192.168.1.111" });
+    const res = await POST(req);
+    assert.equal(res.status, 502);
+    const data = await res.json();
+    assert.equal(data.code, "UPSTREAM_ERROR");
+  });
+
+  it("returns 429 RATE_LIMITED when rate limit threshold is exceeded", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => ({
+      session_id: "s1",
+      session_token: "tok-s1",
+      track: "full_stack",
+      total_questions: 10,
+      initial_question: {
+        question_id: "fs-mcq-01",
+        question_number: 1,
+        total_questions: 10,
+        question_text: "Q1",
+        question_type: "mcq",
+        track: "full_stack",
+        topic: "HTTP",
+        options: ["A", "B", "C", "D"],
+      },
+    });
+
+    const fixedIp = "192.168.1.199";
+    // Default limit is 15
+    for (let i = 0; i < 15; i++) {
+      const res = await POST(createRequest({}, { ip: fixedIp }));
+      assert.equal(res.status, 200);
+    }
+
+    const blockedRes = await POST(createRequest({}, { ip: fixedIp }));
+    assert.equal(blockedRes.status, 429);
+    const data = await blockedRes.json();
+    assert.equal(data.code, "RATE_LIMITED");
+    assert.ok(blockedRes.headers.get("Retry-After"));
+  });
+
+  it("answers 429 before the Content-Length check once the IP quota is spent (F5)", async () => {
+    const route = await freshRoute();
+    aiServiceClient.isConfigured = () => false;
+
+    const ip = "192.168.1.240";
+    for (let i = 0; i < 15; i++) {
+      assert.equal((await route.POST(createRequest({}, { ip }))).status, 503);
+    }
+
+    const blockedRes = await route.POST(
+      createRequest({}, { ip, headers: { "content-length": "20000" } }),
+    );
+
+    assert.equal(blockedRes.status, 429);
+    const data = await blockedRes.json();
+    assert.equal(data.code, "RATE_LIMITED");
+    assert.equal(typeof data.retryAfterMs, "number");
+    assert.equal(blockedRes.headers.get("X-RateLimit-Limit"), "15");
+    assert.equal(blockedRes.headers.get("X-RateLimit-Remaining"), "0");
+    assert.ok(blockedRes.headers.get("Retry-After"));
+  });
+
+  it("still returns 413 for an oversized body when the IP is under quota (F5)", async () => {
+    const route = await freshRoute();
+
+    const res = await route.POST(
+      createRequest({}, { ip: "192.168.1.241", headers: { "content-length": "20000" } }),
+    );
+
+    assert.equal(res.status, 413);
+    const data = await res.json();
+    assert.equal(data.code, "PAYLOAD_TOO_LARGE");
+  });
+
+  it("keeps failing closed on an unverifiable client IP (500, never 429)", async () => {
+    const route = await freshRoute();
+    const env = process.env as Record<string, string | undefined>;
+    const originalNodeEnv = env.NODE_ENV;
+    const originalProxy = env.TRUSTED_PROXY;
+    try {
+      env.NODE_ENV = "production";
+      delete env.TRUSTED_PROXY;
+
+      const req = new NextRequest("http://localhost:3000/api/interview/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const res = await route.POST(req);
+
+      assert.equal(res.status, 500);
+      const data = await res.json();
+      assert.equal(data.code, "IP_VERIFICATION_FAILED");
+    } finally {
+      env.NODE_ENV = originalNodeEnv;
+      env.TRUSTED_PROXY = originalProxy;
+    }
+  });
+
+  it("forwards the server-derived client IP key to the AI service", async () => {
+    aiServiceClient.isConfigured = () => true;
+    let receivedKey: string | undefined;
+    aiServiceClient.startInterview = async (opts = {}) => {
+      receivedKey = opts.clientIpKey;
+      return {
+        session_id: "s-key",
+        session_token: "tok-key",
+        track: "full_stack",
+        total_questions: 10,
+        initial_question: {
+          question_id: "fs-mcq-01",
+          question_number: 1,
+          total_questions: 10,
+          question_text: "Q1",
+          question_type: "mcq",
+          track: "full_stack",
+          topic: "HTTP",
+          options: ["A", "B", "C", "D"],
+        },
+      };
+    };
+
+    const res = await POST(createRequest({}, { ip: "192.168.1.150" }));
+    assert.equal(res.status, 200);
+    assert.equal(receivedKey, "192.168.1.150");
+  });
+
+  it("ignores a browser-supplied X-Client-IP-Key header", async () => {
+    aiServiceClient.isConfigured = () => true;
+    let receivedKey: string | undefined;
+    aiServiceClient.startInterview = async (opts = {}) => {
+      receivedKey = opts.clientIpKey;
+      return {
+        session_id: "s-spoof",
+        session_token: "tok-spoof",
+        track: "full_stack",
+        total_questions: 10,
+        initial_question: {
+          question_id: "fs-mcq-01",
+          question_number: 1,
+          total_questions: 10,
+          question_text: "Q1",
+          question_type: "mcq",
+          track: "full_stack",
+          topic: "HTTP",
+          options: ["A", "B", "C", "D"],
+        },
+      };
+    };
+
+    const res = await POST(
+      createRequest(
+        {},
+        {
+          ip: "192.168.1.151",
+          headers: { "X-Client-IP-Key": "10.0.0.1" },
+        },
+      ),
+    );
+    assert.equal(res.status, 200);
+    assert.equal(receivedKey, "192.168.1.151");
+  });
+
+  it("propagates 429 CLIENT_SESSION_LIMIT_REACHED from the AI service", async () => {
+    aiServiceClient.isConfigured = () => true;
+    aiServiceClient.startInterview = async () => {
+      throw new AIServiceClientError(
+        "You already have the maximum number of interviews in progress.",
+        { status: 429, code: "CLIENT_SESSION_LIMIT_REACHED" },
+      );
+    };
+
+    const res = await POST(createRequest({}, { ip: "192.168.1.152" }));
+    assert.equal(res.status, 429);
+    const data = await res.json();
+    assert.equal(data.code, "CLIENT_SESSION_LIMIT_REACHED");
+  });
+});

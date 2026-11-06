@@ -6,24 +6,29 @@ import {
   useScroll,
 } from "framer-motion";
 import { useEffect, useState } from "react";
+import { twMerge } from "tailwind-merge";
+import { EASE } from "@/components/hero-motion";
+import { useA11yMode } from "@/components/MotionProvider";
 
 const navItems = [
   { name: "Home", href: "#top" },
-  { name: "Work", href: "#projects" },
-  { name: "Experience", href: "#experience" },
-  // 'Stack' section maps to the Tape section; ensure anchor exists
-  { name: "Stack", href: "#stack" },
   { name: "About", href: "#about" },
+  { name: "Work", href: "#projects" },
+  { name: "Stack", href: "#stack" },
+  { name: "Experience", href: "#experience" },
+  { name: "Interview", href: "#interview" },
+  { name: "Tech", href: "#tech-news" },
   { name: "Contact", href: "#contact" },
 ] as const;
 
-const EASE = [0.16, 1, 0.3, 1] as const;
-
 export const Header = () => {
+  const a11yMode = useA11yMode();
   const [active, setActive] = useState("Home");
   const [hidden, setHidden] = useState(false);
 
-  const { scrollY } = useScroll();
+  const { scrollY } = useScroll({
+    offset: ["start start", "end end"],
+  });
 
   /*
    * ---------------------------------------------------------
@@ -109,7 +114,7 @@ export const Header = () => {
 
   return (
     <motion.header
-      initial={{ opacity: 0, y: -18 }}
+      initial={a11yMode ? false : { opacity: 0, y: -18 }}
       animate={{
         opacity: 1,
         y: hidden ? "-150%" : "0%",
@@ -118,6 +123,7 @@ export const Header = () => {
         duration: 0.5,
         ease: EASE,
       }}
+      style={{ position: "fixed" }}
       className="fixed inset-x-0 top-3 z-40 flex justify-center px-3 sm:top-4"
     >
       <nav
@@ -131,12 +137,13 @@ export const Header = () => {
           shadow-[0_12px_40px_rgba(0,0,0,0.28)]
           backdrop-blur-2xl
           backdrop-saturate-150
-          scrollbar-none
+          no-scrollbar
         "
       >
-        {/* Ambient border glow */}
+        {/* A11y audit: gradient glass underlay is decorative and intentionally kept behind the actual text-bearing nav layer. */}
         <div
           aria-hidden="true"
+          data-decorative="true"
           className="
             pointer-events-none absolute inset-0
             rounded-full
@@ -160,20 +167,7 @@ export const Header = () => {
           "
         />
 
-        {/* Brand */}
-        <span
-          className="
-            relative hidden shrink-0
-            border-r border-white/[0.08]
-            px-4
-            text-xs font-medium
-            tracking-[-0.01em]
-            text-white/70
-            lg:block
-          "
-        >
-          Iheb Saidi
-        </span>
+       
 
         {/* Navigation */}
         <div className="relative flex items-center gap-0.5">
@@ -186,20 +180,10 @@ export const Header = () => {
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => handleNavigation(item.name)}
-                className="
-                  relative shrink-0
-                  rounded-full
-px-3 py-2.5
-                  text-xs
-                  font-medium
-                  tracking-[-0.01em]
-                  text-white/50
-                  transition-colors
-                  duration-200
-                  hover:text-white/90
-                  focus-visible:text-white
-                  sm:px-4
-                "
+                className={twMerge(
+                  "relative shrink-0 rounded-full px-3 py-2.5 text-xs font-medium tracking-[-0.01em] transition-colors duration-200 hover:text-white/90 focus-visible:text-white sm:px-4",
+                  isActive ? "text-white" : "text-white/70",
+                )}
               >
                 {isActive && (
                   <motion.span

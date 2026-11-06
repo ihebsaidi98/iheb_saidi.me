@@ -1,4 +1,4 @@
-export type ProjectMetric = {
+type ProjectMetric = {
   value: string;
   label: string;
 };
@@ -85,7 +85,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "agroretail-os.png",
+    screenshot: "agroretail-os.webp",
   },
 
   /* =========================================================
@@ -128,7 +128,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "novatek-platform.png",
+    screenshot: "novatek-platform.webp",
   },
 
   /* =========================================================
@@ -171,7 +171,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "tunisair-itsm.png",
+    screenshot: "tunisair-itsm.webp",
   },
 
   /* =========================================================
@@ -214,7 +214,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "xtensus-client-management.png",
+    screenshot: "xtensus-client-management.webp",
   },
 
   /* =========================================================
@@ -257,7 +257,7 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "world-soft-hotel.png",
+    screenshot: "world-soft-hotel.webp",
   },
 
   /* =========================================================
@@ -300,13 +300,22 @@ export const professionalExperience: readonly ProfessionalExperience[] = [
       },
     ],
 
-    screenshot: "nlp-conversational-chatbot.png",
+    screenshot: "nlp-conversational-chatbot.webp",
   },
 ];
 
 /* =========================================================
    ACADEMIC PROJECTS
    ========================================================= */
+
+export const workPeriodsByOrganization = {
+  "AgroRetail OS": "2026 – Present",
+  "Novatek (Délice Group)": "Jul 2024 – Jan 2026",
+  Tunisair: "Jan 2024 – Jul 2024",
+  "Xtensus, Ariana": "Jul 2023 – Aug 2023",
+  "World Soft Group, Marsa": "Jul 2022 – Sep 2022",
+  "ISIMS, Sfax — Bachelor's Final Project": "Feb 2021 – Jun 2021",
+} as const;
 
 export const academicProjects: readonly AcademicProject[] = [
   {
@@ -329,7 +338,7 @@ export const academicProjects: readonly AcademicProject[] = [
       "SonarQube",
     ],
 
-    screenshot: "auction-platform.png",
+    screenshot: "auction-platform.webp",
   },
 
   {
@@ -350,7 +359,7 @@ export const academicProjects: readonly AcademicProject[] = [
       "Data Mining",
     ],
 
-    screenshot: "medical-app.png",
+    screenshot: "medical-app.webp",
   },
 
   {
@@ -373,7 +382,7 @@ export const academicProjects: readonly AcademicProject[] = [
       "CSS3",
     ],
 
-    screenshot: "fitness-platform.png",
+    screenshot: "fitness-platform.webp",
   },
 ];
 

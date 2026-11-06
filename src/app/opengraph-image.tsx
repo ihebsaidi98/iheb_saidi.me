@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { profile } from "@/data/profile";
+import { availability } from "@/data/site";
 
 export const runtime = "edge";
 export const alt = "Iheb Saidi — Full Stack Software Engineer";
@@ -31,7 +32,7 @@ export default function OgImage() {
             marginBottom: 24,
           }}
         >
-          AVAILABLE FOR NEW OPPORTUNITIES
+          {availability}
         </div>
         <div style={{ fontSize: 110, letterSpacing: -4, lineHeight: 1 }}>
           {profile.name}.

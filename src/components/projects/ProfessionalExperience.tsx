@@ -187,7 +187,7 @@ function MetricValue({
     const suffix = match[2];
 
     const controls = animate(0, target, {
-      duration: 3.0,
+      duration: 1.2,
       ease: EASE,
       delay,
       onUpdate: (currentValue) => {
@@ -265,10 +265,6 @@ function ExperiencePanel({
                 variants={metricItem}
                 className="min-w-0"
               >
-                <dt className="sr-only">
-                  {metric.label}
-                </dt>
-
                 <dd className="font-serif text-2xl tracking-[-0.03em] text-emerald-200 sm:text-[1.7rem]">
                   <MetricValue
                     value={metric.value}
@@ -276,9 +272,9 @@ function ExperiencePanel({
                   />
                 </dd>
 
-                <dd className="mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/35">
+                <dt className="mt-1 font-mono text-[9px] uppercase leading-4 tracking-[0.13em] text-white/50">
                   {metric.label}
-                </dd>
+                </dt>
               </motion.div>
             ))}
         </motion.dl>
@@ -496,45 +492,6 @@ export function ProfessionalExperience({
           SECTION HEADER
           ===================================================== */}
 
-      <motion.div
-        initial={
-          reduceMotion
-            ? false
-            : {
-                opacity: 0,
-                y: 16,
-              }
-        }
-        whileInView={{
-          opacity: 1,
-          y: 0,
-        }}
-        viewport={{
-          once: true,
-          margin: "-8% 0px",
-        }}
-        transition={{
-          duration: 0.6,
-          ease: EASE,
-        }}
-      >
-        <div className="mb-5 flex items-center justify-between border-b border-white/[0.07] pb-3">
-          <span className="technical-label">
-            02 — SELECTED WORK
-          </span>
-
-          <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-white/40 tabular-nums">
-            <span
-              aria-hidden
-              className="signal-pulse inline-block size-1.5 rounded-full bg-emerald-300"
-            />
-
-            {pad2(active)} /{" "}
-            {pad2(items.length - 1)}
-          </span>
-        </div>
-      </motion.div>
-
       {/* =====================================================
           PROJECT STAGE
           ===================================================== */}
@@ -578,15 +535,10 @@ export function ProfessionalExperience({
                       alt=""
                       fill
                       sizes="(max-width: 1023px) 100vw, 45vw"
-                      className="scale-110 object-cover object-center opacity-xl blur-sm"
+                      className="scale-110 object-cover object-center opacity-10 blur-sm"
                       priority={active === 0}
                     />
 
-                    {/* Soft dark overlay */}
-                    <div className="absolute inset-0 bg-black/20" />
-
-                    {/* Slight atmospheric layer */}
-                    <div className="absolute inset-0 bg-white/[0.025]" />
                   </div>
 
                   {/* =========================================
@@ -629,7 +581,7 @@ export function ProfessionalExperience({
 
                   <span
                     aria-hidden
-                    className="absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/30"
+                    className="absolute left-4 top-3 z-20 font-serif text-3xl tracking-[-0.04em] text-white/50"
                   >
                     {pad2(active)}
                   </span>
@@ -665,14 +617,14 @@ export function ProfessionalExperience({
 
                     {/* LOCATION */}
 
-                    <span className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/30">
+                    <span className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/50">
                       {current.location}
                     </span>
                   </div>
 
                   {/* PERIOD */}
 
-                  <span className="ml-4 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-white/40">
+                  <span className="ml-4 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-white/50">
                     {current.period}
                   </span>
                 </motion.div>
@@ -711,15 +663,21 @@ export function ProfessionalExperience({
 
       {/* =====================================================
           PROJECT NAVIGATION
+
+          Below `sm` the deck stacks: the six selectors become a
+          3-column grid (2 rows) and the prev/next arrows move to
+          their own row. This keeps every control at or above the
+          44x44 CSS px target size (WCAG 2.5.5 / 2.5.8) at a
+          320px viewport without introducing horizontal overflow.
           ===================================================== */}
 
-      <div className="mt-7 flex items-center gap-4 sm:gap-6">
+      <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
         {/* PROJECT SELECTOR */}
 
         <div
           role="group"
           aria-label="Choose experience"
-          className="flex flex-1 items-stretch gap-2 sm:gap-3"
+          className="grid grid-cols-3 gap-2 sm:flex sm:flex-1 sm:items-stretch sm:gap-3"
         >
           {items.map((experience, index) => {
             const isActive = index === active;
@@ -740,7 +698,7 @@ export function ProfessionalExperience({
                     ? "true"
                     : undefined
                 }
-                className={`flex-1 py-2 ${FOCUS_RING}`}
+                className={`flex min-h-[44px] min-w-[44px] flex-col justify-center rounded-lg px-2 py-2 sm:flex-1 sm:px-3 ${FOCUS_RING}`}
               >
                 {/* NUMBER + COMPANY */}
 
@@ -748,7 +706,7 @@ export function ProfessionalExperience({
                   className={`mb-1.5 block font-mono text-[10px] tracking-[0.14em] transition-colors duration-300 tabular-nums ${
                     isActive
                       ? "text-emerald-200"
-                      : "text-white/35"
+                      : "text-white/60 hover:text-white"
                   }`}
                 >
                   {pad2(index)}
@@ -793,7 +751,7 @@ export function ProfessionalExperience({
             }
             disabled={active === 0}
             aria-label="Previous experience"
-            className={`grid size-10 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
           >
             <svg
               viewBox="0 0 24 24"
@@ -821,7 +779,7 @@ export function ProfessionalExperience({
               active === items.length - 1
             }
             aria-label="Next experience"
-            className={`grid size-10 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
           >
             <svg
               viewBox="0 0 24 24"
@@ -845,8 +803,10 @@ export function ProfessionalExperience({
           ===================================================== */}
 
       <p
-        className="sr-only"
+        role="status"
         aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
       >
         Experience {active + 1} of{" "}
         {items.length}: {current.company}

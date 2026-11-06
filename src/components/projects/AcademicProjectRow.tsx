@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { motion } from "framer-motion";
+import { staggeredCardItem } from "@/lib/motion";
 import type { AcademicProject } from "@/data/projects";
 
 /* =========================================================
@@ -36,7 +38,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
       <div className="flex min-w-0 items-start gap-5 sm:gap-8">
         <span
           aria-hidden
-          className="pt-1.5 font-serif text-lg tabular-nums text-white/20 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl"
+          className="pt-1.5 font-serif text-lg tabular-nums text-white/50 transition-all duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:text-emerald-200/70 sm:text-xl"
         >
           {pad2(index)}
         </span>
@@ -46,7 +48,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
             {project.title}
           </h3>
 
-          <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">
+          <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/50">
             {project.organization}&nbsp;&nbsp;·&nbsp;&nbsp;{project.period}
           </p>
 
@@ -64,7 +66,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
               </span>
             ))}
             {project.tech.length > MAX_TECH && (
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/45">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/55">
                 +{project.tech.length - MAX_TECH}
               </span>
             )}
@@ -104,10 +106,10 @@ export function AcademicProjectRow({
   index: number;
 }) {
   return (
-    <li>
+    <motion.li variants={staggeredCardItem}>
       <article aria-label={project.title} className={rowClass}>
         <RowBody project={project} index={index} />
       </article>
-    </li>
+    </motion.li>
   );
 }

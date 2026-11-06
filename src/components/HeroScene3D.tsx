@@ -649,58 +649,66 @@ function Fallback() {
     >
       <div
         className="
-          absolute
-          left-[62%]
-          top-[42%]
-size-[42vw] max-w-[420px]
-          -translate-x-1/2
-          -translate-y-1/2
-          rounded-full
           bg-emerald-400/[0.05]
-          blur-[100px]
-        "
-      />
-
-      <div
-        className="
+          pointer-events-none
           absolute
-          left-[62%]
-          top-[42%]
-size-[26vw] max-w-[260px]
-          -translate-x-1/2
-          -translate-y-1/2
-          rounded-full
-          border
-          border-emerald-300/10
+          inset-0
         "
-      />
+      >
+        <div
+          className="
+            absolute
+            left-[62%]
+            top-[42%]
+            size-[42vw] max-w-[420px]
+            -translate-x-1/2
+            -translate-y-1/2
+            rounded-full
+            blur-[100px]
+          "
+        />
 
-      <div
-        className="
-          absolute
-          left-[62%]
-          top-[42%]
-size-[16vw] max-w-[160px]
-          -translate-x-1/2
-          -translate-y-1/2
-          rounded-full
-          border
-          border-cyan-300/[0.07]
-        "
-      />
+        <div
+          className="
+            absolute
+            left-[62%]
+            top-[42%]
+            size-[26vw] max-w-[260px]
+            -translate-x-1/2
+            -translate-y-1/2
+            rounded-full
+            border
+            border-emerald-300/10
+          "
+        />
 
-      <div
-        className="
-          absolute
-          bottom-0
-          left-0
-          right-0
-          h-64
-          bg-gradient-to-t
-          from-[#04070c]
-          to-transparent
-        "
-      />
+        <div
+          className="
+            absolute
+            left-[62%]
+            top-[42%]
+            size-[16vw] max-w-[160px]
+            -translate-x-1/2
+            -translate-y-1/2
+            rounded-full
+            border
+            border-cyan-300/[0.07]
+          "
+        />
+
+        <div
+          className="
+            absolute
+            bottom-0
+            left-0
+            right-0
+            h-64
+            bg-gradient-to-t
+            from-[#04070c]
+            to-transparent
+          "
+        />
+      </div>
     </div>
   );
 }
@@ -724,6 +732,7 @@ function ReadabilityOverlay() {
           inset-y-0
           left-0
           w-[62%]
+          lg:w-[48%]
           bg-gradient-to-r
           from-[#04070c]
           via-[#04070c]/80
@@ -773,6 +782,32 @@ export default function HeroScene3D() {
         ? "demand"
         : "always";
 
+  const cameraConfig = useMemo(
+    () => ({
+      position: [0, 0.4, 8] as [number, number, number],
+      fov: env.mobile ? 55 : 45,
+      near: 0.1,
+      far: 40,
+    }),
+    [env.mobile],
+  );
+
+  const dprConfig = useMemo(
+    () => (env.mobile || env.lowPower ? 1 : ([1, 1.5] as [number, number])),
+    [env.mobile, env.lowPower],
+  );
+
+  const glConfig = useMemo(
+    () => ({
+      alpha: true,
+      antialias: !env.mobile && !env.lowPower,
+      powerPreference: "high-performance" as const,
+      stencil: false,
+      depth: true,
+    }),
+    [env.mobile, env.lowPower],
+  );
+
   return (
     <div
       ref={wrapperRef}
@@ -787,24 +822,9 @@ export default function HeroScene3D() {
       {showCanvas ? (
         <Canvas
           frameloop={frameloop}
-          camera={{
-            position: [0, 0.4, 8],
-            fov: env.mobile ? 55 : 45,
-            near: 0.1,
-            far: 40,
-          }}
-          dpr={
-            env.mobile || env.lowPower
-              ? 1
-              : [1, 1.5]
-          }
-          gl={{
-            alpha: true,
-            antialias: !env.mobile && !env.lowPower,
-            powerPreference: "high-performance",
-            stencil: false,
-            depth: true,
-          }}
+          camera={cameraConfig}
+          dpr={dprConfig}
+          gl={glConfig}
           style={{
             position: "absolute",
             inset: 0,

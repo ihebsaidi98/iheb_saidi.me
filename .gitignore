@@ -26,7 +26,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env
+.env.local
+.env.*.local
+ai-service/.env
+.env.*
+!.env.example
+!*.env.example
+
 
 # vercel
 .vercel
@@ -34,3 +41,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+probe-data.json
+test-results/
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+
+*.save
+*.swp
+*~

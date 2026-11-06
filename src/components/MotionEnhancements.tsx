@@ -6,10 +6,11 @@ import {
   useScroll,
   useSpring,
 } from "framer-motion";
-
 export function MotionEnhancements() {
   const reduceMotion = useReducedMotion();
-  const { scrollYProgress } = useScroll();
+  const { scrollYProgress } = useScroll({
+    offset: ["start start", "end end"],
+  });
 
   const scaleX = useSpring(scrollYProgress, {
     stiffness: reduceMotion ? 1000 : 180,
@@ -21,6 +22,7 @@ export function MotionEnhancements() {
     <div
       aria-hidden="true"
       className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-[2px]"
+      style={{ position: "fixed" }}
     >
       <motion.div
         className="absolute inset-0 origin-left bg-emerald-300/15 blur-[5px]"

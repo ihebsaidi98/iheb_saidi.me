@@ -1,0 +1,90 @@
+services:
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      - ENVIRONMENT=production
+    env_file:
+      - ./ai-service/.env
+    volumes:
+      - ./src/data/rag-index.json:/app/rag-index.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    depends_on:
+      ai-service:
+        condition: service_healthy
+    env_file:
+      - ./.env.local
+    environment:
+      # Every request reaches this container through the bundled Nginx proxy,
+      # which overwrites X-Forwarded-For with the verified socket address
+      # ($remote_addr, see nginx/nginx.conf). Compose `environment` always wins
+      # over `env_file`, so the TRUSTED_PROXY=false that setup-env.py writes for
+      # direct local development cannot silently make the API fail closed here.
+      - TRUSTED_PROXY=true
+      - TRUSTED_PROXY_HEADER=x-forwarded-for
+      - AI_SERVICE_URL=http://ai-service:8000
+    volumes:
+      - ./src/data/rag-index.json:/app/src/data/rag-index.json:ro
+    healthcheck:
+      # Probe the Next.js process directly on its internal port; does not require
+      # application logic — any 2xx from the homepage is sufficient.
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  proxy:
+    # Pinned by digest (AUD-07): `alpine` is mutable, so the edge proxy could
+    # change silently between rebuilds. Digest = OCI multi-arch index for
+    # nginx 1.31.8, verified against registry-1.docker.io on 2026-11-06.
+    # To upgrade on purpose, see README "Pinned container images".
+    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      # Test that Nginx is listening and returning 200 on /healthz.
+      # Verifies Nginx worker is alive directly, independent of upstream application logic.
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"

@@ -1,6 +1,73 @@
 /** @type {import('next').NextConfig} */
+import nextBundleAnalyzer from "@next/bundle-analyzer";
+
 const nextConfig = {
-  webpack(config) {
+  async headers() {
+    const isDev = process.env.NODE_ENV === "development";
+    const connectSrc = isDev ? "'self' ws: http: https:" : "'self'";
+    const scriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self' 'unsafe-inline'";
+
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          {
+            key: "Content-Security-Policy",
+            // Enforced policy with active violation telemetry via /api/csp-report.
+            value: [
+              "default-src 'self'",
+              "base-uri 'self'",
+              "object-src 'none'",
+              "frame-ancestors 'none'",
+              "form-action 'self'",
+              scriptSrc,
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob:",
+              "font-src 'self'",
+              `connect-src ${connectSrc}`,
+              "worker-src 'self' blob:",
+              ...(isDev ? [] : ["upgrade-insecure-requests"]),
+              "report-uri /api/csp-report",
+              "report-to csp-endpoint",
+            ].join("; "),
+          },
+          {
+            key: "Reporting-Endpoints",
+            value: 'csp-endpoint="/api/csp-report"',
+          },
+        ],
+      },
+    ];
+  },
+
+  webpack(config, { nextRuntime, webpack }) {
+    // H3-3 / H3-4: src/instrumentation.ts is compiled for both runtimes because
+    // src/app/opengraph-image.tsx is an Edge route. The proxy validators are
+    // Node-only, so the Edge compilation resolves them to an empty module.
+    // register() already bails out there; this keeps the code out of the Edge
+    // bundle instead of merely unreachable — Next.js 15.5.28 otherwise inlines
+    // the dynamic import into edge-instrumentation.js.
+    //
+    // IgnorePlugin rather than resolve.alias: `@/lib/env-config` is resolved by
+    // Next's jsconfig-paths plugin before webpack's alias step, so an alias on
+    // that specifier has no effect (measured on 15.5.28).
+    if (nextRuntime === "edge") {
+      config.plugins.push(
+        new webpack.IgnorePlugin({
+          resourceRegExp: /[\\/]lib[\\/]env-config(\.[cm]?[jt]sx?)?$/,
+        }),
+      );
+    }
+
     // Grab the existing rule that handles SVG imports
     const fileLoaderRule = config.module.rules.find((rule) =>
       rule.test?.test?.(".svg")
@@ -45,4 +112,6 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default nextBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+})(nextConfig);
