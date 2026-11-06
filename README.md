@@ -4,8 +4,8 @@ This repository contains the current Next.js portfolio for Iheb Saidi, a full-st
 
 ## Stack
 
-- Next.js 14
-- React 18
+- Next.js 15
+- React 19
 - TypeScript
 - Tailwind CSS
 - Framer Motion

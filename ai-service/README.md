@@ -2,10 +2,10 @@
 
 A production-grade Python AI Service built with **FastAPI**, **Pydantic Settings**, and the official **Google GenAI SDK** (`google-genai`), managed hermetically with **Astral `uv`**.
 
-This service serves as the core engine for the unified AI platform:
-- **Phase 1 (Current)**: Resilient service foundation, health probes, versioned `/v1` APIs, internal server-to-server auth, request ID correlation, structured errors, and Next.js proxy foundation.
-- **Phase 2 (Upcoming)**: High-performance Python semantic retrieval over the existing precomputed RAG index (`src/data/rag-index.json`).
-- **Phase 3 (Upcoming)**: Agentic RAG, Career Copilot, adaptive interview simulator, and automated RAG evaluation.
+This service serves as the core engine for the unified AI platform. All three phases are delivered:
+- **Phase 1 (Delivered)**: Resilient service foundation, health probes, versioned `/v1` APIs, internal server-to-server auth, request ID correlation, structured errors, and Next.js proxy foundation.
+- **Phase 2 (Delivered)**: High-performance Python semantic retrieval over the existing precomputed RAG index (`src/data/rag-index.json`), exposed as `POST /v1/rag/search` and `POST /v1/rag/chat`.
+- **Phase 3 (Delivered)**: Agentic RAG (`POST /v1/agent/answer`), Career Copilot (`POST /v1/copilot/*`), adaptive interview simulator (`POST /v1/interview/*`), and the retrieval evaluation benchmark (`npm run ai:eval`).
 
 ---
 
@@ -41,7 +41,7 @@ Create `.env` or set environment variables in your deployment environment:
 | `GEMINI_CHAT_MODEL` | String | `gemini-3.5-flash-lite` | Active Gemini chat model |
 | `GEMINI_EMBEDDING_MODEL` | String | `gemini-embedding-001` | Active Gemini embedding model (768 dimensions) |
 | `AI_SERVICE_TOKEN` | Secret | *(none — must be set explicitly)* | Shared secret for server-to-server Next.js authentication. There is no default value; it must be at least 32 characters in `staging`/`production` (see below). |
-| `ENVIRONMENT` | String | `development` | Environment mode (`development`, `test`, `production`) |
+| `ENVIRONMENT` | String | `development` | Environment mode (`development`, `test`, `staging`, `production`) |
 | `HOST` | String | `127.0.0.1` | Bind host |
 | `PORT` | Integer | `8001` | Bind port used by `python -m app.main` (`app/main.py` passes `settings.port` to uvicorn). `npm run ai:dev` pins `--port 8001`, while the Docker image pins `--port 8000` (`ai-service/Dockerfile`) — that is why `docker-compose.yml` maps host `8001` to container `8000`. |
 | `ALLOWED_ORIGINS` | String/List | `http://localhost:3000,http://127.0.0.1:3000` | Allowed CORS origins |
@@ -101,7 +101,7 @@ From the project root:
 ```bash
 npm run ai:dev
 # or directly from ai-service:
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 ### Running Tests
@@ -172,11 +172,16 @@ All endpoints under `/v1` require `X-Internal-Token: <AI_SERVICE_TOKEN>` or `Aut
   * Body: `{"project_keyword": string}`
   * Returns: `{"project_title": string, "role": string, "company": string | null, "period": string | null, "technologies": string[], "architecture_highlights": string[], "impact_metrics": string[], "summary": string, "sources": ChatSource[]}`
 * `POST /v1/interview/start`: Start an adaptive technical interview session.
-  * Body: `{"track": "full_stack" | "backend_architecture" | "ai_rag", "difficulty": "standard" | "senior" | "lead", "focus_areas": string[]}`
-  * Returns: `{"session_id": string, "track": string, "difficulty": string, "initial_question": InterviewQuestion}`
-* `POST /v1/interview/submit-answer`: Evaluate technical response against multi-criteria rubric with adaptive follow-up question.
-  * Body: `{"session_id": string, "question_id": string, "answer": string}`
-  * Returns: `{"session_id": string, "question_id": string, "rubric": RubricScore, "strengths": string[], "areas_for_improvement": string[], "sample_ideal_answer": string, "next_question": InterviewQuestion | null}`
+  * Body: `{"track": "full_stack" | "backend" | "frontend" | "ai_ml", "difficulty": "standard" | "senior" | "lead", "focus_areas": string[]}` — `track` defaults to `full_stack`; the other two fields are optional (the Next.js proxy rejects a `track` or `difficulty` outside these lists with `422`).
+  * Returns: `{"session_id": string, "session_token": string, "track": string, "total_questions": int, "initial_question": InterviewQuestion}`
+  * `session_token` is a 128-bit secret issued only here; `submit-answer` and `complete` require it and it is compared in constant time.
+* `POST /v1/interview/submit-answer`: Evaluate the answer against the multi-criteria rubric and adapt the next question.
+  * Body: `{"session_id": string, "session_token": string, "question_id": string, "answer": string}`
+  * Returns a **blind** acknowledgement — per-question scores and feedback are deliberately withheld: `{"session_id": string, "question_id": string, "question_number": int, "answered_count": int, "total_questions": int, "is_complete": bool, "next_question": InterviewQuestion | null}`
+* `POST /v1/interview/complete`: Reveal the full session report once every question has been answered.
+  * Body: `{"session_id": string, "session_token": string}`
+  * Returns: `{"session_id": string, "track": string, "score_out_of_100": float, "mcq_score": float, "written_score": float, "mcq_results": MCQResult[], "written_results": WrittenResult[], "topic_breakdown": TopicScore[], "overall_strengths": string[], "overall_improvements": string[], "total_questions": int}`
+  * Each `MCQResult` carries the correct answer and its explanation; each `WrittenResult` carries the rubric scores, strengths, gaps and a sample ideal answer. This is the only endpoint that reveals them.
 
 ---
 
