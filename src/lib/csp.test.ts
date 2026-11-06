@@ -26,7 +26,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -173,6 +173,29 @@ describe("nonce generation (AUD-06)", () => {
 });
 
 describe("inline scripts carry the nonce (AUD-06)", () => {
+  it("has exactly one policy producer left", () => {
+    // Two concurrent policies would be intersected by the browser, and the
+    // weaker one would keep the finding alive. "Producing" means writing the
+    // header itself; documentation and violation reports do not count.
+    const producers: string[] = [];
+    const walk = (directory: string): void => {
+      for (const entry of readdirSync(path.join(ROOT, directory), { withFileTypes: true })) {
+        const relative = path.posix.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          walk(relative);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+        if (/headers\.set\(\s*["']Content-Security-Policy["']/.test(readFile(relative))) {
+          producers.push(relative);
+        }
+      }
+    };
+    walk("src");
+
+    assert.deepEqual(producers, ["src/middleware.ts"]);
+  });
+
   it("exposes the request header name the middleware and the layout share", () => {
     assert.equal(CSP_NONCE_HEADER, "x-nonce");
   });

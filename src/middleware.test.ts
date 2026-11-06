@@ -106,6 +106,32 @@ describe("middleware CSP (AUD-06)", () => {
     assert.ok(!first.headers.get("content-security-policy")!.includes(secondNonce));
   });
 
+  it("publishes the nonce where Next.js parses it", () => {
+    // Next.js reads the *request* `content-security-policy` header and pulls the
+    // nonce out with /^'nonce-([A-Za-z0-9+/_-]+={0,2})'$/ (first `script-src`
+    // directive). If this header does not survive the middleware rewrite, every
+    // inline script Next.js emits stays unsigned and is blocked at runtime.
+    const response = call();
+    const requestCsp = response.headers.get("x-middleware-request-content-security-policy");
+    assert.ok(requestCsp, "the middleware must hand the policy back to the render");
+
+    const scriptSrc = requestCsp
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("script-src"));
+    assert.ok(scriptSrc, "the rewritten request policy must carry script-src");
+
+    const nonceSource = scriptSrc!
+      .split(/\s+/)
+      .slice(1)
+      .find((source) => source.startsWith("'nonce-"));
+    assert.ok(nonceSource, "the rewritten request policy must carry the nonce");
+
+    const parsed = nonceSource!.match(/^'nonce-([A-Za-z0-9+/_-]+={0,2})'$/);
+    assert.ok(parsed, `Next.js would ignore ${nonceSource}: it does not match its parser`);
+    assert.equal(parsed![1], response.headers.get("x-middleware-request-x-nonce"));
+  });
+
   it("covers every document route and skips the immutable asset paths", () => {
     const sources = config.matcher.map((entry) =>
       typeof entry === "string" ? entry : entry.source,

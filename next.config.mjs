@@ -3,12 +3,6 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig = {
   async headers() {
-    const isDev = process.env.NODE_ENV === "development";
-    const connectSrc = isDev ? "'self' ws: http: https:" : "'self'";
-    const scriptSrc = isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-      : "script-src 'self' 'unsafe-inline'";
-
     return [
       {
         source: "/:path*",
@@ -20,26 +14,13 @@ const nextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
-          {
-            key: "Content-Security-Policy",
-            // Enforced policy with active violation telemetry via /api/csp-report.
-            value: [
-              "default-src 'self'",
-              "base-uri 'self'",
-              "object-src 'none'",
-              "frame-ancestors 'none'",
-              "form-action 'self'",
-              scriptSrc,
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
-              "font-src 'self'",
-              `connect-src ${connectSrc}`,
-              "worker-src 'self' blob:",
-              ...(isDev ? [] : ["upgrade-insecure-requests"]),
-              "report-uri /api/csp-report",
-              "report-to csp-endpoint",
-            ].join("; "),
-          },
+          // AUD-06: the enforced CSP is built for each request in
+          // src/middleware.ts (see src/lib/csp.ts), because a nonce must change
+          // on every response and this header set is evaluated once and frozen
+          // into the build manifest. Emitting a second policy here would be
+          // intersected with the enforced one and silently re-allow inline
+          // scripts. The Reporting API endpoint keeps its static declaration:
+          // it carries no per-request value.
           {
             key: "Reporting-Endpoints",
             value: 'csp-endpoint="/api/csp-report"',
