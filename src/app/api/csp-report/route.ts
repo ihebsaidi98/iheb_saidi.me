@@ -23,6 +23,7 @@ import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import { checkContentLength } from "@/lib/interview-route-helpers";
 import { readBodyWithLimit } from "@/lib/request-body";
+import { rejectCrossOriginRequest } from "@/lib/request-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,12 @@ function payloadTooLargeResponse(headers: Record<string, string>): NextResponse 
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // 0. AUD-12: browsers only report violations of *this* origin's policy, so a
+  //    cross-origin report is either a forged spam or a copied policy; refuse it
+  //    before it touches the quota. Clients without browser metadata still pass.
+  const originError = rejectCrossOriginRequest(request);
+  if (originError) return originError;
+
   // 1. Client IP + quota first: never read a body for a request we will reject.
   let ip: string;
   try {

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { aiServiceClient } from "@/lib/ai-service-client";
 import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
+import { rejectCrossOriginRequest } from "@/lib/request-origin";
 import {
   MAX_COMPLETE_BODY_SIZE,
   validateCompleteInterviewRequest,
@@ -31,6 +32,12 @@ const { limit: RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
 );
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // 0. AUD-12: completion triggers the most expensive AI work, so forged
+  //    cross-site calls are refused before the quota is consumed. Clients
+  //    without browser metadata (curl, monitoring) still pass.
+  const originError = rejectCrossOriginRequest(request);
+  if (originError) return originError;
+
   // 1. Client IP + quota first: never inspect the body of a rejected request
   let ip: string;
   try {

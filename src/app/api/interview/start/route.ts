@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { aiServiceClient } from "@/lib/ai-service-client";
 import { clientIpRateLimitKey, extractClientIp } from "@/lib/chat";
 import { createRouteRateLimiter } from "@/lib/rate-limit-config";
+import { rejectCrossOriginRequest } from "@/lib/request-origin";
 import {
   MAX_START_BODY_SIZE,
   validateStartInterviewRequest,
@@ -30,6 +31,12 @@ const { limit: RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
 );
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // 0. AUD-12: no browser credential is involved here, so the risk is forged
+  //    cross-site traffic (burning Gemini credits, filling the session store).
+  //    Refused before the quota is consumed; header-less clients still pass.
+  const originError = rejectCrossOriginRequest(request);
+  if (originError) return originError;
+
   // 1. Client IP + quota first: never inspect the body of a rejected request
   let ip: string;
   try {

@@ -136,6 +136,27 @@ All rate limiters use an in-memory Sliding Window Counter (SWC) with a two-bucke
 
 `POST /api/csp-report` additionally caps its body at **16 KiB** (`MAX_CSP_REPORT_BYTES` in `src/app/api/csp-report/route.ts`): the `Content-Length` header is rejected early with `413 PAYLOAD_TOO_LARGE`, and the stream is still counted byte by byte, so a chunked request or a lying `Content-Length` cannot make the handler accumulate more than 16 KiB of text — plus the single chunk that crossed the cap before the read was cancelled. `GET /api/tech-news` remains public but counts against `TECH_NEWS_RATE_LIMIT`, and an over-quota request returns `429 RATE_LIMITED` without touching the feed cache or any external feed.
 
+### Cross-Origin Requests on Mutating Endpoints
+
+The five mutating routes — `POST /api/chat`, `/api/csp-report`, `/api/interview/start`, `/api/interview/submit` and `/api/interview/complete` — run `rejectCrossOriginRequest()` (`src/lib/request-origin.ts`) as their first statement and answer `403 CROSS_ORIGIN_REJECTED` when a browser says the request was initiated by another site:
+
+| Signal | Decision |
+|---|---|
+| `Sec-Fetch-Site: cross-site` (or the legacy `simple-http-context`) | rejected, even if `Origin` claims this host |
+| `Sec-Fetch-Site: same-origin` or `none` | allowed |
+| `Sec-Fetch-Site: same-site`, or an unknown value | decided by `Origin` |
+| `Origin` present | its hostname must equal the hostname this app answers on |
+| `Origin: null` | rejected (sandboxed iframe, `file://`, some redirect chains) |
+| `Origin` malformed, with a path/credentials, or not `http(s)` | rejected |
+| `Origin` absent, `Referer` present | the `Referer` hostname must match |
+| `Origin` and `Referer` absent | allowed |
+
+Only the **hostname** is compared, not the full origin, because the two supported deployments legitimately change the other parts: the bundled Nginx forwards `Host $host` (no port) while the browser sends `Origin: http://localhost:3000`, and a TLS terminator in front of the app makes the app see `http://` where the browser sends `https://`. A deployment serving the frontend from a *different hostname* is not supported by this policy and would need an explicit allowlist.
+
+Requests carrying no browser metadata at all are allowed on purpose: `curl`, monitoring probes, CI and the Next.js → FastAPI server-to-server calls send no `Origin`, and no browser is involved to forge from. Read-only handlers are untouched — `GET /api/tech-news` stays public and the wrong-method `405`s stay `405`, since no CORS header is ever emitted and cross-origin JavaScript cannot read those responses anyway. There is also no browser credential to ride here (no cookie, no `Authorization` header): the protection is against *forgery without credentials* — a hostile page burning the owner's LLM credits through a preflight-free `text/plain` or form-encoded POST.
+
+The rejection happens **before** the rate limiter, so a hostile page cannot exhaust a real visitor's quota; a `403 CROSS_ORIGIN_REJECTED` therefore carries no `X-RateLimit-*` header, exactly like every other pre-quota rejection. The status, the JSON `code` and every other existing error contract (`413`, `415`, `422`, `429`, `503`, `TOKEN_MISMATCH`) are unchanged.
+
 ### Reverse Proxy & Client IP Verification (`TRUSTED_PROXY`)
 
 The `/api/chat` route applies rate limiting based on the client IP address. To protect against IP spoofing:

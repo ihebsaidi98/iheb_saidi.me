@@ -26,6 +26,7 @@ import { createRouteRateLimiter } from "@/lib/rate-limit-config";
 import { sanitizeLogMessage } from "@/lib/redact";
 import { checkContentLength } from "@/lib/interview-route-helpers";
 import { readBodyWithLimit } from "@/lib/request-body";
+import { rejectCrossOriginRequest } from "@/lib/request-origin";
 import {
   MAX_CHAT_BODY_SIZE,
   validateChatRequest,
@@ -64,6 +65,14 @@ const { limit: CHAT_RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<ChatResponse | ChatErrorResponse>> {
+  // 0. AUD-12: a browser request initiated by another origin is refused before
+  //    the quota is consumed, so a hostile page cannot exhaust a visitor's
+  //    budget. Clients that send no browser metadata (curl, server) still pass.
+  const originError = rejectCrossOriginRequest(request);
+  if (originError) {
+    return originError as NextResponse<ChatErrorResponse>;
+  }
+
   // 1. Rate limit
   let ip: string;
   try {
