@@ -1,13 +1,19 @@
-# Base Python image — 3.12-slim provides the system Python uv will use
-FROM python:3.12-slim
+# Base Python image — 3.12-slim provides the system Python uv will use.
+# Pinned by digest (AUD-07): mutable tags make rebuilds non-reproducible.
+# Digest = OCI multi-arch index for Python 3.12.16, verified against
+# registry-1.docker.io on 2026-11-06. To upgrade on purpose, see README
+# "Pinned container images".
+FROM python:3.12.16-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54
 
 # Install system dependencies (curl required for container healthcheck)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install official Astral uv binary
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install official Astral uv binary — pinned by digest, not `:latest` (AUD-07).
+# Digest = OCI multi-arch index for uv 0.13.7, verified against ghcr.io on
+# 2026-11-06. To upgrade on purpose, see README "Pinned container images".
+COPY --from=ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 /uv /uvx /bin/
 
 # Create non-root system user
 RUN groupadd -g 10001 appuser && \

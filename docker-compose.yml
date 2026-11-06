@@ -62,7 +62,11 @@ services:
           cpus: "1.0"
 
   proxy:
-    image: nginx:alpine
+    # Pinned by digest (AUD-07): `alpine` is mutable, so the edge proxy could
+    # change silently between rebuilds. Digest = OCI multi-arch index for
+    # nginx 1.31.8, verified against registry-1.docker.io on 2026-11-06.
+    # To upgrade on purpose, see README "Pinned container images".
+    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
     ports:
       - "3000:80"
     volumes:

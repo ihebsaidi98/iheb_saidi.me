@@ -77,6 +77,15 @@ Start both the Next.js frontend (`localhost:3000`) and the FastAPI AI microservi
    docker compose down
    ```
 
+   > [!NOTE]
+   > **Pinned container images.** Every image is referenced as `<name>:<version>@sha256:<digest>` against its multi-architecture index (`node:22.23.4-alpine`, `python:3.12.16-slim`, `ghcr.io/astral-sh/uv:0.13.7`, `nginx:1.31.8-alpine`), so a rebuild uses the same bytes even if the publisher re-points a tag. Only `runs-on: ubuntu-latest` in CI is left floating — it is a GitHub runner label, not a container image. To upgrade one on purpose: pick the new version tag, read its index digest from the registry, then update the tag **and** digest together, and run `npm test` —
+   > ```bash
+   > curl -sI -H "Authorization: Bearer $(curl -s 'https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/nginx:pull' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" \
+   >   -H "Accept: application/vnd.oci.image.index.v1+json" \
+   >   https://registry-1.docker.io/v2/library/nginx/manifests/1.31.8-alpine | grep -i docker-content-digest
+   > ```
+   > `src/lib/docker-image-pinning.test.ts` rejects any image without a digest, any `latest` tag and any change to the major versions above.
+
 
 ## Project structure
 
