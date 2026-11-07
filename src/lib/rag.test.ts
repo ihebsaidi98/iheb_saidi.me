@@ -10,8 +10,11 @@ import {
   searchPortfolioKnowledge,
   validateEmbeddingVector,
   PortfolioIndexManager,
+  CURRENT_STRATEGY_VERSION,
   type EmbeddingFunction,
+  type SerializedVectorIndex,
 } from "./rag";
+import { formatRetrievedContext, formatUserPrompt } from "./chat";
 import type { KnowledgeDocument } from "./knowledge-base";
 
 const sampleDocuments: KnowledgeDocument[] = [
@@ -146,33 +149,76 @@ describe("vector validation", () => {
 });
 
 describe("PortfolioIndexManager & persistent index lifecycle", () => {
-  it("initializes from precomputed index file without calling embedder", async () => {
-    const manager = PortfolioIndexManager.getInstance();
-    await manager.initialize();
+  function createTempIndex(overrides: Partial<SerializedVectorIndex> = {}): { dir: string; filePath: string } {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rag-index-lifecycle-test-"));
+    const filePath = path.join(dir, "rag-index.json");
+    const payload: SerializedVectorIndex = {
+      version: 1,
+      strategyVersion: CURRENT_STRATEGY_VERSION,
+      kbVersion: "2026.1",
+      model: "gemini-embedding-001",
+      dimensions: 768,
+      createdAt: new Date().toISOString(),
+      recordsCount: 1,
+      records: [
+        {
+          id: "profile-overview-0",
+          documentId: "profile-overview",
+          source: "src/data/profile.ts",
+          type: "profile",
+          title: "Iheb Saidi — Professional Profile",
+          summary: "Profile summary",
+          text: "Iheb Saidi is a software engineer.",
+          searchText: "Iheb Saidi profile Iheb Saidi is a software engineer.",
+          tags: ["profile"],
+          metadata: {
+            visibility: "public",
+            type: "profile",
+            title: "Iheb Saidi — Professional Profile",
+            summary: "Profile summary",
+            source: "src/data/profile.ts",
+          },
+          vector: new Array(768).fill(0.01),
+        },
+      ],
+      ...overrides,
+    };
+    fs.writeFileSync(filePath, JSON.stringify(payload), "utf8");
+    return { dir, filePath };
+  }
 
-    assert.equal(manager.isInitialized(), true);
-    assert.ok(manager.getStore().size() > 0, "Index store should have loaded records");
+  it("initializes from compatible precomputed index file without calling embedder", async () => {
+    const { dir, filePath } = createTempIndex();
+    try {
+      const manager = new PortfolioIndexManager();
+      await manager.initialize({ filePath });
 
-    // Perform search using sample vector
-    const sampleVector = manager.getStore().exportRecords?.()[0]?.vector ?? new Array(768).fill(0.01);
-    const queryEmbedder = async () => sampleVector;
-    const results = await manager.getStore().search("Java", { limit: 3, threshold: -1 }, queryEmbedder);
-    assert.ok(results.length > 0);
-    assert.equal(typeof results[0]?.score, "number");
+      assert.equal(manager.isInitialized(), true);
+      assert.equal(manager.getStore().size(), 1);
+
+      // Perform search using sample vector without embedder
+      const sampleVector = manager.getStore().exportRecords?.()[0]?.vector!;
+      const results = await manager.getStore().search("Java", { limit: 1 }, async () => sampleVector);
+      assert.equal(results.length, 1);
+      assert.equal(results[0]?.id, "profile-overview-0");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("handles concurrent initialization safely without duplicate work", async () => {
-    const manager = PortfolioIndexManager.getInstance();
-    // Call initialize 5 times concurrently
-    const promises = [
-      manager.initialize(),
-      manager.initialize(),
-      manager.initialize(),
-      manager.initialize(),
-      manager.initialize(),
-    ];
-    await Promise.all(promises);
-    assert.equal(manager.isInitialized(), true);
+    const { dir, filePath } = createTempIndex();
+    try {
+      const manager = new PortfolioIndexManager();
+      await Promise.all([
+        manager.initialize({ filePath }),
+        manager.initialize({ filePath }),
+        manager.initialize({ filePath }),
+      ]);
+      assert.equal(manager.isInitialized(), true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("generates stable chunk IDs across runs", () => {
@@ -187,52 +233,98 @@ describe("PortfolioIndexManager & persistent index lifecycle", () => {
   });
 
   it("detects incompatible index dimensions and provides actionable error", async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rag-incompatible-test-"));
+    const { dir, filePath } = createTempIndex({ dimensions: 1536 });
+    try {
+      const manager = new PortfolioIndexManager();
+      await assert.rejects(
+        () => manager.initialize({ filePath }),
+        /dimensions mismatch \(expected: 768, found: 1536\)/,
+      );
+      assert.equal(manager.isInitialized(), false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects incompatible embedding model and provides actionable error", async () => {
+    const { dir, filePath } = createTempIndex({ model: "text-embedding-3-small" });
+    try {
+      const manager = new PortfolioIndexManager();
+      await assert.rejects(
+        () => manager.initialize({ filePath }),
+        /model mismatch \(expected: gemini-embedding-001, found: text-embedding-3-small\)/,
+      );
+      assert.equal(manager.isInitialized(), false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects legacy index without strategyVersion and refuses silent loading", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rag-legacy-test-"));
     const tempIndex = path.join(tempDir, "rag-index.json");
     try {
-      // Write index with wrong dimensions (1536 instead of 768)
+      // Index without strategyVersion (exactly like the legacy pre-Phase 3 index on disk)
       fs.writeFileSync(
         tempIndex,
         JSON.stringify({
           version: 1,
           model: "gemini-embedding-001",
-          dimensions: 1536,
-          createdAt: new Date().toISOString(),
-          records: [{ id: "c-1", vector: new Array(1536).fill(0.1) }],
+          dimensions: 768,
+          createdAt: "2026-10-31T20:31:08.883Z",
+          records: [{ id: "legacy-0", vector: new Array(768).fill(0.01) }],
         }),
       );
 
       const manager = new PortfolioIndexManager();
       await assert.rejects(
         () => manager.initialize({ filePath: tempIndex }),
-        /dimensions mismatch \(expected: 768, found: 1536\)/,
+        /strategy version mismatch \(expected: 2, found: none\)/,
       );
+      // Confirms stale vectors were never loaded
+      assert.equal(manager.isInitialized(), false);
+      assert.equal(manager.getStore().size(), 0);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
 
-  it("detects incompatible embedding model and provides actionable error", async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rag-incompatible-test-"));
-    const tempIndex = path.join(tempDir, "rag-index.json");
+  it("rejects index with incompatible strategyVersion", async () => {
+    const { dir, filePath } = createTempIndex({ strategyVersion: 1 });
     try {
-      // Write index with wrong model (text-embedding-3-small instead of gemini-embedding-001)
-      fs.writeFileSync(
-        tempIndex,
-        JSON.stringify({
-          version: 1,
-          model: "text-embedding-3-small",
-          dimensions: 768,
-          createdAt: new Date().toISOString(),
-          records: [{ id: "c-1", vector: new Array(768).fill(0.1) }],
-        }),
-      );
-
       const manager = new PortfolioIndexManager();
       await assert.rejects(
-        () => manager.initialize({ filePath: tempIndex }),
-        /model mismatch \(expected: gemini-embedding-001, found: text-embedding-3-small\)/,
+        () => manager.initialize({ filePath }),
+        /strategy version mismatch \(expected: 2, found: 1\)/,
       );
+      assert.equal(manager.isInitialized(), false);
+      assert.equal(manager.getStore().size(), 0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects missing index file without triggering implicit Gemini network calls", async () => {
+    const manager = new PortfolioIndexManager();
+    await assert.rejects(
+      () => manager.initialize({ filePath: "/tmp/non-existent-rag-index-test.json" }),
+      /Missing vector index at/,
+    );
+    assert.equal(manager.isInitialized(), false);
+  });
+
+  it("persists strategyVersion when initializing with on-demand custom embedder", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rag-ondemand-test-"));
+    const tempIndex = path.join(tempDir, "rag-index.json");
+    try {
+      const manager = new PortfolioIndexManager();
+      const testEmbedder = async () => new Array(768).fill(0.05);
+      await manager.initialize({ filePath: tempIndex, embedder: testEmbedder, force: true });
+
+      assert.equal(manager.isInitialized(), true);
+      assert.ok(fs.existsSync(tempIndex));
+      const saved = JSON.parse(fs.readFileSync(tempIndex, "utf8"));
+      assert.equal(saved.strategyVersion, CURRENT_STRATEGY_VERSION);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -355,5 +447,57 @@ describe("Phase 3 — Documentary context enrichment & metadata grounding", () =
     assert.equal(results.length, 1);
     assert.equal(results[0].text, chunks[0].text);
     assert.doesNotMatch(results[0].text, /special-tag-keyword/);
+  });
+
+  it("formatRetrievedContext constructs LLM prompt strictly from chunk.text without metadata leakage", () => {
+    const doc: KnowledgeDocument = {
+      id: "leak-test-doc",
+      type: "project",
+      title: "Sample Project Title",
+      summary: "Sample project summary",
+      content: "This is the pure human-readable text for the user and LLM.",
+      source: "src/data/projects.ts",
+      tags: ["tag-alpha", "tag-beta", "technical-tag-gamma"],
+      metadata: { role: "Architect", school: "PrivateInstitute" },
+      public: true,
+    };
+
+    const chunks = chunkKnowledgeDocuments([doc]);
+    const chunk = chunks[0];
+
+    // Verify searchText has tags and metadata
+    assert.ok(chunk.searchText);
+    assert.match(chunk.searchText, /technical-tag-gamma/);
+    assert.match(chunk.searchText, /tag-alpha/);
+
+    // Format for LLM prompt
+    const formatted = formatRetrievedContext(chunks);
+
+    // Verified: format uses title, type, and text only
+    assert.equal(
+      formatted,
+      `[1] ${chunk.title} (${chunk.type})\n${chunk.text}`,
+    );
+    // Verified: No searchText, no tags, no metadata leak into the prompt
+    assert.doesNotMatch(formatted, /tag-alpha/);
+    assert.doesNotMatch(formatted, /technical-tag-gamma/);
+    assert.doesNotMatch(formatted, /PrivateInstitute/);
+
+    // Verified: Full user prompt wraps retrieved context safely
+    const userPrompt = formatUserPrompt("Tell me about the project", chunks);
+    assert.ok(userPrompt.includes("<retrieved_context>"));
+    assert.ok(userPrompt.includes("Question: Tell me about the project"));
+    assert.doesNotMatch(userPrompt, /technical-tag-gamma/);
+  });
+
+  it("scripts/index-knowledge.ts is configured to embed chunk.searchText and persist strategyVersion", () => {
+    const scriptPath = path.join(process.cwd(), "scripts", "index-knowledge.ts");
+    assert.ok(fs.existsSync(scriptPath));
+    const scriptContent = fs.readFileSync(scriptPath, "utf8");
+
+    // Vectorizes enriched searchText
+    assert.match(scriptContent, /chunk\.searchText\s*\?\?\s*chunk\.text/);
+    // Writes CURRENT_STRATEGY_VERSION
+    assert.match(scriptContent, /strategyVersion:\s*CURRENT_STRATEGY_VERSION/);
   });
 });

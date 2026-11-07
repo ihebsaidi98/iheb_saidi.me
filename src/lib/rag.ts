@@ -105,8 +105,11 @@ export type PortfolioSearchResponse = {
   warning: string | null;
 };
 
+export const CURRENT_STRATEGY_VERSION = 2;
+
 export type SerializedVectorIndex = {
   version: number;
+  strategyVersion?: number;
   kbVersion?: string;
   model: string;
   dimensions: number;
@@ -482,6 +485,7 @@ export class PortfolioIndexManager {
         const expectedModel =
           process.env.GEMINI_EMBEDDING_MODEL ?? DEFAULT_EMBEDDING_MODEL;
         const expectedDimensions = DEFAULT_EMBEDDING_DIMENSIONS;
+        const expectedStrategyVersion = CURRENT_STRATEGY_VERSION;
 
         // 1. Try loading from persistent file
         if (!options.force && fs.existsSync(filePath)) {
@@ -499,10 +503,12 @@ export class PortfolioIndexManager {
           if (parsed) {
             const isModelMatch = parsed.model === expectedModel;
             const isDimMatch = parsed.dimensions === expectedDimensions;
+            const isStrategyMatch =
+              parsed.strategyVersion === expectedStrategyVersion;
             const hasRecords =
               Array.isArray(parsed.records) && parsed.records.length > 0;
 
-            if (isModelMatch && isDimMatch && hasRecords) {
+            if (isModelMatch && isDimMatch && isStrategyMatch && hasRecords) {
               this.store.clear();
               this.store.loadRecords(parsed.records);
               this.initialized = true;
@@ -513,14 +519,17 @@ export class PortfolioIndexManager {
               ? `model mismatch (expected: ${expectedModel}, found: ${parsed.model})`
               : !isDimMatch
                 ? `dimensions mismatch (expected: ${expectedDimensions}, found: ${parsed.dimensions})`
-                : "index contains no valid records";
+                : !isStrategyMatch
+                  ? `strategy version mismatch (expected: ${expectedStrategyVersion}, found: ${parsed.strategyVersion ?? "none"})`
+                  : "index contains no valid records";
 
             console.warn(
               `[rag] Incompatible or stale vector index at ${filePath}: ${reason}. Run 'npm run index:kb' to rebuild the index.`,
             );
 
-            // If no embedder or API key is available to recompute on-demand, throw actionable error
-            if (!options.embedder && !process.env.GEMINI_API_KEY) {
+            // Never silently trigger on-demand Gemini generation or network calls on stale/incompatible index.
+            // Throw an explicit, actionable error unless a custom embedder was explicitly provided.
+            if (!options.embedder) {
               throw new Error(
                 `Incompatible vector index at ${filePath} (${reason}). Please run 'npm run index:kb' to rebuild the knowledge base index.`,
               );
@@ -528,7 +537,14 @@ export class PortfolioIndexManager {
           }
         }
 
-        // 2. Build on-demand if embedder or API key is available
+        // If file does not exist and no custom embedder was provided, fail explicitly without implicit Gemini calls
+        if (!options.force && !fs.existsSync(filePath) && !options.embedder) {
+          throw new Error(
+            `Missing vector index at ${filePath}. Please run 'npm run index:kb' to build the knowledge base index.`,
+          );
+        }
+
+        // 2. Build on-demand if custom embedder was explicitly provided (e.g. in tests)
         const embedder = options.embedder ?? getDefaultEmbeddingFunction();
         const chunks = chunkKnowledgeDocuments(portfolioPublicDocuments);
 
@@ -540,6 +556,7 @@ export class PortfolioIndexManager {
         try {
           const serialized: SerializedVectorIndex = {
             version: 1,
+            strategyVersion: expectedStrategyVersion,
             kbVersion: "2026.1",
             model: expectedModel,
             dimensions: expectedDimensions,
