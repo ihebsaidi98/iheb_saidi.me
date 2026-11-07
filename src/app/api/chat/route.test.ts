@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { describe, it, before, beforeEach, afterEach, after, mock } from "node:test";
 import { NextRequest } from "next/server";
-import { GREETING_RESPONSE, MAX_CHAT_BODY_SIZE } from "@/lib/chat";
+import { GREETING_RESPONSE, INSUFFICIENT_EVIDENCE_REPLY, MAX_CHAT_BODY_SIZE } from "@/lib/chat";
 import { PortfolioIndexManager } from "@/lib/rag";
 
 describe("POST /api/chat — Rate Limiting & Proxy Tests", () => {
@@ -964,72 +964,90 @@ describe("POST /api/chat — Phase 5B: RAG Integration & Retrieval Error Contrac
       errorLogs.push(args.map(String).join(" "));
     };
 
+    const cleanups: (() => void)[] = [];
+
     try {
       // Sub-case 1: Incompatible strategyVersion on index file
-      manager.reset();
-      const origReadFileSync = fs.readFileSync;
-      const readMock = mock.method(fs, "readFileSync", (filePath: fs.PathOrFileDescriptor, options?: any) => {
-        if (String(filePath).includes("rag-index.json")) {
-          return JSON.stringify({
-            version: 1,
-            strategyVersion: 999, // Incompatible strategy version
-            model: "gemini-embedding-001",
-            dimensions: 768,
-            recordsCount: 1,
-            records: [{ id: "fake-0", vector: new Array(768).fill(0.01) }],
-          });
-        }
-        return origReadFileSync.call(fs, filePath, options);
-      });
+      try {
+        manager.reset();
+        const origReadFileSync = fs.readFileSync;
+        const readMethodMock = mock.method(fs, "readFileSync", (filePath: fs.PathOrFileDescriptor, options?: any) => {
+          if (String(filePath).includes("rag-index.json")) {
+            return JSON.stringify({
+              version: 1,
+              strategyVersion: 999, // Incompatible strategy version
+              model: "gemini-embedding-001",
+              dimensions: 768,
+              recordsCount: 1,
+              records: [{ id: "fake-0", vector: new Array(768).fill(0.01) }],
+            });
+          }
+          return origReadFileSync.call(fs, filePath, options);
+        });
+        cleanups.push(() => readMethodMock.mock.restore());
 
-      const reqIncompatible = createChatRequest(
-        { message: "What projects did Iheb complete?" },
-        { ip: "10.0.150.41" },
-      );
-      const resIncompatible = await POST(reqIncompatible);
+        const reqIncompatible = createChatRequest(
+          { message: "What projects did Iheb complete?" },
+          { ip: "10.0.150.41" },
+        );
+        const resIncompatible = await POST(reqIncompatible);
 
-      assert.equal(resIncompatible.status, 502);
-      const dataIncompatible = (await resIncompatible.json()) as Record<string, unknown>;
-      assert.equal(dataIncompatible.code, "RETRIEVAL_ERROR");
-      assert.equal(
-        networkCalls,
-        0,
-        "No network calls permitted (no implicit document re-embedding on stale index)",
-      );
-      assert.equal(manager.isInitialized(), false);
-      assert.equal(manager.getStore().size(), 0);
-
-      readMock.mock.restore();
+        assert.equal(resIncompatible.status, 502);
+        const dataIncompatible = (await resIncompatible.json()) as Record<string, unknown>;
+        assert.equal(dataIncompatible.code, "RETRIEVAL_ERROR");
+        assert.equal(
+          networkCalls,
+          0,
+          "No network calls permitted (no implicit document re-embedding on stale index)",
+        );
+        assert.equal(manager.isInitialized(), false);
+        assert.equal(manager.getStore().size(), 0);
+      } finally {
+        const cleanup = cleanups.pop();
+        if (cleanup) cleanup();
+      }
 
       // Sub-case 2: Missing index file
-      manager.reset();
-      const origExistsSync = fs.existsSync;
-      const existsMock = mock.method(fs, "existsSync", (filePath: fs.PathLike) => {
-        if (String(filePath).includes("rag-index.json")) {
-          return false;
-        }
-        return origExistsSync.call(fs, filePath);
-      });
+      try {
+        manager.reset();
+        const origExistsSync = fs.existsSync;
+        const existsMethodMock = mock.method(fs, "existsSync", (filePath: fs.PathLike) => {
+          if (String(filePath).includes("rag-index.json")) {
+            return false;
+          }
+          return origExistsSync.call(fs, filePath);
+        });
+        cleanups.push(() => existsMethodMock.mock.restore());
 
-      const reqMissing = createChatRequest(
-        { message: "Where did Iheb work as an engineer?" },
-        { ip: "10.0.150.42" },
-      );
-      const resMissing = await POST(reqMissing);
+        const reqMissing = createChatRequest(
+          { message: "Where did Iheb work as an engineer?" },
+          { ip: "10.0.150.42" },
+        );
+        const resMissing = await POST(reqMissing);
 
-      assert.equal(resMissing.status, 502);
-      const dataMissing = (await resMissing.json()) as Record<string, unknown>;
-      assert.equal(dataMissing.code, "RETRIEVAL_ERROR");
-      assert.equal(
-        networkCalls,
-        0,
-        "No network calls permitted (no implicit index creation on missing index)",
-      );
-      assert.equal(manager.isInitialized(), false);
-      assert.equal(manager.getStore().size(), 0);
-
-      existsMock.mock.restore();
+        assert.equal(resMissing.status, 502);
+        const dataMissing = (await resMissing.json()) as Record<string, unknown>;
+        assert.equal(dataMissing.code, "RETRIEVAL_ERROR");
+        assert.equal(
+          networkCalls,
+          0,
+          "No network calls permitted (no implicit index creation on missing index)",
+        );
+        assert.equal(manager.isInitialized(), false);
+        assert.equal(manager.getStore().size(), 0);
+      } finally {
+        const cleanup = cleanups.pop();
+        if (cleanup) cleanup();
+      }
     } finally {
+      while (cleanups.length > 0) {
+        try {
+          const cleanup = cleanups.pop();
+          if (cleanup) cleanup();
+        } catch {
+          // ignore error during cleanup
+        }
+      }
       console.warn = originalConsoleWarn;
       console.error = originalConsoleError;
       globalThis.fetch = originalFetch;
@@ -1037,5 +1055,411 @@ describe("POST /api/chat — Phase 5B: RAG Integration & Retrieval Error Contrac
       await manager.initialize(); // Restore production index in memory
     }
   });
-});
 
+  it("loads valid precomputed index with 39 records during POST request without document re-embedding", async () => {
+    const manager = PortfolioIndexManager.getInstance();
+    await manager.initialize();
+    const sampleVector = manager.getStore().exportRecords()[0]?.vector ?? new Array(768).fill(0.01);
+    manager.reset();
+
+    let queryEmbeddingCalls = 0;
+    let documentEmbeddingCalls = 0;
+    let generateContentCalls = 0;
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        const bodyStr = typeof init?.body === "string" ? init.body : "";
+        if (bodyStr.includes("RETRIEVAL_DOCUMENT")) {
+          documentEmbeddingCalls++;
+        } else {
+          queryEmbeddingCalls++;
+        }
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: sampleVector }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        generateContentCalls++;
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "Iheb Saidi specializes in Java, Spring Boot, and Angular." }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const req = createChatRequest(
+        { message: "What technologies does Iheb work with in production?" },
+        { ip: "10.0.150.51" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 200);
+      const data = (await res.json()) as Record<string, unknown>;
+      assert.equal(
+        data.reply,
+        "Iheb Saidi specializes in Java, Spring Boot, and Angular.",
+      );
+
+      // Verify that the manager loaded all 39 records from the precomputed index file
+      assert.equal(manager.isInitialized(), true);
+      assert.equal(
+        manager.getStore().size(),
+        39,
+        "All 39 records from src/data/rag-index.json must be loaded",
+      );
+
+      // Verify query embedding vs document embedding counts
+      assert.equal(
+        queryEmbeddingCalls,
+        1,
+        "Exactly one query embedding call for the user's question",
+      );
+      assert.equal(
+        documentEmbeddingCalls,
+        0,
+        "Zero document embeddings may be computed (no on-demand chunk embedding)",
+      );
+      assert.equal(
+        generateContentCalls,
+        1,
+        "Exactly one LLM generation call",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      manager.reset();
+      await manager.initialize();
+    }
+  });
+
+  it("reuses already initialized index across multiple POST requests without reloading or re-embedding", async () => {
+    const manager = PortfolioIndexManager.getInstance();
+    await manager.initialize();
+    const sampleVector = manager.getStore().exportRecords()[0]?.vector ?? new Array(768).fill(0.01);
+    manager.reset();
+
+    let readIndexCallCount = 0;
+    const origReadFileSync = fs.readFileSync;
+    let readMock: { mock: { restore: () => void } } | null = null;
+
+    let queryEmbeddingCalls = 0;
+    let documentEmbeddingCalls = 0;
+    let generateContentCalls = 0;
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        const bodyStr = typeof init?.body === "string" ? init.body : "";
+        if (bodyStr.includes("RETRIEVAL_DOCUMENT")) {
+          documentEmbeddingCalls++;
+        } else {
+          queryEmbeddingCalls++;
+        }
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: sampleVector }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        generateContentCalls++;
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "Verified response for repeated request." }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      readMock = mock.method(fs, "readFileSync", (filePath: fs.PathOrFileDescriptor, options?: any) => {
+        if (String(filePath).includes("rag-index.json")) {
+          readIndexCallCount++;
+        }
+        return origReadFileSync.call(fs, filePath, options);
+      });
+
+      // Request 1: Fresh singleton, should initialize from precomputed index file
+      const req1 = createChatRequest(
+        { message: "What backend stack does Iheb use?" },
+        { ip: "10.0.160.10" },
+      );
+      const res1 = await POST(req1);
+      assert.equal(res1.status, 200);
+      assert.equal(manager.isInitialized(), true);
+      assert.equal(manager.getStore().size(), 39);
+      assert.equal(
+        readIndexCallCount,
+        1,
+        "First request must read rag-index.json exactly once",
+      );
+
+      // Request 2: Singleton is already initialized, must reuse existing in-memory store
+      const req2 = createChatRequest(
+        { message: "What frontend stack does Iheb use?" },
+        { ip: "10.0.160.20" }, // Distinct IP to avoid rate limit interference
+      );
+      const res2 = await POST(req2);
+      assert.equal(res2.status, 200);
+      assert.equal(manager.isInitialized(), true);
+      assert.equal(manager.getStore().size(), 39);
+      assert.equal(
+        readIndexCallCount,
+        1,
+        "Second request must NOT re-read rag-index.json from disk",
+      );
+
+      // Verify overall network embedding counts across both requests
+      assert.equal(
+        queryEmbeddingCalls,
+        2,
+        "Each request embeds only its own user query (2 total)",
+      );
+      assert.equal(
+        documentEmbeddingCalls,
+        0,
+        "No document re-embedding across either request",
+      );
+      assert.equal(
+        generateContentCalls,
+        2,
+        "Both requests invoke the LLM with grounded context",
+      );
+    } finally {
+      readMock?.mock.restore();
+      globalThis.fetch = originalFetch;
+      manager.reset();
+      await manager.initialize();
+    }
+  });
+
+  it("returns 504 TIMEOUT when LLM generation times out", async () => {
+    let generateContentCalls = 0;
+    const originalFetch = globalThis.fetch;
+    const manager = PortfolioIndexManager.getInstance();
+    await manager.initialize();
+    const sampleVector = manager.getStore().exportRecords()[0]?.vector ?? new Array(768).fill(0.01);
+
+    const warnLogs: string[] = [];
+    console.warn = (...args: unknown[]) => {
+      warnLogs.push(args.map(String).join(" "));
+    };
+    const errorLogs: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(" "));
+    };
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: sampleVector }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        generateContentCalls++;
+        const timeoutErr = new Error("The operation was aborted due to timeout");
+        timeoutErr.name = "AbortError";
+        throw timeoutErr;
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const req = createChatRequest(
+        { message: "What architectures did Iheb build?" },
+        { ip: "10.0.170.10" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 504);
+      const data = (await res.json()) as Record<string, unknown>;
+      assert.equal(data.code, "TIMEOUT");
+      assert.equal(
+        data.error,
+        "The request timed out. Please try again.",
+      );
+      assert.equal(
+        generateContentCalls,
+        1,
+        "Timeout must abort immediately without trying model fallbacks",
+      );
+    } finally {
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns 200 with INSUFFICIENT_EVIDENCE_REPLY when no relevant chunks match and history is empty", async () => {
+    let queryEmbeddingCalls = 0;
+    let generateContentCalls = 0;
+    const originalFetch = globalThis.fetch;
+    const manager = PortfolioIndexManager.getInstance();
+    await manager.initialize();
+    const sampleVector = manager.getStore().exportRecords()[0]?.vector ?? new Array(768).fill(0.01);
+    // Negated vector guarantees negative cosine similarity against all positive/normalized embeddings
+    const oppositeVector = sampleVector.map((v) => -v);
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        queryEmbeddingCalls++;
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: oppositeVector }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        generateContentCalls++;
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "This should never be reached." }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const req = createChatRequest(
+        { message: "Tell me about quantum cooking recipes." },
+        { ip: "10.0.170.20" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 200);
+      const data = (await res.json()) as Record<string, unknown>;
+      assert.equal(
+        data.reply,
+        INSUFFICIENT_EVIDENCE_REPLY,
+        "Must return standard abstention message when evidence is insufficient",
+      );
+      assert.equal(
+        queryEmbeddingCalls,
+        1,
+        "Exactly 1 query embedding call to evaluate relevance",
+      );
+      assert.equal(
+        generateContentCalls,
+        0,
+        "LLM generateContent must NOT be invoked on complete retrieval abstention",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("halts fallback chain immediately on permanent LLM error (401/403) with HTTP 502", async () => {
+    let generateContentCalls = 0;
+    const originalFetch = globalThis.fetch;
+    const manager = PortfolioIndexManager.getInstance();
+    await manager.initialize();
+    const sampleVector = manager.getStore().exportRecords()[0]?.vector ?? new Array(768).fill(0.01);
+
+    const warnLogs: string[] = [];
+    console.warn = (...args: unknown[]) => {
+      warnLogs.push(args.map(String).join(" "));
+    };
+    const errorLogs: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(" "));
+    };
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("embedContent") || url.includes("batchEmbedContents")) {
+        return new Response(
+          JSON.stringify({
+            embeddings: [{ values: sampleVector }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("generateContent")) {
+        generateContentCalls++;
+        // Simulate a 401 Unauthorized permanent failure from Gemini API
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 401,
+              message: "API_KEY_INVALID: The provided API key is invalid or expired.",
+              status: "UNAUTHENTICATED",
+            },
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const req = createChatRequest(
+        { message: "What cloud platforms does Iheb use?" },
+        { ip: "10.0.170.30" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 502);
+      const data = (await res.json()) as Record<string, unknown>;
+      assert.equal(data.code, "LLM_ERROR");
+      assert.equal(
+        data.error,
+        "Failed to generate a response. Please try again.",
+      );
+      assert.equal(
+        generateContentCalls,
+        1,
+        "Permanent 401 error must NOT iterate over fallback candidate models",
+      );
+    } finally {
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+      globalThis.fetch = originalFetch;
+    }
+  });
+});

@@ -25,6 +25,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { portfolioPublicDocuments } from "./knowledge-base";
+import { chunkKnowledgeDocuments, CURRENT_STRATEGY_VERSION } from "./rag";
 
 const ROOT = process.cwd();
 
@@ -122,6 +124,73 @@ describe("AUD-14 — every documented npm script exists", () => {
         Object.hasOwn(PKG.scripts, script),
         `documented "npm run ${script}" does not exist in package.json`,
       );
+    }
+  });
+});
+
+describe("AUD-14 — RAG index drift guard (rag-index.json vs portfolioPublicDocuments)", () => {
+  const index = JSON.parse(readFile("src/data/rag-index.json")) as {
+    version: number;
+    strategyVersion: number;
+    model: string;
+    dimensions: number;
+    recordsCount: number;
+    records: Array<{
+      id: string;
+      documentId: string;
+      type: string;
+      title: string;
+      summary?: string;
+      source?: string;
+      text: string;
+      searchText?: string;
+      tags?: string[];
+      metadata: Record<string, unknown>;
+      vector: number[];
+    }>;
+  };
+  const chunks = chunkKnowledgeDocuments(portfolioPublicDocuments);
+
+  it("maintains expected index header metadata and dimensions", () => {
+    assert.equal(index.version, 1, "index format version must be 1");
+    assert.equal(
+      index.strategyVersion,
+      CURRENT_STRATEGY_VERSION,
+      "strategyVersion must match CURRENT_STRATEGY_VERSION",
+    );
+    assert.equal(index.model, "gemini-embedding-001", "model must be gemini-embedding-001");
+    assert.equal(index.dimensions, 768, "dimensions must be 768");
+    assert.equal(index.recordsCount, chunks.length, "recordsCount header must match chunk count");
+    assert.equal(index.records.length, chunks.length, "actual records array length must match chunk count");
+  });
+
+  it("contains an exact 1:1 correspondence of chunk IDs between corpus and index", () => {
+    const chunkIds = new Set(chunks.map((c) => c.id));
+    const recordIds = new Set(index.records.map((r) => r.id));
+
+    assert.equal(chunkIds.size, chunks.length, "chunk IDs must be unique");
+    assert.equal(recordIds.size, index.records.length, "record IDs in index must be unique");
+    assert.deepEqual(
+      Array.from(recordIds).sort(),
+      Array.from(chunkIds).sort(),
+      "index records must have exactly the same IDs as corpus chunks",
+    );
+  });
+
+  it("preserves exact text, searchText, tags, and document metadata for every chunk without drift", () => {
+    const recordMap = new Map(index.records.map((r) => [r.id, r]));
+
+    for (const chunk of chunks) {
+      const record = recordMap.get(chunk.id);
+      assert.ok(record, `chunk ${chunk.id} must exist in index`);
+      assert.equal(record.text, chunk.text, `text drift detected in chunk ${chunk.id}`);
+      assert.equal(record.searchText, chunk.searchText, `searchText drift detected in chunk ${chunk.id}`);
+      assert.equal(record.title, chunk.title, `title drift detected in chunk ${chunk.id}`);
+      assert.equal(record.type, chunk.type, `type drift detected in chunk ${chunk.id}`);
+      assert.equal(record.documentId, chunk.documentId, `documentId drift detected in chunk ${chunk.id}`);
+      assert.deepEqual(record.tags, chunk.tags, `tags drift detected in chunk ${chunk.id}`);
+      assert.deepEqual(record.metadata, chunk.metadata, `metadata drift detected in chunk ${chunk.id}`);
+      assert.equal(record.vector.length, 768, `vector dimension must be 768 for chunk ${chunk.id}`);
     }
   });
 });
