@@ -94,7 +94,9 @@ def _service(client: Any, timeout: float = 5.0) -> InterviewSimulatorService:
 def _answer_for(question: dict) -> str:
     """Answer that guarantees non-zero coverage, so enrichment is attempted."""
     points = question.get("expected_talking_points") or []
-    substance = "These concepts work together in practice to keep systems correct and fast."
+    substance = (
+        "These concepts work together in practice to keep systems correct and fast."
+    )
     return f"{' '.join(points)} {substance}".strip()
 
 
@@ -146,7 +148,9 @@ def _clean_state() -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_global_budget_stops_enrichment_after_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_global_budget_stops_enrichment_after_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """With a 0.25 s budget and 0.12 s calls, enrichment must stop well before 5 calls."""
     monkeypatch.setattr(interview_service_module, "COMPLETION_LLM_BUDGET_SECONDS", 0.25)
 
@@ -161,7 +165,9 @@ def test_global_budget_stops_enrichment_after_deadline(monkeypatch: pytest.Monke
     assert 1 <= len(client.calls) < 5, (
         f"expected the global budget to cut enrichment short, got {len(client.calls)} calls"
     )
-    assert elapsed < 1.0, f"completion took {elapsed:.2f}s despite a 0.25s enrichment budget"
+    assert elapsed < 1.0, (
+        f"completion took {elapsed:.2f}s despite a 0.25s enrichment budget"
+    )
     assert len(report.written_results) == 5, "every written answer must still be scored"
     assert 0.0 <= report.score_out_of_100 <= 100.0
 
@@ -312,7 +318,9 @@ def test_second_completion_returns_cached_report_without_new_llm_calls() -> None
     second = _complete(service, session)
 
     assert second is first, "the cached report object must be returned"
-    assert len(client.calls) == calls_after_first, "a cached report must not re-call Gemini"
+    assert len(client.calls) == calls_after_first, (
+        "a cached report must not re-call Gemini"
+    )
     assert session.completed is True
 
 

@@ -783,7 +783,6 @@ async def test_interview_concurrent_start_interview_single_worker(
     assert len(_ACTIVE_SESSIONS) == 1000
 
 
-
 # ---------------------------------------------------------------------------
 # Per-client-key session limit (RISQUE-04)
 # ---------------------------------------------------------------------------

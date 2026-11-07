@@ -226,12 +226,12 @@ async def test_explicitly_configured_token_authenticates_in_development() -> Non
         gemini_api_key=SecretStr("mock-dev-gemini-key"),
     )
     async with _client_for(settings) as client:
-        accepted = await client.get(
-            "/v1/info", headers={"X-Internal-Token": explicit}
-        )
+        accepted = await client.get("/v1/info", headers={"X-Internal-Token": explicit})
         legacy = await client.get(
             "/v1/info", headers={"X-Internal-Token": _LEGACY_DEV_TOKEN}
         )
     assert accepted.status_code == 200
     assert legacy.status_code == 401
-    assert explicit not in accepted.text, "a successful response must not echo the token"
+    assert explicit not in accepted.text, (
+        "a successful response must not echo the token"
+    )

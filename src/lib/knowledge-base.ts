@@ -482,6 +482,7 @@ const portfolioDocuments: KnowledgeDocument[] = [
     tags: [
       "project",
       "academic",
+      "university",
       normalizeId(entry.organization),
       entry.slug,
       ...entry.tech.map((t) => t.toLowerCase()),
