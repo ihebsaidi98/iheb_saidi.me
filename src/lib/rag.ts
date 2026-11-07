@@ -63,6 +63,7 @@ export type KnowledgeChunk = {
     summary: string;
     source: string;
   };
+  searchText?: string;
 };
 
 export type SearchResult = KnowledgeChunk & {
@@ -104,8 +105,11 @@ export type PortfolioSearchResponse = {
   warning: string | null;
 };
 
+export const CURRENT_STRATEGY_VERSION = 2;
+
 export type SerializedVectorIndex = {
   version: number;
+  strategyVersion: number;
   kbVersion?: string;
   model: string;
   dimensions: number;
@@ -155,6 +159,21 @@ export function validateEmbeddingVector(
 // embedding. Overlap preserves context across chunk boundaries.
 // ============================================================
 
+function buildChunkSearchText(doc: KnowledgeDocument, chunkText: string): string {
+  const parts: string[] = [];
+  if (doc.title && !chunkText.startsWith(doc.title)) {
+    parts.push(doc.title);
+  }
+  if (doc.type) {
+    parts.push(doc.type);
+  }
+  if (doc.tags && doc.tags.length > 0) {
+    parts.push(doc.tags.join(" "));
+  }
+  parts.push(chunkText);
+  return normalizeWhitespace(parts.join(" "));
+}
+
 export function chunkKnowledgeDocuments(
   documents: readonly KnowledgeDocument[],
   options: { maxChunkChars?: number; overlapChars?: number } = {},
@@ -177,6 +196,7 @@ export function chunkKnowledgeDocuments(
         title: doc.title,
         summary: doc.summary,
         text,
+        searchText: buildChunkSearchText(doc, text),
         tags: doc.tags,
         metadata: {
           ...doc.metadata,
@@ -202,6 +222,7 @@ export function chunkKnowledgeDocuments(
         title: doc.title,
         summary: doc.summary,
         text: slice,
+        searchText: buildChunkSearchText(doc, slice),
         tags: doc.tags,
         metadata: {
           ...doc.metadata,
@@ -258,7 +279,8 @@ export class InMemoryVectorStore implements VectorStore {
     embedder: EmbeddingFunction,
   ): Promise<void> {
     for (const chunk of chunks) {
-      const vector = await embedder(chunk.text, {
+      const textToEmbed = chunk.searchText ?? chunk.text;
+      const vector = await embedder(textToEmbed, {
         taskType: "RETRIEVAL_DOCUMENT",
         title: chunk.title,
       });
@@ -463,13 +485,14 @@ export class PortfolioIndexManager {
         const expectedModel =
           process.env.GEMINI_EMBEDDING_MODEL ?? DEFAULT_EMBEDDING_MODEL;
         const expectedDimensions = DEFAULT_EMBEDDING_DIMENSIONS;
+        const expectedStrategyVersion = CURRENT_STRATEGY_VERSION;
 
         // 1. Try loading from persistent file
         if (!options.force && fs.existsSync(filePath)) {
-          let parsed: SerializedVectorIndex | null = null;
+          let parsed: Partial<SerializedVectorIndex> | null = null;
           try {
             const raw = fs.readFileSync(filePath, "utf8");
-            parsed = JSON.parse(raw) as SerializedVectorIndex;
+            parsed = JSON.parse(raw) as Partial<SerializedVectorIndex>;
           } catch (readErr) {
             console.warn(
               `[rag] Failed to parse vector index at ${filePath}:`,
@@ -480,12 +503,14 @@ export class PortfolioIndexManager {
           if (parsed) {
             const isModelMatch = parsed.model === expectedModel;
             const isDimMatch = parsed.dimensions === expectedDimensions;
+            const isStrategyMatch =
+              parsed.strategyVersion === expectedStrategyVersion;
             const hasRecords =
               Array.isArray(parsed.records) && parsed.records.length > 0;
 
-            if (isModelMatch && isDimMatch && hasRecords) {
+            if (isModelMatch && isDimMatch && isStrategyMatch && hasRecords) {
               this.store.clear();
-              this.store.loadRecords(parsed.records);
+              this.store.loadRecords(parsed.records as StoredRecord[]);
               this.initialized = true;
               return;
             }
@@ -494,14 +519,17 @@ export class PortfolioIndexManager {
               ? `model mismatch (expected: ${expectedModel}, found: ${parsed.model})`
               : !isDimMatch
                 ? `dimensions mismatch (expected: ${expectedDimensions}, found: ${parsed.dimensions})`
-                : "index contains no valid records";
+                : !isStrategyMatch
+                  ? `strategy version mismatch (expected: ${expectedStrategyVersion}, found: ${parsed.strategyVersion ?? "none"})`
+                  : "index contains no valid records";
 
             console.warn(
               `[rag] Incompatible or stale vector index at ${filePath}: ${reason}. Run 'npm run index:kb' to rebuild the index.`,
             );
 
-            // If no embedder or API key is available to recompute on-demand, throw actionable error
-            if (!options.embedder && !process.env.GEMINI_API_KEY) {
+            // Never silently trigger on-demand Gemini generation or network calls on stale/incompatible index.
+            // Throw an explicit, actionable error unless a custom embedder was explicitly provided.
+            if (!options.embedder) {
               throw new Error(
                 `Incompatible vector index at ${filePath} (${reason}). Please run 'npm run index:kb' to rebuild the knowledge base index.`,
               );
@@ -509,8 +537,26 @@ export class PortfolioIndexManager {
           }
         }
 
-        // 2. Build on-demand if embedder or API key is available
-        const embedder = options.embedder ?? getDefaultEmbeddingFunction();
+        const embedder = options.embedder;
+
+        // Reject missing index or force-rebuild without an explicit custom embedder to prevent implicit Gemini calls
+        if (!embedder) {
+          if (!fs.existsSync(filePath)) {
+            throw new Error(
+              `Missing vector index at ${filePath}. Please run 'npm run index:kb' to build the knowledge base index.`,
+            );
+          }
+          if (options.force) {
+            throw new Error(
+              `Cannot rebuild vector index on-demand without an explicit embedder. Run 'npm run index:kb' to rebuild the knowledge base index.`,
+            );
+          }
+          throw new Error(
+            `Cannot build vector index on-demand without an explicit embedder. Run 'npm run index:kb' to build the knowledge base index.`,
+          );
+        }
+
+        // 2. Build on-demand if custom embedder was explicitly provided (e.g. in tests)
         const chunks = chunkKnowledgeDocuments(portfolioPublicDocuments);
 
         this.store.clear();
@@ -521,6 +567,7 @@ export class PortfolioIndexManager {
         try {
           const serialized: SerializedVectorIndex = {
             version: 1,
+            strategyVersion: expectedStrategyVersion,
             kbVersion: "2026.1",
             model: expectedModel,
             dimensions: expectedDimensions,
@@ -534,6 +581,10 @@ export class PortfolioIndexManager {
         } catch {
           // If filesystem is read-only (e.g. serverless edge), in-memory store is still active
         }
+      } catch (err) {
+        this.store.clear();
+        this.initialized = false;
+        throw err;
       } finally {
         this.initPromise = null;
       }

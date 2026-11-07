@@ -17,6 +17,7 @@ import {
   validateEmbeddingVector,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_EMBEDDING_DIMENSIONS,
+  CURRENT_STRATEGY_VERSION,
   type SerializedVectorIndex,
   type StoredRecord,
 } from "../src/lib/rag";
@@ -110,7 +111,8 @@ async function main() {
         process.stdout.write(
           `[${globalIdx + 1}/${chunks.length}] Embedding chunk: ${chunk.id} (${chunk.title.slice(0, 30)}...)\n`,
         );
-        const vector = await embedWithRetry(chunk.text, chunk.title);
+        const textToEmbed = chunk.searchText ?? chunk.text;
+        const vector = await embedWithRetry(textToEmbed, chunk.title);
         records[globalIdx] = {
           ...chunk,
           vector,
@@ -128,6 +130,7 @@ async function main() {
 
   const payload: SerializedVectorIndex = {
     version: 1,
+    strategyVersion: CURRENT_STRATEGY_VERSION,
     kbVersion: "2026.1",
     model,
     dimensions,

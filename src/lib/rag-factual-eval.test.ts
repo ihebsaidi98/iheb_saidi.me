@@ -12,13 +12,26 @@
  *   - Unsupported technology abstention
  *   - Anti-hallucination and prompt injection resistance
  *   - Source leakage prevention
+ *
+ * NOTE ON EMBEDDINGS: these tests verify the GROUNDING of the corpus (the right
+ * documents exist and surface for the right questions), NOT the semantic
+ * quality of the Gemini embedding model. They use a deterministic embedder
+ * injected into `searchPortfolioKnowledge`, so their retrieval path needs no
+ * `GEMINI_API_KEY` and makes no Gemini API call. The tests still assert the
+ * original top-five results and can fail if this embedder does not rank the
+ * corpus as those assertions expect.
  */
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
-import { searchPortfolioKnowledge } from "./rag.js";
+import { before, describe, it } from "node:test";
+import {
+  InMemoryVectorStore,
+  chunkKnowledgeDocuments,
+  searchPortfolioKnowledge,
+  type EmbeddingFunction,
+} from "./rag.js";
 
 // Load .env.local if present for local test execution
 const envLocalPath = path.resolve(process.cwd(), ".env.local");
@@ -46,12 +59,136 @@ import {
 } from "./chat.js";
 import { portfolioPublicDocuments } from "./knowledge-base.js";
 
+// ---------------------------------------------------------------------------
+// Deterministic, offline embedder (Phase 2 — Explicit Corpus Vocabulary).
+//
+// Replaces fixed-dimension hashing with an explicit, collision-free vocabulary
+// derived from the public portfolio corpus.
+//
+// Key properties:
+// - Deterministic token extraction with edge punctuation cleanup and
+//   preservation of technical terms (e.g., "c++", "30+", "40%", "ci/cd").
+// - Compound tokens with hyphens/slashes emit both the compound and components.
+// - Sorted vocabulary assigning each unique feature a distinct dimension.
+// - Zero hashing collisions: bijective mapping between token and dimension index.
+// - Corpus-derived IDF with logarithmic damping.
+// - L2 normalization producing unit vectors for all non-empty inputs.
+// - Shared vector space for indexing and queries without network or Gemini calls.
+// ---------------------------------------------------------------------------
+
+function tokenize(text: string): string[] {
+  const lower = text.toLowerCase();
+  const rawMatches = lower.match(/[a-z0-9][a-z0-9+#%./-]*/g) ?? [];
+  const tokens: string[] = [];
+
+  for (let raw of rawMatches) {
+    raw = raw.replace(/[./-]+$/, "");
+    if (!raw) continue;
+
+    tokens.push(raw);
+
+    if (raw.includes("-") || raw.includes("/")) {
+      const parts = raw.split(/[-/]/).filter((p) => p.length > 0);
+      if (parts.length > 1) {
+        for (const p of parts) {
+          const cleanPart = p.replace(/[./-]+$/, "");
+          if (cleanPart && cleanPart !== raw) {
+            tokens.push(cleanPart);
+          }
+        }
+      }
+    }
+  }
+
+  return tokens;
+}
+
+const STOP_WORDS = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "by", "did", "do", "does",
+  "for", "from", "has", "have", "he", "her", "his", "how", "i", "in",
+  "is", "it", "its", "me", "my", "of", "on", "or", "the", "their",
+  "them", "this", "to", "was", "were", "what", "when", "where", "which",
+  "who", "why", "with", "you", "your",
+]);
+
+// Build corpus chunks
+const CORPUS_CHUNKS = chunkKnowledgeDocuments(portfolioPublicDocuments);
+
+// Build explicit, collision-free vocabulary from the corpus
+const corpusVocab = new Set<string>();
+const CORPUS_DF = new Map<string, number>();
+
+for (const chunk of CORPUS_CHUNKS) {
+  const uniqueChunkTokens = new Set(tokenize(chunk.searchText ?? chunk.text));
+  for (const token of uniqueChunkTokens) {
+    if (!STOP_WORDS.has(token)) {
+      corpusVocab.add(token);
+      CORPUS_DF.set(token, (CORPUS_DF.get(token) ?? 0) + 1);
+    }
+  }
+}
+
+// Stable lexicographical ordering guarantees identical indices across runs
+const VOCABULARY = Array.from(corpusVocab).sort();
+const VOCAB_INDEX = new Map<string, number>();
+VOCABULARY.forEach((token, index) => {
+  VOCAB_INDEX.set(token, index);
+});
+
+const CORPUS_IDF = new Map<string, number>();
+for (const [token, df] of CORPUS_DF) {
+  CORPUS_IDF.set(token, Math.log((CORPUS_CHUNKS.length + 1) / (df + 1)) + 1);
+}
+
+const deterministicEmbedder: EmbeddingFunction = async (
+  text: string,
+): Promise<number[]> => {
+  const vector = new Array<number>(VOCABULARY.length).fill(0);
+  const termFrequencies = new Map<string, number>();
+
+  for (const token of tokenize(text)) {
+    if (!STOP_WORDS.has(token) && VOCAB_INDEX.has(token)) {
+      termFrequencies.set(token, (termFrequencies.get(token) ?? 0) + 1);
+    }
+  }
+
+  for (const [token, frequency] of termFrequencies) {
+    const index = VOCAB_INDEX.get(token)!;
+    const idf = CORPUS_IDF.get(token) ?? 0;
+    vector[index] = (1 + Math.log(frequency)) * idf;
+  }
+
+  const norm = Math.sqrt(vector.reduce((sum, x) => sum + x * x, 0));
+  if (norm > 0) {
+    for (let i = 0; i < vector.length; i++) {
+      vector[i] /= norm;
+    }
+  }
+
+  return vector;
+};
+
+// One shared in-memory index built from the real public corpus, embedded with
+// the SAME deterministic embedder used for queries (same vector space).
+// threshold: 0 keeps every scored chunk in the ranking — the suite asserts on
+// the top-5 composition, not on an absolute cosine cut-off meant for Gemini.
+const evalVectorStore = new InMemoryVectorStore();
+const evalStoreReady = evalVectorStore.upsert(CORPUS_CHUNKS, deterministicEmbedder);
+const evalOptions = {
+  vectorStore: evalVectorStore,
+  embedder: deterministicEmbedder,
+  threshold: 0,
+};
+
 describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => {
+  before(async () => {
+    await evalStoreReady;
+  });
   // -------------------------------------------------------------
   // 1. PROFILE & TECH STACK
   // -------------------------------------------------------------
   it("EVAL-01: retrieves full stack title without claiming Senior/Lead", async () => {
-    const res = await searchPortfolioKnowledge("What is Iheb's primary tech stack and title?");
+    const res = await searchPortfolioKnowledge("What is Iheb's primary tech stack and title?", evalOptions);
     assert.ok(res.results.length > 0, "Should retrieve results for primary stack");
     const docIds = res.results.map((r) => r.documentId);
     assert.ok(docIds.includes("profile-overview") || docIds.includes("skills-backend"));
@@ -64,7 +201,10 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 2. AGRORETAIL OS: FREELANCE VS EMPLOYMENT
   // -------------------------------------------------------------
   it("EVAL-02: classifies AgroRetail OS strictly as professional freelance experience", async () => {
-    const res = await searchPortfolioKnowledge("What is Iheb's relationship with AgroRetail OS? Is he an employee?");
+    const res = await searchPortfolioKnowledge(
+      "What is Iheb's relationship with AgroRetail OS? Is he an employee?",
+      evalOptions,
+    );
     assert.ok(res.results.length > 0);
     const docIds = res.results.map((r) => r.documentId);
     assert.ok(
@@ -78,7 +218,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-03: documents AgroRetail OS technical contributions accurately", async () => {
-    const res = await searchPortfolioKnowledge("What did Iheb build for AgroRetail OS?");
+    const res = await searchPortfolioKnowledge("What did Iheb build for AgroRetail OS?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /multi-tenant/i);
@@ -90,7 +230,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 3. SALARIED EMPLOYMENT & ROLE VS PROJECT TITLE
   // -------------------------------------------------------------
   it("EVAL-04: identifies Novatek as salaried full-time employment", async () => {
-    const res = await searchPortfolioKnowledge("Where has Iheb worked as a salaried full-time employee?");
+    const res = await searchPortfolioKnowledge("Where has Iheb worked as a salaried full-time employee?", evalOptions);
     assert.ok(res.results.length > 0);
     const docIds = res.results.map((r) => r.documentId);
     assert.ok(docIds.includes("experience-novatek-delice-group") || docIds.includes("profile-overview"));
@@ -100,7 +240,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-05: distinguishes Tunisair role (Full Stack Developer) from project title", async () => {
-    const res = await searchPortfolioKnowledge("What was Iheb's role and project at Tunisair?");
+    const res = await searchPortfolioKnowledge("What was Iheb's role and project at Tunisair?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Full Stack Developer/i);
@@ -108,7 +248,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-06: distinguishes Novatek role (Full Stack Engineer) from platform name", async () => {
-    const res = await searchPortfolioKnowledge("What was Iheb's job title at Novatek?");
+    const res = await searchPortfolioKnowledge("What was Iheb's job title at Novatek?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Full Stack Engineer/i);
@@ -118,7 +258,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 4. INTERNSHIPS & ACADEMIC GRADUATION PROJECTS
   // -------------------------------------------------------------
   it("EVAL-07: distinguishes summer internships from permanent employment", async () => {
-    const res = await searchPortfolioKnowledge("Has Iheb completed any developer internships?");
+    const res = await searchPortfolioKnowledge("Has Iheb completed any developer internships?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Xtensus/i);
@@ -127,7 +267,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-08: distinguishes ISIMS as Bachelor's graduation project, not staff employment", async () => {
-    const res = await searchPortfolioKnowledge("What did Iheb do at ISIMS Sfax?");
+    const res = await searchPortfolioKnowledge("What did Iheb do at ISIMS Sfax?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Bachelor's Final Project|graduation project|PFE/i);
@@ -138,7 +278,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 5. EDUCATION, SENIORITY & DURATION
   // -------------------------------------------------------------
   it("EVAL-09: retrieves verified degrees from ESPRIT and ISIMS", async () => {
-    const res = await searchPortfolioKnowledge("What degrees does Iheb hold and where did he study?");
+    const res = await searchPortfolioKnowledge("What degrees does Iheb hold and where did he study?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /ESPRIT/i);
@@ -148,7 +288,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-10: enforces mid-level engineering seniority without Senior/Lead inflation", async () => {
-    const res = await searchPortfolioKnowledge("Is Iheb a senior software engineer or team lead?");
+    const res = await searchPortfolioKnowledge("Is Iheb a senior software engineer or team lead?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /not senior, not lead/i);
@@ -156,7 +296,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-11: anchors Java experience starting in 2019 and post-grad in 2024", async () => {
-    const res = await searchPortfolioKnowledge("When did Iheb start programming in Java and Spring Boot?");
+    const res = await searchPortfolioKnowledge("When did Iheb start programming in Java and Spring Boot?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /2019/i);
@@ -166,7 +306,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 6. TECHNICAL STACK COVERAGE
   // -------------------------------------------------------------
   it("EVAL-12: retrieves verified backend technologies", async () => {
-    const res = await searchPortfolioKnowledge("What backend technologies and databases does Iheb use?");
+    const res = await searchPortfolioKnowledge("What backend technologies and databases does Iheb use?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Spring Boot/i);
@@ -175,7 +315,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-13: retrieves verified frontend technologies (Angular/RxJS/TypeScript)", async () => {
-    const res = await searchPortfolioKnowledge("What frontend technologies and frameworks does Iheb use?");
+    const res = await searchPortfolioKnowledge("What frontend technologies and frameworks does Iheb use?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Angular/i);
@@ -184,7 +324,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-14: retrieves AI and LLM integration technologies", async () => {
-    const res = await searchPortfolioKnowledge("How does Iheb use AI, embeddings, and LLMs?");
+    const res = await searchPortfolioKnowledge("How does Iheb use AI, embeddings, and LLMs?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Spring AI|LangChain4j/i);
@@ -192,7 +332,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-15: retrieves DevOps and cloud technologies", async () => {
-    const res = await searchPortfolioKnowledge("What DevOps and cloud infrastructure does Iheb work with?");
+    const res = await searchPortfolioKnowledge("What DevOps and cloud infrastructure does Iheb work with?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Docker/i);
@@ -203,14 +343,14 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 7. SPECIFIC PRODUCTION ACHIEVEMENTS & METRICS
   // -------------------------------------------------------------
   it("EVAL-16: retrieves Novatek production metrics and achievements", async () => {
-    const res = await searchPortfolioKnowledge("What performance metrics were achieved at Novatek?");
+    const res = await searchPortfolioKnowledge("What performance metrics were achieved at Novatek?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /30\+\s*secured APIs|500\+\s*concurrent users|40%\s*faster responses/i);
   });
 
   it("EVAL-17: retrieves Tunisair ITSM and AI document-analysis details", async () => {
-    const res = await searchPortfolioKnowledge("What did Iheb build at Tunisair with AI?");
+    const res = await searchPortfolioKnowledge("What did Iheb build at Tunisair with AI?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /Ollama|Flask|Python/i);
@@ -218,7 +358,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-18: retrieves academic projects without commercial confusion", async () => {
-    const res = await searchPortfolioKnowledge("What academic university projects has Iheb completed?");
+    const res = await searchPortfolioKnowledge("What academic university projects has Iheb completed?", evalOptions);
     assert.ok(res.results.length > 0);
     const docIds = res.results.map((r) => r.documentId);
     assert.ok(
@@ -228,7 +368,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-19: retrieves contact information accurately", async () => {
-    const res = await searchPortfolioKnowledge("What is Iheb's contact email and LinkedIn?");
+    const res = await searchPortfolioKnowledge("What is Iheb's contact email and LinkedIn?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /iheb\.saidi\.it@gmail\.com/i);
@@ -236,7 +376,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   });
 
   it("EVAL-20: retrieves availability and relocation openness", async () => {
-    const res = await searchPortfolioKnowledge("Is Iheb available for hire and willing to relocate?");
+    const res = await searchPortfolioKnowledge("Is Iheb available for hire and willing to relocate?", evalOptions);
     assert.ok(res.results.length > 0);
     const text = res.results.map((r) => r.text).join(" ");
     assert.match(text, /available for new opportunities/i);
@@ -247,7 +387,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 8. ANTI-HALLUCINATION: UNSUPPORTED TECHNOLOGIES (NEGATIVE/ABSTAIN)
   // -------------------------------------------------------------
   it("EVAL-21: abstains or disclaims experience with Rust", async () => {
-    const res = await searchPortfolioKnowledge("How many years of Rust programming experience does Iheb have?");
+    const res = await searchPortfolioKnowledge("How many years of Rust programming experience does Iheb have?", evalOptions);
     // Either zero chunks retrieved (abstain), or system prompt disclaims
     assert.ok(SYSTEM_PROMPT.includes("unsupported technologies"));
   });

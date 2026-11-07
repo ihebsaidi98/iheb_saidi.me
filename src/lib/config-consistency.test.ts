@@ -623,7 +623,6 @@ describe("HTTPS termination & HSTS (AUD-05)", () => {
       ["Referrer-Policy", "strict-origin-when-cross-origin"],
       ["X-Frame-Options", "DENY"],
       ["Permissions-Policy", "camera=(), microphone=(), geolocation=()"],
-      ["Content-Security-Policy", "default-src 'self'"],
       ["Reporting-Endpoints", 'csp-endpoint="/api/csp-report"'],
     ] as const) {
       assert.match(
@@ -636,6 +635,23 @@ describe("HTTPS termination & HSTS (AUD-05)", () => {
         `${key} must keep its value ${value}`,
       );
     }
+  });
+
+  it("leaves the per-request CSP to the middleware (AUD-06)", () => {
+    // A nonce changes on every request, so it cannot be frozen into the static
+    // header set: `headers()` is evaluated once and stored in the build
+    // manifest. Keeping a second policy here would be intersected with the
+    // enforced one and would silently re-allow inline scripts (AUD-06).
+    assert.doesNotMatch(
+      nextConfigCode,
+      /Content-Security-Policy/,
+      "next.config.mjs must not emit a second, inline-allowing CSP",
+    );
+    assert.match(
+      readFile("src/middleware.ts"),
+      /buildContentSecurityPolicy/,
+      "src/middleware.ts must be the single policy producer",
+    );
   });
 
   it("documents where TLS is terminated and what the terminator must send", () => {

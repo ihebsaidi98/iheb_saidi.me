@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Inter, Calistoga } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { twMerge } from "tailwind-merge";
 import { MotionProvider } from "@/components/MotionProvider";
 import { profile } from "@/data/profile";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { CSP_NONCE_HEADER } from "@/lib/csp";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const calistoga = Calistoga({
@@ -53,11 +55,19 @@ const jsonLd = {
   address: { "@type": "PostalAddress", addressLocality: "Tunis", addressCountry: "TN" },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // AUD-06: src/middleware.ts mints one nonce per request and puts it in this
+  // request header. Reading it here is also what makes the render dynamic — a
+  // statically prerendered page is built once, with no request in hand, so it
+  // could not carry a per-request nonce. Next.js itself signs the scripts it
+  // emits from the `content-security-policy` request header; this layout only
+  // has to sign the one inline script the app owns.
+  const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined;
+
   return (
     <html lang="en">
       <body
@@ -95,6 +105,7 @@ export default function RootLayout({
 
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       </body>
     </html>
