@@ -1462,4 +1462,55 @@ describe("POST /api/chat — Phase 5B: RAG Integration & Retrieval Error Contrac
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("returns 503 SERVICE_UNAVAILABLE when GEMINI_API_KEY is not configured", async () => {
+    let networkCalls = 0;
+    const originalFetch = globalThis.fetch;
+    const originalApiKey = process.env.GEMINI_API_KEY;
+
+    const errorLogs: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(" "));
+    };
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      networkCalls++;
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      delete process.env.GEMINI_API_KEY;
+
+      const req = createChatRequest(
+        { message: "Tell me about Iheb's architecture experience." },
+        { ip: "10.0.170.40" },
+      );
+      const res = await POST(req);
+
+      assert.equal(res.status, 503);
+      const data = (await res.json()) as Record<string, unknown>;
+      assert.equal(data.code, "SERVICE_UNAVAILABLE");
+      assert.equal(
+        data.error,
+        "The chat service is not configured. Please contact the site owner.",
+      );
+      assert.equal(
+        networkCalls,
+        0,
+        "No network calls to embedding or LLM may be made when API key is missing",
+      );
+      assert.ok(
+        errorLogs.some((log) => log.includes("GEMINI_API_KEY is not set")),
+        "Expected error log about missing GEMINI_API_KEY",
+      );
+    } finally {
+      if (originalApiKey !== undefined) {
+        process.env.GEMINI_API_KEY = originalApiKey;
+      } else {
+        delete process.env.GEMINI_API_KEY;
+      }
+      console.error = originalConsoleError;
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

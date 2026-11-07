@@ -300,8 +300,7 @@ class InterviewSimulatorService:
                 detail={
                     "code": "SERVER_CAPACITY_REACHED",
                     "message": (
-                        "Interview service is at capacity. "
-                        "Please retry later."
+                        "Interview service is at capacity. Please retry later."
                     ),
                 },
             )
@@ -831,11 +830,7 @@ class InterviewSimulatorService:
             if enrichment_deadline is None
             else enrichment_deadline - time.monotonic()
         )
-        if (
-            self.gemini_client is not None
-            and coverage > 0
-            and budget_remaining > 0
-        ):
+        if self.gemini_client is not None and coverage > 0 and budget_remaining > 0:
             try:
                 safe_answer = sanitize_candidate_answer(submitted_answer)
                 prompt = (
