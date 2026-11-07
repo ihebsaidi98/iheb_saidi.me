@@ -10,6 +10,7 @@ import {
   searchPortfolioKnowledge,
   validateEmbeddingVector,
   PortfolioIndexManager,
+  type EmbeddingFunction,
 } from "./rag";
 import type { KnowledgeDocument } from "./knowledge-base";
 
@@ -235,5 +236,124 @@ describe("PortfolioIndexManager & persistent index lifecycle", () => {
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("Phase 3 — Documentary context enrichment & metadata grounding", () => {
+  it("preserves original chunk text and identifiers while enriching searchText", () => {
+    const doc: KnowledgeDocument = {
+      id: "academic-sample",
+      type: "project",
+      title: "Real-Time Auction Platform — ESPRIT",
+      summary: "Distributed microservices auction system.",
+      content: "Detailed description of the auction system built with Spring Boot and Angular.",
+      source: "src/data/projects.ts",
+      tags: ["project", "academic", "esprit-ariana", "auction-platform"],
+      metadata: { company: "ESPRIT", visibility: "public" },
+      public: true,
+    };
+
+    const chunks = chunkKnowledgeDocuments([doc]);
+    assert.equal(chunks.length, 1);
+    const chunk = chunks[0];
+
+    // IDs and properties are preserved
+    assert.equal(chunk.id, "academic-sample-0");
+    assert.equal(chunk.documentId, "academic-sample");
+    assert.equal(chunk.type, "project");
+    assert.equal(chunk.title, "Real-Time Auction Platform — ESPRIT");
+
+    // Original text is preserved (no technical tag injection)
+    assert.doesNotMatch(chunk.text, /academic/i);
+
+    // Search text integrates the academic tag for embedding
+    assert.ok(chunk.searchText);
+    assert.match(chunk.searchText, /\bacademic\b/);
+    assert.match(chunk.searchText, /auction-platform/);
+    assert.match(chunk.searchText, /Spring Boot/);
+  });
+
+  it("propagates parent document title to multi-chunk slices in searchText", () => {
+    const longContent = "Long passage for section. ".repeat(40);
+    const doc: KnowledgeDocument = {
+      id: "novatek-platform",
+      type: "project",
+      title: "Novatek Platform",
+      summary: "Industrial supervision platform.",
+      content: longContent,
+      source: "src/data/projects.ts",
+      tags: ["project", "novatek", "industrial"],
+      metadata: { company: "Novatek", visibility: "public" },
+      public: true,
+    };
+
+    const chunks = chunkKnowledgeDocuments([doc], { maxChunkChars: 300, overlapChars: 50 });
+    assert.ok(chunks.length > 1);
+
+    // Chunk > 0 text does not have the title
+    const chunk1 = chunks[1];
+    assert.ok(!chunk1.text.startsWith("Novatek Platform"));
+
+    // But chunk1.searchText contains the parent title and tags
+    assert.ok(chunk1.searchText);
+    assert.match(chunk1.searchText, /Novatek Platform/);
+    assert.match(chunk1.searchText, /\bnovatek\b/);
+    // Original chunk text is preserved in chunk.text
+    assert.equal(chunk1.text.includes("Novatek Platform"), false);
+  });
+
+  it("handles documents with empty or missing optional metadata cleanly", () => {
+    const docWithoutTags: KnowledgeDocument = {
+      id: "minimal-doc",
+      type: "meta",
+      title: "Minimal Title",
+      summary: "Minimal summary",
+      content: "Bare minimum content with no tags.",
+      source: "src/data/meta.ts",
+      tags: [],
+      metadata: {},
+      public: true,
+    };
+
+    const chunks = chunkKnowledgeDocuments([docWithoutTags]);
+    assert.equal(chunks.length, 1);
+    assert.ok(chunks[0].searchText);
+    assert.doesNotMatch(chunks[0].searchText, /undefined|null/);
+    assert.match(chunks[0].searchText, /Minimal Title/);
+  });
+
+  it("InMemoryVectorStore uses searchText for embedding but returns original chunk.text", async () => {
+    const doc: KnowledgeDocument = {
+      id: "doc-context-test",
+      type: "project",
+      title: "Contextual Project Title",
+      summary: "Summary of project",
+      content: "Content talking about specialized microservices.",
+      source: "src/data/projects.ts",
+      tags: ["special-tag-keyword"],
+      metadata: { visibility: "public" },
+      public: true,
+    };
+
+    const chunks = chunkKnowledgeDocuments([doc]);
+    const store = new InMemoryVectorStore();
+
+    let embeddedText = "";
+    const testEmbedder: EmbeddingFunction = async (text: string) => {
+      embeddedText = text;
+      return [1, 0];
+    };
+
+    await store.upsert(chunks, testEmbedder);
+
+    // Vector store embedded the enriched searchText
+    assert.match(embeddedText, /special-tag-keyword/);
+    assert.match(embeddedText, /Contextual Project Title/);
+
+    // But search returns chunk with original text
+    const results = await store.search("special-tag-keyword", { limit: 1 }, async () => [1, 0]);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].text, chunks[0].text);
+    assert.doesNotMatch(results[0].text, /special-tag-keyword/);
   });
 });

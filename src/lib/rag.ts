@@ -63,6 +63,7 @@ export type KnowledgeChunk = {
     summary: string;
     source: string;
   };
+  searchText?: string;
 };
 
 export type SearchResult = KnowledgeChunk & {
@@ -155,6 +156,21 @@ export function validateEmbeddingVector(
 // embedding. Overlap preserves context across chunk boundaries.
 // ============================================================
 
+function buildChunkSearchText(doc: KnowledgeDocument, chunkText: string): string {
+  const parts: string[] = [];
+  if (doc.title && !chunkText.startsWith(doc.title)) {
+    parts.push(doc.title);
+  }
+  if (doc.type) {
+    parts.push(doc.type);
+  }
+  if (doc.tags && doc.tags.length > 0) {
+    parts.push(doc.tags.join(" "));
+  }
+  parts.push(chunkText);
+  return normalizeWhitespace(parts.join(" "));
+}
+
 export function chunkKnowledgeDocuments(
   documents: readonly KnowledgeDocument[],
   options: { maxChunkChars?: number; overlapChars?: number } = {},
@@ -177,6 +193,7 @@ export function chunkKnowledgeDocuments(
         title: doc.title,
         summary: doc.summary,
         text,
+        searchText: buildChunkSearchText(doc, text),
         tags: doc.tags,
         metadata: {
           ...doc.metadata,
@@ -202,6 +219,7 @@ export function chunkKnowledgeDocuments(
         title: doc.title,
         summary: doc.summary,
         text: slice,
+        searchText: buildChunkSearchText(doc, slice),
         tags: doc.tags,
         metadata: {
           ...doc.metadata,
@@ -258,7 +276,8 @@ export class InMemoryVectorStore implements VectorStore {
     embedder: EmbeddingFunction,
   ): Promise<void> {
     for (const chunk of chunks) {
-      const vector = await embedder(chunk.text, {
+      const textToEmbed = chunk.searchText ?? chunk.text;
+      const vector = await embedder(textToEmbed, {
         taskType: "RETRIEVAL_DOCUMENT",
         title: chunk.title,
       });
