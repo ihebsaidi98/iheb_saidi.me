@@ -109,7 +109,7 @@ export const CURRENT_STRATEGY_VERSION = 2;
 
 export type SerializedVectorIndex = {
   version: number;
-  strategyVersion?: number;
+  strategyVersion: number;
   kbVersion?: string;
   model: string;
   dimensions: number;
@@ -489,10 +489,10 @@ export class PortfolioIndexManager {
 
         // 1. Try loading from persistent file
         if (!options.force && fs.existsSync(filePath)) {
-          let parsed: SerializedVectorIndex | null = null;
+          let parsed: Partial<SerializedVectorIndex> | null = null;
           try {
             const raw = fs.readFileSync(filePath, "utf8");
-            parsed = JSON.parse(raw) as SerializedVectorIndex;
+            parsed = JSON.parse(raw) as Partial<SerializedVectorIndex>;
           } catch (readErr) {
             console.warn(
               `[rag] Failed to parse vector index at ${filePath}:`,
@@ -510,7 +510,7 @@ export class PortfolioIndexManager {
 
             if (isModelMatch && isDimMatch && isStrategyMatch && hasRecords) {
               this.store.clear();
-              this.store.loadRecords(parsed.records);
+              this.store.loadRecords(parsed.records as StoredRecord[]);
               this.initialized = true;
               return;
             }
@@ -537,15 +537,26 @@ export class PortfolioIndexManager {
           }
         }
 
-        // If file does not exist and no custom embedder was provided, fail explicitly without implicit Gemini calls
-        if (!options.force && !fs.existsSync(filePath) && !options.embedder) {
+        const embedder = options.embedder;
+
+        // Reject missing index or force-rebuild without an explicit custom embedder to prevent implicit Gemini calls
+        if (!embedder) {
+          if (!fs.existsSync(filePath)) {
+            throw new Error(
+              `Missing vector index at ${filePath}. Please run 'npm run index:kb' to build the knowledge base index.`,
+            );
+          }
+          if (options.force) {
+            throw new Error(
+              `Cannot rebuild vector index on-demand without an explicit embedder. Run 'npm run index:kb' to rebuild the knowledge base index.`,
+            );
+          }
           throw new Error(
-            `Missing vector index at ${filePath}. Please run 'npm run index:kb' to build the knowledge base index.`,
+            `Cannot build vector index on-demand without an explicit embedder. Run 'npm run index:kb' to build the knowledge base index.`,
           );
         }
 
         // 2. Build on-demand if custom embedder was explicitly provided (e.g. in tests)
-        const embedder = options.embedder ?? getDefaultEmbeddingFunction();
         const chunks = chunkKnowledgeDocuments(portfolioPublicDocuments);
 
         this.store.clear();
@@ -570,6 +581,10 @@ export class PortfolioIndexManager {
         } catch {
           // If filesystem is read-only (e.g. serverless edge), in-memory store is still active
         }
+      } catch (err) {
+        this.store.clear();
+        this.initialized = false;
+        throw err;
       } finally {
         this.initPromise = null;
       }

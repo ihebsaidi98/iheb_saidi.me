@@ -329,6 +329,34 @@ describe("PortfolioIndexManager & persistent index lifecycle", () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("rejects force: true without explicit embedder to prevent implicit Gemini calls", async () => {
+    const { dir, filePath } = createTempIndex();
+    try {
+      const manager = new PortfolioIndexManager();
+      await assert.rejects(
+        () => manager.initialize({ filePath, force: true }),
+        /Cannot rebuild vector index on-demand without an explicit embedder/,
+      );
+      assert.equal(manager.isInitialized(), false);
+      assert.equal(manager.getStore().size(), 0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("initialization failure guarantees store remains empty and isInitialized is false", async () => {
+    const manager = new PortfolioIndexManager();
+    const failingEmbedder = async () => {
+      throw new Error("Simulated embedder failure");
+    };
+    await assert.rejects(
+      () => manager.initialize({ embedder: failingEmbedder, force: true }),
+      /Simulated embedder failure/,
+    );
+    assert.equal(manager.isInitialized(), false);
+    assert.equal(manager.getStore().size(), 0);
+  });
 });
 
 describe("Phase 3 — Documentary context enrichment & metadata grounding", () => {
