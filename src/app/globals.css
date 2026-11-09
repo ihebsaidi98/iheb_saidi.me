@@ -91,10 +91,7 @@
     width: 100%;
   }
 
-  a,
-  button,
-  [role="button"],
-  [tabindex]:not([tabindex="-1"]),
+  .hover-lift,
   .group\/card,
   .row-sweep,
   .surface,
@@ -106,9 +103,7 @@
       outline-color 200ms ease-out;
   }
 
-  a:hover,
-  button:hover,
-  [role="button"]:hover,
+  .hover-lift:hover,
   .group\/card:hover,
   .row-sweep:hover,
   .surface:hover,
@@ -130,10 +125,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    a,
-    button,
-    [role="button"],
-    [tabindex]:not([tabindex="-1"]),
+    .hover-lift,
     .group\/card,
     .row-sweep,
     .surface,
@@ -255,201 +247,6 @@
     background-size: 24px 24px;
   }
 
-  /*
-   * Interactive card.
-   *
-   * transform + box-shadow are intentionally used instead
-   * of animating layout properties.
-   */
-  .card-interaction {
-    @apply transition-[transform,border-color,background-color,box-shadow]
-      duration-300 ease-out
-      hover:-translate-y-1
-      hover:border-white/[.16]
-      hover:bg-[#101820];
-    
-    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-  }
-
-  .card-interaction:hover {
-    box-shadow: var(--shadow-soft);
-  }
-
-  /*
-   * Premium subtle glow on hover.
-   */
-  .glow-interaction {
-    transition:
-      transform var(--motion-normal) var(--ease-out-expo),
-      border-color var(--motion-normal) var(--ease-out-expo),
-      box-shadow var(--motion-normal) var(--ease-out-expo);
-  }
-
-  .glow-interaction:hover {
-    border-color: var(--border-accent);
-    box-shadow:
-      var(--shadow-soft),
-      var(--glow-emerald);
-  }
-
-  /*
-   * Section divider.
-   */
-  .section-line {
-    @apply mt-4 h-px w-10 origin-left bg-gradient-to-r
-      from-emerald-300 to-sky-400;
-  }
-
-  /*
-   * Subtle atmospheric glow.
-   */
-  .ambient-glow {
-    pointer-events: none;
-    position: absolute;
-    border-radius: 9999px;
-    filter: blur(80px);
-    opacity: 0.5;
-    transform: translateZ(0);
-  }
-
-  /*
-   * Glass effect for floating navigation / controls.
-   */
-  .glass {
-    background: rgba(10, 15, 20, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-  }
-
-  /*
-   * Thin animated-looking accent line.
-   */
-  .accent-line {
-    background: linear-gradient(
-      90deg,
-      var(--emerald),
-      var(--cyan),
-      transparent
-    );
-  }
-}
-
-/* =========================================================
-   BACKGROUND / ATMOSPHERE
-   ========================================================= */
-
-/*
- * Very subtle noise layer.
- *
- * This uses a CSS-generated texture rather than loading an
- * external image.
- */
-.noise-overlay {
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-
-  opacity: 0.025;
-
-  background-image:
-    repeating-radial-gradient(
-      circle at 0 0,
-      rgba(255, 255, 255, 0.8) 0,
-      rgba(255, 255, 255, 0) 1px,
-      transparent 2px
-    );
-
-  background-size: 4px 4px;
-
-  mix-blend-mode: soft-light;
-}
-
-/*
- * Optional atmospheric radial layer.
- */
-.atmosphere {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-
-  background:
-    radial-gradient(
-      circle at 20% 20%,
-      rgba(110, 231, 183, 0.035),
-      transparent 28%
-    ),
-    radial-gradient(
-      circle at 80% 35%,
-      rgba(56, 189, 248, 0.04),
-      transparent 30%
-    );
-
-  opacity: 0.9;
-}
-
-/* =========================================================
-   DATA FLOW / ENGINEERING ANIMATIONS
-   ========================================================= */
-
-@keyframes data-flow {
-  to {
-    offset-distance: 100%;
-  }
-}
-
-.data-particle {
-  offset-path: path("M 0 0 L 120 0");
-
-  animation:
-    data-flow 3.6s linear infinite;
-
-  will-change: offset-distance;
-}
-
-/*
- * Slow ambient pulse.
- *
- * Useful for nodes / status indicators, not large surfaces.
- */
-@keyframes engineering-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
-.engineering-pulse {
-  animation:
-    engineering-pulse 2.8s ease-in-out infinite;
-}
-
-/*
- * Small signal animation.
- */
-@keyframes signal-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    box-shadow: 0 0 0 rgba(110, 231, 183, 0);
-  }
-
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 18px rgba(110, 231, 183, 0.22);
-  }
-}
-
-.signal-pulse {
-  animation:
-    signal-pulse 2.4s ease-in-out infinite;
 }
 
 /* =========================================================
@@ -490,12 +287,6 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
-  .data-particle,
-  .engineering-pulse,
-  .signal-pulse {
-    animation: none !important;
-  }
 }
 
 /* =========================================================
@@ -510,25 +301,6 @@
   .engineering-grid {
     background-size: 28px 28px;
   }
-
-  .noise-overlay {
-    opacity: 0.018;
-  }
-}
-
-/* =========================================================
-   TOUCH DEVICES
-   ========================================================= */
-
-@media (hover: none) {
-  .card-interaction:hover {
-    transform: none;
-    box-shadow: none;
-  }
-
-  .glow-interaction:hover {
-    box-shadow: none;
-  }
 }
 
 /* =========================================================
@@ -539,10 +311,6 @@
   body {
     background: white;
     color: black;
-  }
-
-  .noise-overlay {
-    display: none;
   }
 }
 @keyframes hero-letter-in {
@@ -751,7 +519,6 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .animate-ping,
   .animate-pulse,
-  .data-particle,
   [class*="hero-caret"] {
     animation: none !important;
   }

@@ -34,7 +34,7 @@ function renderTitleLine(line: string) {
   return (
     <>
       {line.slice(0, -1)}
-      <span className="text-[#6ee7b7]">.</span>
+      <span className="text-emerald-300">.</span>
     </>
   );
 }
@@ -44,13 +44,16 @@ export function SectionHeader({
   title,
   intro,
   headingId,
+  as = "h2",
 }: {
   label: string;
   title: SectionTitle;
   intro?: string;
   headingId: string;
+  as?: "h2" | "h3";
 }) {
   const titleLines = typeof title === "string" ? [title] : title;
+  const HeadingComponent = as === "h3" ? motion.h3 : motion.h2;
 
   return (
     <motion.header
@@ -66,13 +69,13 @@ export function SectionHeader({
       className="relative z-10 max-w-3xl"
     >
       <div className="mb-4 flex items-center gap-3">
-        <span aria-hidden="true" className="pointer-events-none h-px w-6 bg-[#6ee7b7]" />
-        <div data-role="label" className="font-mono text-[12px] lowercase tracking-[0.14em] text-[#6ee7b7]">
+        <span aria-hidden="true" className="pointer-events-none h-px w-6 bg-emerald-300" />
+        <div data-role="label" className="font-mono text-[12px] lowercase tracking-[0.14em] text-emerald-300">
           {label}
         </div>
       </div>
 
-      <motion.h2
+      <HeadingComponent
         id={headingId}
         // See the hydration note above: keep initial deterministic across
         // server and client; MotionConfig reducedMotion handles the rest.
@@ -90,13 +93,13 @@ export function SectionHeader({
           >
             <motion.span
               variants={titleLineVariants}
-              className={`block pb-[0.12em] ${index === 1 ? "text-[#6ee7b7]" : "text-white"}`}
+              className={`block pb-[0.12em] ${index === 1 ? "text-emerald-300" : "text-white"}`}
             >
               {renderTitleLine(line)}
             </motion.span>
           </span>
         ))}
-      </motion.h2>
+      </HeadingComponent>
 
       {intro ? (
         <p data-role="intro" className="mt-5 max-w-[56ch] text-base leading-6 text-white/60 md:text-[17px] md:leading-[1.65]">
@@ -114,6 +117,7 @@ export function SectionShell({
   intro,
   children,
   className = "",
+  as = "h2",
 }: {
   id: string;
   label: string;
@@ -121,13 +125,14 @@ export function SectionShell({
   intro?: string;
   children: ReactNode;
   className?: string;
+  as?: "h2" | "h3";
 }) {
   const headingId = `${id}-title`;
 
   return (
     <section id={id} aria-labelledby={headingId} className={`relative py-24 md:py-32 ${className}`}>
       <div className="mx-auto w-full max-w-6xl px-5 md:px-10">
-        <SectionHeader label={label} title={title} intro={intro} headingId={headingId} />
+        <SectionHeader label={label} title={title} intro={intro} headingId={headingId} as={as} />
         <div className="mt-12 md:mt-16">{children}</div>
       </div>
     </section>

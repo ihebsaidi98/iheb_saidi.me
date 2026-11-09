@@ -255,7 +255,7 @@ function ExperiencePanel({
       {hasMetrics && (
         <motion.dl
           variants={metricsStagger}
-          className="mt-8 grid grid-cols-2 gap-x-5 gap-y-7 border-t border-white/[0.07] pt-7 sm:grid-cols-4"
+          className="mt-8 grid grid-cols-2 gap-x-5 gap-y-7 border-t border-border-subtle pt-7 sm:grid-cols-4"
         >
           {(experience.metrics ?? [])
             .slice(0, 4)
@@ -288,7 +288,7 @@ function ExperiencePanel({
           className={`space-y-3 ${
             hasMetrics
               ? "mt-7"
-              : "mt-7 border-t border-white/[0.07] pt-7"
+              : "mt-7 border-t border-border-subtle pt-7"
           }`}
         >
           {experience.impact
@@ -502,7 +502,7 @@ export function ProfessionalExperience({
             =================================================== */}
 
         <div className="flex min-w-0">
-          <div className="case-thumb surface-elevated flex w-full flex-col overflow-hidden rounded-2xl lg:h-[560px]">
+          <div className="case-thumb flex w-full flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-card shadow-[0_16px_48px_-12px_rgba(0,0,0,0.5)] lg:h-[560px]">
             {/* =================================================
                 IMAGE
                 ================================================= */}
@@ -593,7 +593,7 @@ export function ProfessionalExperience({
                 COMPANY + LOCATION + PERIOD
                 ================================================= */}
 
-            <div className="flex h-[52px] shrink-0 items-center justify-between border-t border-white/[0.06] bg-[#0b1015] px-4">
+            <div className="flex h-[52px] shrink-0 items-center justify-between border-t border-border-subtle bg-surface-elevated/90 px-4">
               <AnimatePresence
                 mode="wait"
                 initial={false}
@@ -637,7 +637,7 @@ export function ProfessionalExperience({
             RIGHT — INFORMATION
             =================================================== */}
 
-        <div className="relative min-w-0 lg:border-l lg:border-white/[0.06] lg:pl-10">
+        <div className="relative min-w-0 lg:border-l lg:border-border-subtle lg:pl-10">
           <AnimatePresence
             mode="wait"
             initial={false}

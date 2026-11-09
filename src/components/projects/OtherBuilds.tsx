@@ -26,7 +26,7 @@ export function OtherBuilds({ projects }: { projects: readonly AcademicProject[]
         whileInView={reduceMotion ? "show" : "show"}
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.5, ease: EASE }}
-        className="mt-12 border-b border-white/[0.07]"
+        className="mt-12 border-b border-border-subtle"
       >
         {projects.map((project, index) => (
           <AcademicProjectRow key={project.slug} project={project} index={index} />

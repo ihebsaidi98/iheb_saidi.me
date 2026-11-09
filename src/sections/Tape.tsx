@@ -39,7 +39,7 @@ export const TapeSection = () => {
   return (
     <section
       id="stack"
-      aria-label="Engineering values"
+      aria-label="Technologies clés"
       className="overflow-hidden border-y border-white/[.06] bg-white/[.015] py-3"
     >
       <div ref={ref}>

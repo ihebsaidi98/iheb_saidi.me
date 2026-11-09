@@ -131,8 +131,8 @@ export const Header = () => {
         className="
           group relative flex max-w-full items-center
           overflow-x-auto rounded-full
-          border border-white/[0.09]
-          bg-[#080d12]/80
+          border border-border-default
+          bg-surface-elevated/80
           p-1
           shadow-[0_12px_40px_rgba(0,0,0,0.28)]
           backdrop-blur-2xl

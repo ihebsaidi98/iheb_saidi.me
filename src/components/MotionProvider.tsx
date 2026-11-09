@@ -36,6 +36,18 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [a11yMode]);
 
+  // ADR-01 — Mirror ?a11y=1 onto <html data-reduced-motion="true"> so that
+  // CSS selectors (e.g. [data-reduced-motion="true"] &:hidden) can react to
+  // the URL signal independently of the OS prefers-reduced-motion preference.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (a11yMode) {
+      root.setAttribute("data-reduced-motion", "true");
+    } else {
+      root.removeAttribute("data-reduced-motion");
+    }
+  }, [a11yMode]);
+
   return (
     <A11yModeContext.Provider value={a11yMode}>
       <MotionConfig

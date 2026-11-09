@@ -34,6 +34,22 @@ const config: Config = {
         "bg-elevated": "#121821",
         "border-subtle": "rgba(255,255,255,0.08)",
         "border-strong": "rgba(255,255,255,0.16)",
+        surface: {
+          subtle: "rgba(255, 255, 255, 0.02)",
+          card: "rgba(255, 255, 255, 0.025)",
+          elevated: "rgba(255, 255, 255, 0.05)",
+          hover: "rgba(255, 255, 255, 0.075)",
+        },
+        border: {
+          subtle: "rgba(255, 255, 255, 0.06)",
+          default: "rgba(255, 255, 255, 0.10)",
+          strong: "rgba(255, 255, 255, 0.18)",
+          accent: "rgba(110, 231, 183, 0.35)",
+        },
+        brand: {
+          emerald: "#6ee7b7",
+          cyan: "#38bdf8",
+        },
       },
       transitionTimingFunction: {
         "out-quart": "cubic-bezier(0.25, 1, 0.5, 1)",

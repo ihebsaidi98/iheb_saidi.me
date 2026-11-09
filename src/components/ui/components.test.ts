@@ -14,6 +14,8 @@ import {
 } from "./Card";
 import { Announcer } from "./Announcer";
 import { SectionShell } from "./SectionShell";
+import { Badge } from "./Badge";
+import { StatusDot } from "./StatusDot";
 import { CopyButton } from "../CopyButton";
 import { ProfessionalExperience } from "../projects/ProfessionalExperience";
 import type { ProfessionalExperience as Experience } from "@/data/projects";
@@ -361,4 +363,55 @@ describe("Stage 3 Accessibility: ChatWidget Modal, Focus Trap & Reduced Motion",
     assert.equal(wrapBackward(2), 1);
   });
 });
+
+describe("Badge component", () => {
+  it("renders default and semantic variants", () => {
+    const def = renderToStaticMarkup(React.createElement(Badge, null, "Default"));
+    assert.match(def, /rounded-full/);
+    assert.match(def, /Default<\/span>/);
+
+    const mono = renderToStaticMarkup(React.createElement(Badge, { variant: "mono" }, "Spring Boot"));
+    assert.match(mono, /font-mono/);
+    assert.match(mono, /tracking-wider/);
+
+    const emerald = renderToStaticMarkup(React.createElement(Badge, { variant: "emerald" }, "Available"));
+    assert.match(emerald, /text-emerald-300/);
+
+    const cyan = renderToStaticMarkup(React.createElement(Badge, { variant: "cyan" }, "AI/ML"));
+    assert.match(cyan, /text-cyan-300/);
+
+    const warning = renderToStaticMarkup(React.createElement(Badge, { variant: "warning" }, "Partial Feed"));
+    assert.match(warning, /text-amber-200/);
+  });
+});
+
+describe("StatusDot accessibility", () => {
+  it("renders solid dot along with motion-reduce-protected ping animation", () => {
+    const html = renderToStaticMarkup(React.createElement(StatusDot, { size: 10 }));
+    assert.match(html, /motion-reduce:hidden/);
+    assert.match(html, /bg-emerald-400/);
+    assert.match(html, /width:\s*10px/);
+  });
+});
+
+describe("SectionShell semantic heading levels (COMP-LOT5-03)", () => {
+  it("renders h3 heading when as='h3' is specified", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        SectionShell as unknown as React.ComponentType<{ id: string; label: string; title: string; as: "h3" }>,
+        {
+          id: "sub",
+          label: "sub-projects",
+          title: "Notable Builds",
+          as: "h3",
+        },
+        React.createElement("div", null, "Subcontent")
+      )
+    );
+    assert.match(html, /<h3[^>]*id="sub-title"/);
+    assert.match(html, /Notable/);
+    assert.match(html, /Builds/);
+  });
+});
+
 

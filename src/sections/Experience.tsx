@@ -30,7 +30,7 @@ function JobCard({ job, a11yMode }: { job: ExperienceEntry; a11yMode: boolean })
       initial={a11yMode ? false : "hidden"}
       whileInView={"show"}
       viewport={{ once: true, amount: 0.2 }}
-      className="relative rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition-colors duration-300 hover:border-white/20 sm:p-7"
+      className="relative rounded-2xl border border-border-default bg-surface-card p-6 transition-all duration-300 hover:border-border-strong hover:bg-surface-hover shadow-[0_4px_24px_rgba(0,0,0,0.25)] sm:p-7"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -79,7 +79,7 @@ export function ExperienceSection() {
     >
       <div className="relative z-10 min-h-full" style={{ position: "relative" }}>
         {/* timeline track + scroll progress line */}
-        <div aria-hidden className="absolute bottom-0 left-[7px] top-0 z-0 w-px bg-white/[0.08]" />
+        <div aria-hidden className="absolute bottom-0 left-[7px] top-0 z-0 w-px bg-border-subtle" />
         <motion.div
           aria-hidden
           style={{ scaleY }}
@@ -101,7 +101,7 @@ export function ExperienceSection() {
                 className={`absolute -left-8 top-8 size-[15px] rounded-full border-2 sm:-left-12 ${
                   isCurrent(job.period)
                     ? "border-emerald-300 bg-emerald-300/30"
-                    : "border-white/20 bg-[#04070c]"
+                    : "border-border-default bg-[#04070c]"
                 }`}
               />
               {/* sticky year column (desktop) */}
