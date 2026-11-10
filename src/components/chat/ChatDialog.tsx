@@ -16,7 +16,7 @@ import React, {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
-import { useChat } from "@/hooks/useChat";
+import type { useChat } from "@/hooks/useChat";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 
 // ============================================================
@@ -278,12 +278,13 @@ function AssistantBubble({
 export interface ChatDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  chat: ReturnType<typeof useChat>;
 }
 
-export function ChatDialog({ isOpen, onClose }: ChatDialogProps) {
+export function ChatDialog({ isOpen, onClose, chat }: ChatDialogProps) {
   const titleId = useId();
   const [input, setInput] = useState("");
-  const { state, send, retry, clear } = useChat();
+  const { state, send, retry, clear } = chat;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);

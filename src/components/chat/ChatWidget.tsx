@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import React, { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
+import { useChat } from "@/hooks/useChat";
 
 const ChatDialog = dynamic(
   () => import("./ChatDialog").then((mod) => mod.ChatDialog),
@@ -42,17 +43,27 @@ function IconChat() {
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const fabRef = useRef<HTMLButtonElement>(null);
+  const chat = useChat();
+
+  const handleToggle = () => {
+    if (!hasOpened) setHasOpened(true);
+    setOpen((v) => !v);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    fabRef.current?.focus();
+  };
 
   return (
     <>
-      {open && (
+      {hasOpened && (
         <ChatDialog
           isOpen={open}
-          onClose={() => {
-            setOpen(false);
-            fabRef.current?.focus();
-          }}
+          onClose={handleClose}
+          chat={chat}
         />
       )}
 
@@ -73,7 +84,7 @@ export function ChatWidget() {
 
         <motion.button
           ref={fabRef}
-          onClick={() => setOpen((v) => !v)}
+          onClick={handleToggle}
           aria-label={open ? "Close chat" : "Open portfolio chatbot"}
           aria-expanded={open}
           whileHover={{ scale: 1.07 }}
@@ -109,6 +120,13 @@ export function ChatWidget() {
               </motion.span>
             )}
           </AnimatePresence>
+
+          {!open && chat.state.status === "error" && (
+            <span
+              aria-label="Chat error"
+              className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-[#080d12] bg-red-400"
+            />
+          )}
         </motion.button>
       </div>
     </>

@@ -18,7 +18,7 @@
 
 "use client";
 
-import { useCallback, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { ChatSource } from "@/lib/chat";
 
 // ============================================================
@@ -262,6 +262,13 @@ export function useChat() {
     inFlightRef.current = false;
     abortRef.current?.abort();
     dispatch({ type: "CLEAR" });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      inFlightRef.current = false;
+      abortRef.current?.abort();
+    };
   }, []);
 
   return { state, send, retry, clear };

@@ -1,7 +1,7 @@
 "use client";
 
+import React, { type ReactNode } from "react";
 import { motion } from "framer-motion";
-import type { ReactNode } from "react";
 
 type SectionTitle = string | [string, string];
 

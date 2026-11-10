@@ -5,7 +5,7 @@ export type BadgeVariant = "default" | "mono" | "emerald" | "cyan" | "warning";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
