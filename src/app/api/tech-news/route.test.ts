@@ -297,6 +297,137 @@ describe("GET /api/tech-news — M2-05 in-flight refresh deduplication", () => {
     assert.equal(body.cached, false);
   });
 
+  // ------------------------------------------------------------------
+  // API-LOT2-01 — a total feed outage must never overwrite a valid cache
+  // ------------------------------------------------------------------
+  describe("API-LOT2-01 cache protection", () => {
+    after(() => {
+      setFeedSource(realFetchAllFeeds);
+    });
+
+    it("F. all feeds fail with a valid cache: stale cache is returned and preserved", async () => {
+      // Warm the cache with articles via the test seam (the fetch stub yields
+      // no parseable articles on its own).
+      const article = {
+        id: "w1", title: "Warm article", url: "https://example.com/warm",
+        publisher: "p", publishedAt: new Date().toISOString(), description: "",
+        category: "backend" as const, isAiSummary: false as const, source: "devto" as const,
+      };
+      setFeedSource(async () => ({ articles: [article], feedErrors: {} }));
+      const { GET } = await freshRoute();
+      const warm = await GET(get("203.0.113.60"));
+      assert.equal(warm.status, 200);
+      const warmBody = (await warm.json()) as { fetchedAt?: string; articles?: unknown[] };
+      assert.ok(warmBody.articles!.length > 0, "precondition: warm cache holds articles");
+
+      // Swap the feed source: a full outage reported as an empty result with
+      // per-feed errors — exactly what Promise.allSettled produces.
+      setFeedSource(async () => ({
+        articles: [],
+        feedErrors: { "feed-a": "HTTP 500", "feed-b": "HTTP 503" },
+      }));
+
+      const response = await GET(get("203.0.113.61"));
+      assert.equal(response.status, 200, "the stale cache must be served, not an error");
+      const body = (await response.json()) as {
+        articles: unknown[];
+        cached: boolean;
+        fetchedAt: string;
+      };
+      assert.equal(body.cached, true);
+      assert.equal(body.fetchedAt, warmBody.fetchedAt, "the stale entry must be returned");
+      assert.ok(body.articles.length > 0, "the stale articles must be returned");
+
+      // The bad empty payload must not have replaced the cache: after expiry,
+      // the next request still sees the original data.
+      const realNow = Date.now();
+      const originalDateNow = Date.now;
+      Date.now = () => realNow + 31 * 60 * 1_000;
+      try {
+        const later = await GET(get("203.0.113.62"));
+        assert.equal(later.status, 200);
+        const laterBody = (await later.json()) as { fetchedAt: string; cached: boolean };
+        assert.equal(laterBody.cached, true);
+        assert.equal(laterBody.fetchedAt, warmBody.fetchedAt, "the cache was never overwritten");
+      } finally {
+        Date.now = originalDateNow;
+      }
+    });
+
+    it("G. all feeds fail with no cache: controlled 502, not a fake empty result", async () => {
+      setFeedSource(async () => ({
+        articles: [],
+        feedErrors: { "feed-a": "HTTP 500" },
+      }));
+
+      const { GET } = await freshRoute();
+      const response = await GET(get("203.0.113.63"));
+
+      assert.equal(response.status, 502);
+      const body = (await response.json()) as { code: string; articles: unknown[]; cached: boolean };
+      assert.equal(body.code, undefined, "the 502 shape is used, not a success-shaped empty list");
+      assert.deepEqual(body.articles, []);
+      assert.equal(body.cached, false);
+    });
+
+    it("H. all feeds succeed with zero articles: legitimate empty result is cached", async () => {
+      setFeedSource(async () => ({ articles: [], feedErrors: {} }));
+
+      const { GET } = await freshRoute();
+      const first = await GET(get("203.0.113.64"));
+      assert.equal(first.status, 200);
+      const firstBody = (await first.json()) as { articles: unknown[]; cached: boolean; feedErrors: Record<string, string> };
+      assert.deepEqual(firstBody.articles, []);
+      assert.deepEqual(firstBody.feedErrors, {});
+      assert.equal(firstBody.cached, false);
+
+      // Cached: the second hit must be served from cache without re-fetching.
+      let calls = 0;
+      setFeedSource(async () => {
+        calls += 1;
+        return { articles: [], feedErrors: {} };
+      });
+      const second = await GET(get("203.0.113.65"));
+      assert.equal(second.status, 200);
+      const secondBody = (await second.json()) as { cached: boolean; articles: unknown[] };
+      assert.equal(secondBody.cached, true);
+      assert.deepEqual(secondBody.articles, []);
+      assert.equal(calls, 0, "the empty result must have been cached");
+    });
+
+    it("I. some feeds fail but others yield articles: existing behaviour preserved", async () => {
+      const article = {
+        id: "p1", title: "Partial article", url: "https://example.com/partial",
+        publisher: "p", publishedAt: "2026-01-01T00:00:00.000Z",
+        description: "", category: "backend" as const, isAiSummary: false as const, source: "devto" as const,
+      };
+      setFeedSource(async () => ({
+        articles: [article],
+        feedErrors: { "feed-broken": "HTTP 500" },
+      }));
+
+      const { GET } = await freshRoute();
+      const response = await GET(get("203.0.113.66"));
+      assert.equal(response.status, 200);
+      const body = (await response.json()) as { cached: boolean; articles: unknown[]; feedErrors: Record<string, string> };
+      assert.equal(body.cached, false, "a partial success is a fresh refresh, not a stale serve");
+      assert.equal(body.articles.length, 1, "the articles are returned");
+      assert.deepEqual(body.feedErrors, { "feed-broken": "HTTP 500" }, "feed errors are still reported");
+
+      // Existing behaviour: the partial-success payload IS cached.
+      let calls = 0;
+      setFeedSource(async () => {
+        calls += 1;
+        return { articles: [article], feedErrors: { "feed-broken": "HTTP 500" } };
+      });
+      const second = await GET(get("203.0.113.67"));
+      assert.equal(second.status, 200);
+      const secondBody = (await second.json()) as { cached: boolean };
+      assert.equal(secondBody.cached, true);
+      assert.equal(calls, 0, "the partial-success payload was cached");
+    });
+  });
+
   it("E. a failed refresh with no cache returns the unchanged 502 body", async () => {
     const { GET } = await freshRouteWithSeam();
     failFetchAllFeeds = true;
