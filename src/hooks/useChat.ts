@@ -59,6 +59,58 @@ export type ChatAction =
   | { type: "CLEAR" };
 
 // ============================================================
+// HISTORY — pure, unit-testable
+// ============================================================
+
+/** A single turn sent to the model: role/content only. */
+export type ChatHistoryTurn = { role: MessageRole; content: string };
+
+/**
+ * HOOK-LOT3-01: build the conversation history sent to the model from the
+ * rendered messages.
+ *
+ * A user bubble is only included when its paired assistant turn
+ * (`assistant-${id}` ⇔ `user-${id}`) exists, is not pending, has not failed
+ * and carries content. This excludes orphaned user turns whose assistant
+ * response failed or never arrived, so the model never receives an
+ * unanswered question as context. Failed/pending assistant placeholders stay
+ * visible in the UI — they are only excluded from the payload.
+ */
+export function buildChatHistory(
+  messages: ChatMessageItem[],
+  /** Optional msgId of the current turn — its pair is always excluded (retry). */
+  excludeMsgId?: string,
+): ChatHistoryTurn[] {
+  const byId = new Map(messages.map((m) => [m.id, m]));
+
+  const history: ChatHistoryTurn[] = [];
+  for (const message of messages) {
+    if (message.role === "assistant") continue;
+
+    const msgId = message.id.slice("user-".length);
+    if (excludeMsgId !== undefined && msgId === excludeMsgId) continue;
+
+    const assistant = byId.get(`assistant-${msgId}`);
+    if (
+      !assistant ||
+      assistant.pending ||
+      assistant.failed ||
+      !assistant.content
+    ) {
+      continue;
+    }
+
+    history.push({ role: "user", content: message.content });
+    history.push({
+      role: "assistant",
+      content: assistant.content,
+    });
+  }
+
+  return history;
+}
+
+// ============================================================
 // REDUCER
 // ============================================================
 
@@ -167,16 +219,9 @@ export function useChat() {
         dispatch({ type: "SEND", question, msgId });
       }
 
-      // Build history from current messages:
-      // Exclude the current turn (by msgId) and any pending/failed turns
-      const history = state.messages
-        .filter((m) => {
-          if (isRetry && (m.id === `user-${msgId}` || m.id === `assistant-${msgId}`)) {
-            return false;
-          }
-          return !m.pending && !m.failed && Boolean(m.content);
-        })
-        .map((m) => ({ role: m.role, content: m.content }))
+      // HOOK-LOT3-01: only completed pairs (user + succeeded assistant) are
+      // sent as context; on retry the current turn's pair is excluded too.
+      const history = buildChatHistory(state.messages, isRetry ? msgId : undefined)
         .slice(-10); // max 10 turns sent
 
       try {

@@ -92,8 +92,8 @@ export type InterviewAction =
     }
   | { type: "SUBMIT_ERROR"; message: string }
   | { type: "COMPLETING_REQUEST" }
-  | { type: "COMPLETE_SUCCESS"; report: SessionCompletionReport }
-  | { type: "COMPLETE_ERROR"; message: string }
+  | { type: "COMPLETE_SUCCESS"; sessionToken: string; report: SessionCompletionReport }
+  | { type: "COMPLETE_ERROR"; sessionToken: string; message: string }
   | { type: "RESET" };
 
 // ============================================================
@@ -187,20 +187,31 @@ export function interviewReducer(
         errorMessage: null,
       };
 
-    case "COMPLETE_SUCCESS":
+    // HOOK-LOT3-02: a late completion response for a session that is no longer
+    // the active one (after RESET or a new START_SUCCESS for another session)
+    // must never mutate the current state.
+    case "COMPLETE_SUCCESS": {
+      if (state.sessionToken === null || state.sessionToken !== action.sessionToken) {
+        return state;
+      }
       return {
         ...state,
         phase: "completed",
         completionReport: action.report,
         errorMessage: null,
       };
+    }
 
-    case "COMPLETE_ERROR":
+    case "COMPLETE_ERROR": {
+      if (state.sessionToken === null || state.sessionToken !== action.sessionToken) {
+        return state;
+      }
       return {
         ...state,
         phase: "error",
         errorMessage: action.message,
       };
+    }
 
     case "RESET":
       return { ...INITIAL_INTERVIEW_STATE };
@@ -284,6 +295,13 @@ export function useInterview() {
 
   const completeSession = useCallback(
     async (sessionId: string, sessionToken: string) => {
+      // HOOK-LOT3-02: capture the session identity before awaiting and cancel
+      // any previous completion so a late response can never mutate a newer
+      // session (or a reset one).
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       dispatch({ type: "COMPLETING_REQUEST" });
 
       try {
@@ -294,6 +312,7 @@ export function useInterview() {
             session_id: sessionId,
             session_token: sessionToken,
           }),
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -306,16 +325,17 @@ export function useInterview() {
           } catch {
             /* ignore */
           }
-          dispatch({ type: "COMPLETE_ERROR", message });
+          dispatch({ type: "COMPLETE_ERROR", sessionToken, message });
           return;
         }
 
         const report = (await res.json()) as SessionCompletionReport;
-        dispatch({ type: "COMPLETE_SUCCESS", report });
+        dispatch({ type: "COMPLETE_SUCCESS", sessionToken, report });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         dispatch({
           type: "COMPLETE_ERROR",
+          sessionToken,
           message: "Network error while completing session. Please try again.",
         });
       }
