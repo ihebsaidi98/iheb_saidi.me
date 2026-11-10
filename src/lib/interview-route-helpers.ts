@@ -174,6 +174,21 @@ export function handleInterviewApiError(
       );
     }
 
+    // API-LOT2-02: an explicit timeout must keep its real 504 status instead of
+    // being collapsed into the generic 503 unavailability branch below. The
+    // client uses the status to distinguish "retry later" (503) from "the
+    // upstream took too long" (504). The response message stays generic — no
+    // upstream detail, stack trace or internal identifier is exposed.
+    if (err.code === "TIMEOUT" || err.status === 504) {
+      return NextResponse.json(
+        {
+          error: "The interview service took too long to respond. Please try again.",
+          code: "UPSTREAM_TIMEOUT",
+        },
+        { status: 504, headers },
+      );
+    }
+
     if (err.isUnavailable || err.status === 503) {
       const cleanMessage = err.message.replace(/^\[AIServiceClient\]\s*/, "");
       return NextResponse.json(
