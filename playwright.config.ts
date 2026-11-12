@@ -16,14 +16,24 @@ export default defineConfig({
     },
   },
   webServer: {
-    // Build the production app before starting it and refuse to reuse an old
-    // server on port 3000. Reusing a stale or unrelated Next server causes the
-    // browser to request assets from the wrong process, which is exactly the
-    // text/plain + 404 pattern seen during the Hero E2E failures.
+    // Start the production app and refuse to reuse an old server on port 3000.
+    // Reusing a stale or unrelated Next server causes the browser to request
+    // assets from the wrong process, which is exactly the text/plain + 404
+    // pattern seen during the Hero E2E failures.
+    //
+    // CROSS-LOT7-01: `next build` must run exactly once, whether the app is
+    // started here or already built by the caller.
+    //   - local (`npm run test:e2e` = `playwright test`): this command builds
+    //     the app, then starts it, so a plain local run stays self-contained.
+    //   - CI (`npm run test:e2e:ci`): the workflow runs `npm run build` once and
+    //     sets PLAYWRIGHT_SKIP_BUILD=1, so only `next start` runs here.
+    // The flag must be exactly "1": any other value keeps the build.
     command:
-      "node node_modules/next/dist/bin/next build && node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000",
+      process.env.PLAYWRIGHT_SKIP_BUILD === "1"
+        ? "node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000"
+        : "node node_modules/next/dist/bin/next build && node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000",
     port: 3000,
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 });

@@ -121,7 +121,11 @@ function SetupScreen({
   const setupLegendRef = useRef<HTMLLegendElement>(null);
 
   useEffect(() => {
-    setupLegendRef.current?.focus();
+    // preventScroll: the simulator is mounted lazily (see
+    // InterviewSimulatorLazy.tsx). Without it the browser scrolls the newly
+    // focused legend into view seconds after load, hijacking the reader's
+    // scroll position. Focus itself is kept for assistive technology.
+    setupLegendRef.current?.focus({ preventScroll: true });
   }, []);
 
   const addFocusArea = () => {
@@ -325,7 +329,7 @@ function ActiveQuestionCard({
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    questionHeadingRef.current?.focus();
+    questionHeadingRef.current?.focus({ preventScroll: true });
   }, [question.question_id]);
 
   const isMCQ = question.question_type === "mcq";
@@ -522,7 +526,7 @@ function CompletingScreen() {
   const completingHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    completingHeadingRef.current?.focus();
+    completingHeadingRef.current?.focus({ preventScroll: true });
   }, []);
 
   return (
@@ -564,7 +568,7 @@ function CompletedReportScreen({
   const reportHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    reportHeadingRef.current?.focus();
+    reportHeadingRef.current?.focus({ preventScroll: true });
   }, []);
 
   const scoreColor =

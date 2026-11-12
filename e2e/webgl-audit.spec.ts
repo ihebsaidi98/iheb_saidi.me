@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
 
 test("Full WebGL Context Validation & 3D Scene Health", async ({ page }, testInfo) => {
+  // CROSS-LOT7-01: this spec walks five stages (initial load, section
+  // navigation, chat open/close cycles, viewport sweeps, full reload). The hero
+  // canvas mounts asynchronously (dynamic import + IntersectionObserver) and
+  // software WebGL makes every stage slower, so the global 60s budget is too
+  // tight: measured ~80-90s here, and the spec passes at this budget. Only this
+  // test is affected; the suite-wide timeout is unchanged.
+  test.setTimeout(150_000);
+
   const warnings: string[] = [];
   const errors: string[] = [];
 
@@ -101,10 +109,42 @@ test("Full WebGL Context Validation & 3D Scene Health", async ({ page }, testInf
     { name: "Home", target: "#top" },
   ];
   for (const section of sections) {
-    // The header auto-hides while scrolling down, so a normal click would be
-    // rejected for visibility. Dispatching the click on the real nav anchor
-    // still runs its activation behaviour (in-page navigation, no document load).
-    await primaryNav.getByRole("link", { name: section.name, exact: true }).dispatchEvent("click");
+    // Révéler le header avant chaque interaction. L'auto-hide le masque
+    // (translateY(-150%)) quand la page est scrollée vers le bas, rendant le
+    // lien nav hors viewport et donc non actionable par Playwright.
+    // Surcharge CSS temporaire et ciblée dans le contexte E2E uniquement —
+    // aucune modification du code applicatif (Header.tsx non touché). Le
+    // sélecteur cible le header parent du nav principal, identifié par son
+    // aria-label via son ancêtre directe. `!important` sur une règle CSS
+    // (injectée dans <style>) résiste à la ré-application du transform par
+    // framer-motion entre deux appels JS, contrairement à un style inline.
+    await page.addStyleTag({
+      content: `
+        header:has(> nav[aria-label="Primary navigation"]) {
+          transform: translateY(0) !important;
+          opacity: 1 !important;
+        }
+      `,
+    });
+    // Attendre que le lien soit réellement dans le viewport avant de cliquer.
+    // toBeVisible ne suffit pas : un élément position:fixed avec un transform
+    // négatif est "visible" mais hors viewport. Cette attente conditionnelle
+    // confirme que le header est bien révélé.
+    await expect(
+      primaryNav.getByRole("link", { name: section.name, exact: true }),
+    ).toBeInViewport();
+    // Clic Playwright natif, soumis aux contrôles d'actionabilité. Pas de
+    // dispatchEvent, pas d'element.click(), pas de force: true. Le clic
+    // déclenche le comportement par défaut du navigateur : activation de
+    // l'ancre, navigation client-side sans rechargement de document.
+    await primaryNav.getByRole("link", { name: section.name, exact: true }).click();
+    // Vérifier que l'URL reflète la navigation client-side vers l'ancre cible
+    await expect(page).toHaveURL(new RegExp(`${section.target}$`));
+    // Vérifier que le scroll natif de l'ancre a placé la section cible dans
+    // le viewport. Aucun scrollIntoView / scrollIntoViewIfNeeded /
+    // window.scrollTo après le clic : c'est le comportement natif que l'on
+    // teste. Si le scroll natif est inhibé, cette assertion échoue et la
+    // cause doit être identifiée côté applicatif, pas contournée.
     await expect(page.locator(section.target)).toBeInViewport({ ratio: 0.1, timeout: 8000 });
 
     const sameDocument = await page.evaluate((token) => (window as any).__navToken === token, navToken);

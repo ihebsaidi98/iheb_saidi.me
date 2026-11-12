@@ -11,6 +11,7 @@
     "test:py": "npm run ai:test",
     "test:all": "npm test && npm run test:py",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "PLAYWRIGHT_SKIP_BUILD=1 playwright test",
     "index:kb": "tsx scripts/index-knowledge.ts",
     "ai:dev": "cd ai-service && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001",
     "ai:test": "cd ai-service && PATH=\"$HOME/.local/bin:$PATH\" uv run pytest",

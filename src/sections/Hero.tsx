@@ -299,7 +299,7 @@ function TerminalCard() {
           <span className="ml-3 truncate font-mono text-[9px] tracking-[0.18em] text-white/55 sm:text-[10px]">
             OpportunityController.java
           </span>
-          <span className="ml-auto font-mono text-[8px] uppercase tracking-[0.18em] text-white/40 sm:text-[9px]">
+          <span className="ml-auto font-mono text-[8px] uppercase tracking-[0.18em] text-white/55 sm:text-[9px]">
             UTF-8
           </span>
         </div>

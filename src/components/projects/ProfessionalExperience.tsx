@@ -593,7 +593,7 @@ export function ProfessionalExperience({
                 COMPANY + LOCATION + PERIOD
                 ================================================= */}
 
-            <div className="flex h-[52px] shrink-0 items-center justify-between border-t border-border-subtle bg-surface-elevated/90 px-4">
+            <div className="flex h-[52px] shrink-0 items-center justify-between border-t border-border-subtle bg-bg-elevated px-4">
               <AnimatePresence
                 mode="wait"
                 initial={false}

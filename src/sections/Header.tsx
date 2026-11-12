@@ -132,7 +132,7 @@ export const Header = () => {
           group relative flex max-w-full items-center
           overflow-x-auto rounded-full
           border border-border-default
-          bg-surface-elevated/80
+          bg-surface-elevated
           p-1
           shadow-[0_12px_40px_rgba(0,0,0,0.28)]
           backdrop-blur-2xl

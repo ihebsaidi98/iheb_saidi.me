@@ -39,7 +39,7 @@ const CAT_STYLE: Record<string, { pill: string; badge: string }> = {
   "ai-llm":       { pill: "border-emerald-400/30 bg-emerald-400/12 text-emerald-200",  badge: "text-emerald-300" },
   "java-spring":  { pill: "border-cyan-400/30 bg-cyan-400/12 text-cyan-200",           badge: "text-cyan-300" },
   "angular-ts":   { pill: "border-rose-400/30 bg-rose-400/12 text-rose-200",           badge: "text-rose-300" },
-  "backend":      { pill: "border-violet-400/30 bg-violet-400/12 text-violet-200",     badge: "text-violet-300" },
+  "backend":      { pill: "border-violet-400/30 bg-violet-400/20 text-violet-200",     badge: "text-violet-200" },
   "cloud-devops": { pill: "border-sky-400/30 bg-sky-400/12 text-sky-200",              badge: "text-sky-300" },
 };
 
@@ -128,7 +128,7 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
         </span>
         <time
           dateTime={article.publishedAt}
-          className="shrink-0 font-mono text-[10px] tabular-nums text-white/55"
+          className="shrink-0 font-mono text-[10px] tabular-nums text-white/75"
         >
           {fmtDate(article.publishedAt)}
         </time>
@@ -141,7 +141,7 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
 
       {/* Description */}
       {article.description ? (
-        <p className="mt-2 flex-1 line-clamp-3 text-xs leading-relaxed text-white/60">
+        <p className="mt-2 flex-1 line-clamp-3 text-xs leading-relaxed text-white/75">
           {article.description}
         </p>
       ) : (
@@ -159,13 +159,13 @@ function ArticleCard({ article, index }: { article: NewsArticle; index: number }
           >
             {sourceLabel}
           </span>
-          <span className="truncate font-mono text-[10px] text-white/60">
+          <span className="truncate font-mono text-[10px] text-white/75">
             {article.publisher}
           </span>
         </div>
         <span
           aria-hidden
-          className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-white/60 transition-colors duration-200 group-hover:text-white/85"
+          className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-white/75 transition-colors duration-200 group-hover:text-white/85"
         >
           Read <span>↗</span>
         </span>
@@ -262,7 +262,7 @@ function CategoryPills({
               <span
                 className={twMerge(
                   "ml-1.5 font-mono text-[9px]",
-                  isActive ? "text-emerald-400/60" : "text-white/25",
+                  isActive ? "text-emerald-400/80" : "text-text-tertiary",
                 )}
               >
                 {count}
@@ -441,7 +441,7 @@ export function TechNewsSection() {
 
             {/* Feed-error soft notice */}
             {failedFeedCount > 0 && (
-              <p className="mt-8 text-center font-mono text-[10px] text-white/25">
+              <p className="mt-8 text-center font-mono text-[10px] text-text-tertiary">
                 {failedFeedCount} feed{failedFeedCount > 1 ? "s" : ""} temporarily unavailable — showing articles from remaining sources.
               </p>
             )}
