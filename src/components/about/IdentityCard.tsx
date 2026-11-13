@@ -27,7 +27,7 @@ export function IdentityCard() {
               transform: `perspective(1200px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
             }
       }
-      className="group/card relative h-fit overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] transition-colors duration-500 hover:border-emerald-300/20 will-change-transform"
+      className="group/card relative h-fit overflow-hidden rounded-2xl border border-white/[0.08] surface.subtle shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] transition-colors duration-500 hover:border-emerald-300/20 will-change-transform"
     >
       <div
         aria-hidden

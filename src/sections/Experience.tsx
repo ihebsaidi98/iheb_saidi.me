@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useSpring } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useSpring } from "framer-motion";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { useA11yMode } from "@/components/MotionProvider";
 import { SectionShell } from "@/components/ui/SectionShell";
@@ -30,7 +30,7 @@ function JobCard({ job, a11yMode }: { job: ExperienceEntry; a11yMode: boolean })
       initial={a11yMode ? false : "hidden"}
       whileInView={"show"}
       viewport={{ once: true, amount: 0.2 }}
-      className="relative rounded-2xl border border-border-default bg-surface-card p-6 transition-all duration-300 hover:border-border-strong hover:bg-surface-hover shadow-[0_4px_24px_rgba(0,0,0,0.25)] sm:p-7"
+      className="relative rounded-2xl border border-border-default bg-surface-card p-6 transition-colors duration-300 hover:border-border-strong hover:bg-surface-hover shadow-[0_4px_24px_rgba(0,0,0,0.25)] sm:p-7"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -65,6 +65,7 @@ function JobCard({ job, a11yMode }: { job: ExperienceEntry; a11yMode: boolean })
 
 export function ExperienceSection() {
   const a11yMode = useA11yMode();
+  const reducedMotion = useReducedMotion();
   const { scrollYProgress } = useScroll({
     offset: ["start center", "end center"],
   });
@@ -82,7 +83,7 @@ export function ExperienceSection() {
         <div aria-hidden className="absolute bottom-0 left-[7px] top-0 z-0 w-px bg-border-subtle" />
         <motion.div
           aria-hidden
-          style={{ scaleY }}
+          style={{ scaleY: reducedMotion ? 1 : scaleY }}
           className="absolute bottom-0 left-[7px] top-0 z-0 w-px origin-top bg-gradient-to-b from-emerald-300/60 to-cyan-400/20"
         />
 

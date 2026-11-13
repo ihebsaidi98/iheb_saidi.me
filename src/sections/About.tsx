@@ -100,7 +100,7 @@ export function AboutSection() {
                       transition={{
                         duration: 1.1,
                         times: [0, 0.45, 0.5, 1],
-                        repeat: Number.POSITIVE_INFINITY,
+                        repeat: 3,
                         ease: "linear",
                       }}
                       className="ml-1 inline-block font-mono text-emerald-300/90"

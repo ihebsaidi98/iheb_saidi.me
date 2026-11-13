@@ -91,7 +91,7 @@ function StackFileCard({
           ? { duration: 0 }
           : { duration: 0.5, ease: EASE }
       }
-      className="group/card relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-colors duration-500 hover:border-emerald-300/20"
+      className="group/card relative overflow-hidden rounded-xl border border-white/[0.08] surface.subtle shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-colors duration-500 hover:border-emerald-300/20"
     >
       <div
         aria-hidden

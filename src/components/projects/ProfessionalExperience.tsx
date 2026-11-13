@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -13,6 +14,8 @@ import {
   animate,
   motion,
   useReducedMotion,
+  useScroll,
+  useTransform,
   type Variants,
 } from "framer-motion";
 import { EASE } from "@/components/hero-motion";
@@ -357,7 +360,12 @@ export function ProfessionalExperience({
    * Ref used only for the visual parallax.
    * It does NOT control project navigation.
    */
-  const visualRef = useRef<HTMLDivElement>(null);
+  const parallaxRef = useRef<HTMLDivElement>(null);
+  const [measure, setMeasure] = useState<{
+    top: number;
+    height: number;
+    scrollY: number;
+  } | null>(null);
 
   /* =======================================================
      PROJECT NAVIGATION
@@ -398,53 +406,49 @@ export function ProfessionalExperience({
      It NEVER changes the active project.
      ======================================================= */
 
-  useEffect(() => {
-    if (reduceMotion) {
-      return;
-    }
-
-    const handleScroll = () => {
-      const element = visualRef.current;
-
-      if (!element) {
-        return;
+  const { scrollY } = useScroll();
+  const parallaxY = useTransform(
+    scrollY,
+    (y) => {
+      if (reduceMotion || !measure) {
+        return 0;
       }
+      const viewportCenter = window.innerHeight / 2;
+      const elementCenter = measure.top + measure.height / 2 + measure.scrollY - y;
+      const distance = elementCenter - viewportCenter;
+      return Math.max(-14, Math.min(14, distance * -0.025));
+    }
+  );
 
-      const rect =
-        element.getBoundingClientRect();
+  useLayoutEffect(() => {
+    const el = parallaxRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      setMeasure({ top: rect.top, height: rect.height, scrollY: window.scrollY });
+    }
+  }, []);
 
-      const viewportCenter =
-        window.innerHeight / 2;
-
-      const elementCenter =
-        rect.top + rect.height / 2;
-
-      const distance =
-        elementCenter - viewportCenter;
-
-      const offset = Math.max(
-        -14,
-        Math.min(14, distance * -0.025),
-      );
-
-      element.style.transform = `translate3d(0, ${offset}px, 0)`;
+  useEffect(() => {
+    let raf: ReturnType<typeof requestAnimationFrame>;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const el = parallaxRef.current;
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setMeasure((m) => {
+            if (!m) return null;
+            return { top: rect.top, height: rect.height, scrollY: window.scrollY };
+          });
+        }
+      });
     };
-
-    window.addEventListener(
-      "scroll",
-      handleScroll,
-      { passive: true },
-    );
-
-    handleScroll();
-
+    window.addEventListener("resize", onResize, { passive: true });
     return () => {
-      window.removeEventListener(
-        "scroll",
-        handleScroll,
-      );
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
     };
-  }, [reduceMotion]);
+  }, []);
 
   /* =======================================================
      KEYBOARD NAVIGATION
@@ -546,25 +550,29 @@ export function ProfessionalExperience({
                       ========================================= */}
 
                   <div className="absolute inset-0 flex items-center justify-center px-5 py-7 sm:px-7 lg:px-6">
-                    <motion.div
-                      ref={visualRef}
-                      initial={{
-                        opacity: 0,
-                        scale: 0.96,
-                        y: 12,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        scale: 1,
-                        y: 0,
-                      }}
-                      transition={{
-                        duration: 0.45,
-                        ease: EASE,
-                      }}
-                      className="relative aspect-video w-full max-w-[560px] will-change-transform"
-                    >
-                      <Image
+                    <div ref={parallaxRef}>
+                      <motion.div
+                        style={{ y: reduceMotion ? 0 : parallaxY }}
+                        className="relative aspect-video w-full max-w-[560px] will-change-transform"
+                      >
+                        <motion.div
+                          initial={{
+                            opacity: 0,
+                            scale: 0.96,
+                            y: 12,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            scale: 1,
+                            y: 0,
+                          }}
+                          transition={{
+                            duration: 0.45,
+                            ease: EASE,
+                          }}
+                          className="absolute inset-0"
+                        >
+                          <Image
                         src={`/images/${current.screenshot}`}
                         alt={`${current.company} — ${current.role} product screenshot`}
                         fill
@@ -573,7 +581,9 @@ export function ProfessionalExperience({
                         priority={active === 0}
                       />
                     </motion.div>
+                    </motion.div>
                   </div>
+                </div>
 
                   {/* =========================================
                       PROJECT NUMBER
@@ -751,7 +761,7 @@ export function ProfessionalExperience({
             }
             disabled={active === 0}
             aria-label="Previous experience"
-            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-colors duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
           >
             <svg
               viewBox="0 0 24 24"
@@ -779,7 +789,7 @@ export function ProfessionalExperience({
               active === items.length - 1
             }
             aria-label="Next experience"
-            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-all duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-colors duration-300 hover:border-emerald-200/40 hover:text-emerald-100 disabled:pointer-events-none disabled:opacity-25 ${FOCUS_RING}`}
           >
             <svg
               viewBox="0 0 24 24"

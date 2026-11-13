@@ -22,7 +22,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     return (
       <Component
         ref={ref}
-        className={twMerge("rounded-2xl transition-all", variantClasses[variant], className)}
+        className={twMerge("rounded-2xl", variantClasses[variant], className)}
         {...props}
       >
         {children}

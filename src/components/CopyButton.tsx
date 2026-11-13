@@ -74,7 +74,7 @@ export function CopyButton({
         type="button"
         onClick={handleCopy}
         aria-label={accessibleLabel}
-        className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.02] px-2.5 py-1.5 font-mono text-2xs tracking-[0.18em] text-text-secondary transition-colors duration-300 hover:border-white/[0.14] hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+        className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] surface.subtle px-2.5 py-1.5 font-mono text-2xs tracking-[0.18em] text-text-secondary transition-colors duration-300 hover:border-white/[0.14] hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       >
         <span>
           {status === "success"
