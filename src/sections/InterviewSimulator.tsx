@@ -200,7 +200,7 @@ function SetupScreen({
           <span className="text-white/60">Blind test — scores at the end</span>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-400/10 font-mono text-violet-300">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-cyan-400/10 font-mono text-cyan-300">
             📚
           </span>
           <span className="text-white/60">Verified documentation sources</span>

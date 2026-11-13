@@ -155,19 +155,10 @@ function WelcomeScreen({
   return (
     <div className="flex flex-col items-center py-6">
       <div className="relative flex items-center justify-center">
-        <div
-          aria-hidden
-          className="absolute h-24 w-24 rounded-full opacity-50"
-          style={{
-            background: "radial-gradient(circle, rgba(110,231,183,0.35) 0%, transparent 70%)",
-            filter: "blur(12px)",
-          }}
-        />
         <span
           className="relative flex h-14 w-14 items-center justify-center rounded-2xl
             bg-gradient-to-br from-emerald-400/20 to-emerald-600/10
-            ring-1 ring-emerald-400/30 text-emerald-400
-            shadow-[0_0_28px_rgba(110,231,183,0.12)]"
+            ring-1 ring-emerald-400/30 text-emerald-400"
         >
           <svg width="26" height="26" viewBox="0 0 14 14" fill="none" aria-hidden>
             <rect x="1.5" y="4.5" width="11" height="8" rx="2.5" stroke="currentColor" strokeWidth="1.4" />

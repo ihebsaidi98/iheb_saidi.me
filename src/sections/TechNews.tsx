@@ -185,7 +185,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
       <p className="mt-4 text-sm font-medium text-white/60">
         Couldn&apos;t load tech news
       </p>
-      <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/35">
+      <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/60">
         The news feeds couldn&apos;t be reached right now. Check your connection or try again.
       </p>
       <button
