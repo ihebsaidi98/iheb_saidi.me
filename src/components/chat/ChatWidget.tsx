@@ -93,7 +93,7 @@ export function ChatWidget() {
             "relative flex h-14 w-14 items-center justify-center",
             "rounded-full text-white transition-all duration-300",
             open
-              ? "bg-[#0d141b] border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+              ? "bg-bg-elevated border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
               : "border border-emerald-400/35 bg-gradient-to-br from-emerald-500/20 to-emerald-700/12 shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_20px_rgba(110,231,183,0.1)] hover:border-emerald-400/55 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_28px_rgba(110,231,183,0.2)]",
           )}
         >

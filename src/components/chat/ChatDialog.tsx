@@ -498,7 +498,7 @@ export function ChatDialog({ isOpen, onClose, chat }: ChatDialogProps) {
                     id={titleId}
                     className="text-[0.8rem] font-semibold"
                     style={{
-                      background: "linear-gradient(90deg, #f5f7fa 0%, rgba(245,247,250,0.78) 100%)",
+                      background: "linear-gradient(90deg, var(--text-primary) 0%, rgba(245,247,250,0.78) 100%)",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",

@@ -390,7 +390,7 @@ export const HeroSection = () => {
   return (
     <section
       id="top"
-      className="relative isolate h-[100svh] overflow-hidden bg-[#04070c]"
+      className="relative isolate h-[100svh] overflow-hidden bg-root"
     >
       {loadScene ? <HeroScene3D /> : <StaticHeroScene />}
 
@@ -448,7 +448,7 @@ export const HeroSection = () => {
               <Button
                 href="#projects"
                 variant="primary"
-                size="md"
+                size="lg"
               >
                 View my work
                 <ArrowDown
@@ -459,7 +459,7 @@ export const HeroSection = () => {
               <Button
                 href="#contact"
                 variant="ghost"
-                size="md"
+                size="lg"
               >
                 Get in touch
               </Button>

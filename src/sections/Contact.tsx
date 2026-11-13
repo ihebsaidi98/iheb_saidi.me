@@ -7,14 +7,12 @@ import { useA11yMode } from "@/components/MotionProvider";
 import { Magnetic } from "@/components/ui/Magnetic";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { StatusDot } from "@/components/ui/StatusDot";
-import { availability, locationShort } from "@/data/site";
-import { useLocalTime } from "@/hooks/useLocalTime";
+import { availability } from "@/data/site";
 import { profile } from "@/data/profile";
 
 export function ContactSection() {
   const a11yMode = useA11yMode();
   const [copied, setCopied] = useState(false);
-  const time = useLocalTime();
 
   const copyEmail = async () => {
     try {
@@ -104,8 +102,8 @@ export function ContactSection() {
             </div>
           )}
 
-          <p className="mt-10 font-mono text-[10px] tracking-[0.2em] text-white/55 tabular-nums">
-            {locationShort.toUpperCase()} · {time} · TYPICALLY REPLIES WITHIN 24H
+          <p className="mt-10 font-mono text-[10px] tracking-[0.2em] text-white/55">
+            I usually respond promptly
           </p>
         </motion.div>
       </div>

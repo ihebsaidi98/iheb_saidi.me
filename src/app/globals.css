@@ -10,19 +10,24 @@
   /* Backgrounds */
   --background: #05070a;
   --background-soft: #070b0f;
-  --surface: #0a0f14;
+  --surface-rgb: 10 15 20;
   --surface-elevated: #0d141b;
   --surface-hover: #101820;
+  --surface-subtle: rgba(255, 255, 255, 0.02);
+  --surface-card: rgba(255, 255, 255, 0.025);
 
   /* Borders */
   --border: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.05);
   --border-hover: rgba(255, 255, 255, 0.16);
   --border-accent: rgba(110, 231, 183, 0.24);
+  --border-default: rgba(255, 255, 255, 0.10);
 
   /* Text */
   --text-primary: #f5f7fa;
   --text-secondary: rgba(245, 247, 250, 0.72);
+  --text-tertiary: #8b95a3;
+  --text-disabled: #5a6472;
   --muted: rgba(245, 247, 250, 0.6);
   --muted-subtle: rgba(245, 247, 250, 0.42);
 
@@ -207,7 +212,7 @@
    * Elevated surface for important UI.
    */
   .surface-elevated {
-    @apply border border-white/[0.09] bg-[#0d141b];
+    @apply border border-white/[0.09] bg-bg-elevated;
     box-shadow: var(--shadow-soft);
   }
 
