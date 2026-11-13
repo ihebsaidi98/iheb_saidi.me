@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggeredCardItem } from "@/lib/motion";
 import type { AcademicProject } from "@/data/projects";
+import { Badge } from "@/components/ui/Badge";
 
 /* =========================================================
    ACADEMIC PROJECT ROW — editorial list item, not a card.
@@ -26,7 +27,7 @@ const pad2 = (n: number) => String(n + 1).padStart(2, "0");
 const MAX_TECH = 6;
 
 const rowClass =
-  "group block border-t border-white/[0.07] py-10 transition-colors duration-300 " +
+  "group block border-t border-border-subtle py-10 transition-colors duration-300 " +
   "hover:bg-white/[0.015] focus-visible:bg-white/[0.015] sm:py-12 lg:min-h-[360px] lg:py-14";
 
 function RowBody({ project, index }: { project: AcademicProject; index: number }) {
@@ -58,17 +59,21 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
 
           <div className="mt-4 flex min-h-[76px] flex-wrap items-start gap-1.5">
             {tech.map((item) => (
-              <span
+              <Badge
                 key={item}
-                className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200/75"
+                variant="emerald"
+                className="px-2 py-0.5 text-[9px] uppercase tracking-[0.12em]"
               >
                 {item}
-              </span>
+              </Badge>
             ))}
             {project.tech.length > MAX_TECH && (
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/55">
+              <Badge
+                variant="mono"
+                className="px-2 py-0.5 text-[9px] uppercase tracking-[0.12em]"
+              >
                 +{project.tech.length - MAX_TECH}
-              </span>
+              </Badge>
             )}
           </div>
         </div>
@@ -78,7 +83,7 @@ function RowBody({ project, index }: { project: AcademicProject; index: number }
       <div className="relative mt-7 shrink-0 lg:mt-0 lg:flex lg:items-stretch">
         <div
           className={
-            "relative h-[220px] w-full overflow-hidden rounded-xl border border-white/[0.08] " +
+            "relative h-[220px] w-full overflow-hidden rounded-xl border border-border-default " +
             "bg-[#0a0f16] sm:h-[250px] lg:h-[290px] lg:w-[420px] " +
             "lg:[clip-path:inset(10%_5%_10%_5%_round_12px)] " +
             "lg:transition-[clip-path] lg:duration-500 lg:ease-out " +

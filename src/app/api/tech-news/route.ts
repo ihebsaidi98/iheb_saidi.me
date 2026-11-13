@@ -134,6 +134,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 async function refresh(): Promise<TechNewsApiResponse> {
   const { articles, feedErrors } = await getFeedSource()(process.env.DEV_TO_API_KEY);
 
+  // API-LOT2-01: `Promise.allSettled` absorbs per-feed failures, so a total
+  // outage arrives here as a legitimate-looking empty result carrying the
+  // per-feed errors. It must never overwrite a valid cache, and must never be
+  // presented to the client as a genuine empty result:
+  //   - a valid cache is served stale for the current request (written below
+  //     only on real refreshes);
+  //   - without a cache, the refresh rejects and the GET handler answers 502,
+  //     consistent with an aggregator-level failure.
+  // An empty result with NO feed errors is a legitimate empty set and is
+  // cached normally, as is a partial failure that still yielded articles.
+  if (articles.length === 0 && Object.keys(feedErrors).length > 0) {
+    console.error("[tech-news/route] all feeds failed:", feedErrors);
+    if (cache) {
+      return { ...cache.data, cached: true };
+    }
+    throw new Error("All feed sources failed.");
+  }
+
   const response: TechNewsApiResponse = {
     articles,
     fetchedAt: new Date().toISOString(),

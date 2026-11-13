@@ -251,12 +251,111 @@ describe("interviewReducer — mixed-format state machine", () => {
 
       const state = interviewReducer(completing, {
         type: "COMPLETE_SUCCESS",
+        sessionToken: "t1",
         report: MOCK_REPORT,
       });
 
       assert.equal(state.phase, "completed");
       assert.deepEqual(state.completionReport, MOCK_REPORT);
       assert.equal(state.completionReport?.score_out_of_100, 84.0);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // HOOK-LOT3-02 — late completion responses must never mutate a newer
+  // or reset session.
+  // ------------------------------------------------------------------
+  describe("COMPLETE_* session-identity guard (HOOK-LOT3-02)", () => {
+    const completing: InterviewState = {
+      ...INITIAL_INTERVIEW_STATE,
+      phase: "completing",
+      sessionId: "s-old",
+      sessionToken: "t-old",
+      answeredCount: 10,
+    };
+
+    it("applies COMPLETE_SUCCESS when the session token matches", () => {
+      const state = interviewReducer(completing, {
+        type: "COMPLETE_SUCCESS",
+        sessionToken: "t-old",
+        report: MOCK_REPORT,
+      });
+
+      assert.equal(state.phase, "completed");
+      assert.deepEqual(state.completionReport, MOCK_REPORT);
+    });
+
+    it("applies COMPLETE_ERROR when the session token matches", () => {
+      const state = interviewReducer(completing, {
+        type: "COMPLETE_ERROR",
+        sessionToken: "t-old",
+        message: "Failed to generate report.",
+      });
+
+      assert.equal(state.phase, "error");
+      assert.equal(state.errorMessage, "Failed to generate report.");
+    });
+
+    it("ignores COMPLETE_SUCCESS from a stale session after a new session started", () => {
+      const newSession: InterviewState = {
+        ...INITIAL_INTERVIEW_STATE,
+        phase: "question_active",
+        sessionId: "s-new",
+        sessionToken: "t-new",
+        currentQuestion: MOCK_QUESTION_1,
+        questionNumber: 1,
+      };
+
+      const state = interviewReducer(newSession, {
+        type: "COMPLETE_SUCCESS",
+        sessionToken: "t-old",
+        report: MOCK_REPORT,
+      });
+
+      assert.equal(state.phase, "question_active");
+      assert.equal(state.sessionId, "s-new");
+      assert.equal(state.completionReport, null);
+    });
+
+    it("ignores COMPLETE_ERROR from a stale session after a new session started", () => {
+      const newSession: InterviewState = {
+        ...INITIAL_INTERVIEW_STATE,
+        phase: "question_active",
+        sessionId: "s-new",
+        sessionToken: "t-new",
+        currentQuestion: MOCK_QUESTION_1,
+        questionNumber: 1,
+      };
+
+      const state = interviewReducer(newSession, {
+        type: "COMPLETE_ERROR",
+        sessionToken: "t-old",
+        message: "Network error while completing session.",
+      });
+
+      assert.equal(state.phase, "question_active");
+      assert.equal(state.sessionId, "s-new");
+      assert.equal(state.errorMessage, null);
+    });
+
+    it("ignores COMPLETE_SUCCESS after a RESET (no active session)", () => {
+      const state = interviewReducer(INITIAL_INTERVIEW_STATE, {
+        type: "COMPLETE_SUCCESS",
+        sessionToken: "t-old",
+        report: MOCK_REPORT,
+      });
+
+      assert.deepEqual(state, INITIAL_INTERVIEW_STATE);
+    });
+
+    it("ignores COMPLETE_ERROR after a RESET (no active session)", () => {
+      const state = interviewReducer(INITIAL_INTERVIEW_STATE, {
+        type: "COMPLETE_ERROR",
+        sessionToken: "t-old",
+        message: "Network error while completing session.",
+      });
+
+      assert.deepEqual(state, INITIAL_INTERVIEW_STATE);
     });
   });
 

@@ -261,6 +261,44 @@ describe("interview-route-helpers", () => {
       assert.equal(data.code, "UPSTREAM_ERROR");
     });
 
+    it("returns 504 UPSTREAM_TIMEOUT for an explicit timeout without internal details (API-LOT2-02)", async () => {
+      const err = new AIServiceClientError("[AIServiceClient] Interview complete request timed out", {
+        status: 504,
+        code: "TIMEOUT",
+        isUnavailable: true,
+        requestId: "req-internal-42",
+      });
+      const res = handleInterviewApiError(err, {
+        routeLabel: "interview/test",
+        fallbackMessage: "Fallback",
+        headers: { "X-Test": "1" },
+      });
+      assert.equal(res.status, 504);
+      assert.equal(res.headers.get("X-Test"), "1");
+      const data = (await res.json()) as { error: string; code: string };
+      assert.equal(data.code, "UPSTREAM_TIMEOUT");
+      assert.match(data.error, /took too long/i);
+      // No upstream message, request id or stack trace leaks through.
+      assert.ok(!data.error.includes("req-internal-42"));
+      assert.ok(!data.error.includes("AIServiceClient"));
+      assert.ok(!data.error.includes("timed out".toLowerCase() && "request"));
+    });
+
+    it("maps an upstream 504 without TIMEOUT code to 504 as well (API-LOT2-02)", async () => {
+      const err = new AIServiceClientError("Upstream gateway timeout", {
+        status: 504,
+        code: "HTTP_ERROR",
+        isUnavailable: true,
+      });
+      const res = handleInterviewApiError(err, {
+        routeLabel: "interview/test",
+        fallbackMessage: "Fallback",
+      });
+      assert.equal(res.status, 504);
+      const data = (await res.json()) as { code: string };
+      assert.equal(data.code, "UPSTREAM_TIMEOUT");
+    });
+
     it("handles 503 SERVICE_UNAVAILABLE with clean message", async () => {
       const err = new AIServiceClientError("Down", {
         status: 503,

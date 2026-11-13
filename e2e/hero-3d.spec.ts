@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("Hero 3D scene renders WebGL canvas without ReactCurrentOwner errors", async ({ page }) => {
+test("Hero 3D scene renders WebGL canvas without ReactCurrentOwner errors", async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
 
@@ -79,6 +79,7 @@ test("Hero 3D scene renders WebGL canvas without ReactCurrentOwner errors", asyn
   });
   expect(framesRendered).toBeGreaterThanOrEqual(5);
 
-  // Capture screenshot as visual evidence
-  await page.screenshot({ path: "/home/iheb/.gemini/antigravity/brain/5e309bc1-c0e6-47e7-ac27-dc2e60e20fe8/hero-3d-scene.png" });
+  // Capture screenshot as visual evidence (CROSS-LOT7-01: portable path —
+  // testInfo.outputPath lands in test-results/, no machine-specific location).
+  await page.screenshot({ path: testInfo.outputPath("hero-3d-scene.png") });
 });

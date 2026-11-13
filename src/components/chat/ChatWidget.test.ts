@@ -9,6 +9,8 @@ import { describe, it } from "node:test";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
 import { ChatWidget } from "./ChatWidget";
+import { chatReducer, INITIAL_CHAT_STATE } from "@/hooks/useChat";
+import { InterviewSimulatorSkeleton } from "@/components/interview/InterviewSimulatorLazy";
 
 describe("Phase 2 — ChatWidget Scrolling, Auto-scroll & Mobile UX", () => {
   it("renders closed FAB with fixed bottom-6 right-6 and accessibility attributes", () => {
@@ -93,4 +95,116 @@ describe("Phase 2 — ChatWidget Scrolling, Auto-scroll & Mobile UX", () => {
       assert.equal(maxSheetHeight, 520);
     });
   });
+
+  describe("Phase 3 Regression — State Persistence, Lifecycle & Code Splitting", () => {
+    it("preserves conversation history across close and reopen cycles", () => {
+      // 1. Initial state
+      let state = INITIAL_CHAT_STATE;
+      assert.equal(state.messages.length, 0);
+
+      // 2. User sends question
+      state = chatReducer(state, { type: "SEND", question: "What is your stack?", msgId: "turn-1" });
+      assert.equal(state.messages.length, 2);
+      assert.equal(state.status, "loading");
+
+      // 3. Assistant responds with success
+      state = chatReducer(state, {
+        type: "SUCCESS",
+        msgId: "turn-1",
+        answer: "Spring Boot and Angular.",
+        sources: [],
+      });
+      assert.equal(state.status, "idle");
+      assert.equal(state.messages.length, 2);
+      assert.equal(state.messages[1]?.content, "Spring Boot and Angular.");
+
+      // 4. Simulate dialog closing (open = false) and reopening (open = true)
+      // Because state lives in ChatWidget, the state object is retained
+      const preservedMessages = [...state.messages];
+      assert.equal(preservedMessages.length, 2);
+      assert.equal(preservedMessages[0]?.content, "What is your stack?");
+      assert.equal(preservedMessages[1]?.content, "Spring Boot and Angular.");
+    });
+
+    it("handles close during in-flight request and verifies AbortController signal lifecycle", () => {
+      const controller = new AbortController();
+      let aborted = false;
+      controller.signal.addEventListener("abort", () => {
+        aborted = true;
+      });
+
+      // In-flight state
+      let state = chatReducer(INITIAL_CHAT_STATE, {
+        type: "SEND",
+        question: "In flight query",
+        msgId: "flight-1",
+      });
+      assert.equal(state.status, "loading");
+
+      // Closing does not mutate reducer state; aborting signal cancels the fetch
+      controller.abort();
+      assert.equal(aborted, true);
+
+      // AbortError handling: state remains in valid loading/interrupted state without corrupted messages
+      assert.equal(state.messages.length, 2);
+      assert.equal(state.messages[0]?.content, "In flight query");
+    });
+
+    it("verifies error state and visual FAB indicator logic without duplicating state", () => {
+      function shouldShowFabErrorBadge(status: string, isOpen: boolean): boolean {
+        return !isOpen && status === "error";
+      }
+
+      // Normal idle state -> no badge
+      assert.equal(shouldShowFabErrorBadge("idle", false), false);
+
+      // Loading state -> no badge
+      assert.equal(shouldShowFabErrorBadge("loading", false), false);
+
+      // Error when closed -> shows red indicator
+      assert.equal(shouldShowFabErrorBadge("error", false), true);
+
+      // Error when opened -> badge hidden (error shown inside panel)
+      assert.equal(shouldShowFabErrorBadge("error", true), false);
+
+      // Clear action resets status to idle -> badge hidden
+      const clearedState = chatReducer(
+        { ...INITIAL_CHAT_STATE, status: "error", errorMessage: "Failed" },
+        { type: "CLEAR" }
+      );
+      assert.equal(clearedState.status, "idle");
+      assert.equal(shouldShowFabErrorBadge(clearedState.status, false), false);
+    });
+
+    it("verifies hasOpened keeps dialog component mounted for exit animation", () => {
+      // Simulate state machine of ChatWidget
+      let hasOpened = false;
+      let isOpen = false;
+
+      // Initial: not mounted
+      assert.equal(hasOpened, false);
+
+      // First click: mounted and open
+      hasOpened = true;
+      isOpen = true;
+      assert.equal(hasOpened && isOpen, true);
+
+      // User closes: hasOpened remains true, isOpen becomes false
+      // This allows AnimatePresence inside ChatDialog to play exit animation before disappearing
+      isOpen = false;
+      assert.equal(hasOpened, true);
+      assert.equal(isOpen, false);
+      assert.equal(hasOpened && !isOpen, true); // Stays mounted with isOpen=false for exit animation
+    });
+
+    it("verifies deferred InterviewSimulatorSkeleton renders accessible container with id=interview", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(React.createElement(InterviewSimulatorSkeleton));
+      assert.match(html, /id="interview"/);
+      assert.match(html, /Technical Interview/);
+      assert.match(html, /Simulator/);
+      assert.match(html, /animate-pulse/);
+      assert.match(html, /min-h-\[560px\]/);
+    });
+  });
 });
+

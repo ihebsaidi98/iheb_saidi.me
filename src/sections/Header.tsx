@@ -9,6 +9,11 @@ import { useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import { EASE } from "@/components/hero-motion";
 import { useA11yMode } from "@/components/MotionProvider";
+import { Magnetic } from "@/components/ui/Magnetic";
+import { Button } from "@/components/ui/Button";
+import { StatusDot } from "@/components/ui/StatusDot";
+import { availability } from "@/data/site";
+import { profile } from "@/data/profile";
 
 const navItems = [
   { name: "Home", href: "#top" },
@@ -131,8 +136,8 @@ export const Header = () => {
         className="
           group relative flex max-w-full items-center
           overflow-x-auto rounded-full
-          border border-white/[0.09]
-          bg-[#080d12]/80
+          border border-border-default
+          bg-bg-elevated
           p-1
           shadow-[0_12px_40px_rgba(0,0,0,0.28)]
           backdrop-blur-2xl
@@ -169,8 +174,15 @@ export const Header = () => {
 
        
 
+        {/* Brand identity */}
+        <div className="flex items-center gap-2 shrink-0 px-1">
+          <span className="font-semibold text-[18px] tracking-[-0.01em] text-text-primary">
+            Iheb Saidi
+          </span>
+        </div>
+
         {/* Navigation */}
-        <div className="relative flex items-center gap-0.5">
+        <div className="relative flex items-center gap-0.5 shrink-0 min-w-0">
           {navItems.map((item) => {
             const isActive = active === item.name;
 
@@ -225,6 +237,24 @@ export const Header = () => {
               </a>
             );
           })}
+        </div>
+
+        {/* Status + CV CTA */}
+        <div className="flex items-center gap-2 shrink-0 px-1">
+          <StatusDot size={8} className="shrink-0" />
+          <span className="font-mono text-[9px] font-medium tracking-[0.22em] text-emerald-200/70 shrink-0">
+            {availability}
+          </span>
+          <Magnetic>
+            <Button
+              href={profile.cv}
+              download
+              variant="primary"
+              size="sm"
+            >
+              Download CV
+            </Button>
+          </Magnetic>
         </div>
       </nav>
     </motion.header>

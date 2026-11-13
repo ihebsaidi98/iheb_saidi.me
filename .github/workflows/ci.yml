@@ -59,3 +59,38 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # Playwright browsers are not installed by npm ci; ship them explicitly.
+      # `--with-deps` installs the OS libraries the browsers need on ubuntu-latest.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # Single build: the job builds once here, and PLAYWRIGHT_SKIP_BUILD=1
+      # makes the playwright webServer start the already-built app instead of
+      # rebuilding (see playwright.config.ts and npm run test:e2e:ci).
+      - name: Production build
+        run: npm run build
+
+      # No AI service is needed: the chat routes fail closed with a controlled
+      # 503 when the service is absent, and the E2E specs exercise the UI
+      # against mocked /api/chat handlers or that controlled failure.
+      - name: Run Playwright tests
+        run: npm run test:e2e:ci

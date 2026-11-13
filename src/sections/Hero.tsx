@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { memo, useEffect, useRef, useState } from "react";
 import ArrowDown from "@/assets/icons/arrow-down.svg";
-import { Chip } from "@/components/ui/Chip";
+import { Button } from "@/components/ui/Button";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { availability, locationShort } from "@/data/site";
 import { useEnvironment } from "@/lib/environment";
@@ -299,7 +299,7 @@ function TerminalCard() {
           <span className="ml-3 truncate font-mono text-[9px] tracking-[0.18em] text-white/55 sm:text-[10px]">
             OpportunityController.java
           </span>
-          <span className="ml-auto font-mono text-[8px] uppercase tracking-[0.18em] text-white/40 sm:text-[9px]">
+          <span className="ml-auto font-mono text-[8px] uppercase tracking-[0.18em] text-white/55 sm:text-[9px]">
             UTF-8
           </span>
         </div>
@@ -390,7 +390,7 @@ export const HeroSection = () => {
   return (
     <section
       id="top"
-      className="relative isolate h-[100svh] overflow-hidden bg-[#04070c]"
+      className="relative isolate h-[100svh] overflow-hidden bg-root"
     >
       {loadScene ? <HeroScene3D /> : <StaticHeroScene />}
 
@@ -445,23 +445,24 @@ export const HeroSection = () => {
 
 
             <div className="mt-6 flex flex-wrap items-center gap-6">
-              <a
+              <Button
                 href="#projects"
-                className="group inline-flex items-center gap-2 rounded-full border border-emerald-200/25 bg-emerald-300/[0.08] px-6 py-3 text-xs font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-emerald-300/[0.14] hover:shadow-[0_8px_40px_rgba(16,185,129,0.25)]"
+                variant="primary"
+                size="lg"
               >
                 View my work
                 <ArrowDown
                   aria-hidden="true"
                   className="size-4 rotate-[-45deg] transition-transform duration-300 group-hover:translate-x-1"
                 />
-              </a>
-              {/* padded to a 44px touch target */}
-              <a
+              </Button>
+              <Button
                 href="#contact"
-                className="px-2 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-white/60 transition-colors hover:text-white"
+                variant="ghost"
+                size="lg"
               >
                 Get in touch
-              </a>
+              </Button>
             </div>
 
           </div>

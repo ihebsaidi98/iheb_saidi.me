@@ -11,7 +11,7 @@ export function StatusDot({
     <span className={`relative inline-flex ${className}`} style={{ width: px, height: px }}>
       <span
         aria-hidden
-        className="absolute inline-flex animate-ping rounded-full bg-emerald-400 opacity-60"
+        className="absolute inline-flex animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden [[data-reduced-motion=true]_&]:hidden"
         style={{ width: px, height: px }}
       />
       <span

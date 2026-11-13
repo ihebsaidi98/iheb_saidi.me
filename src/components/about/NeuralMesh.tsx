@@ -43,19 +43,25 @@ export function NeuralMesh({
       }
     };
 
+    // ADR-08 — Memoised dimensions: set once by resize() and updated by
+    // ResizeObserver. draw() reads these variables instead of calling
+    // getBoundingClientRect() on every RAF tick (zero DOM read per frame).
+    let drawWidth = 1;
+    let drawHeight = 1;
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      const width = Math.max(rect.width, 1);
-      const height = Math.max(rect.height, 1);
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
+      drawWidth = Math.max(rect.width, 1);
+      drawHeight = Math.max(rect.height, 1);
+      canvas.width = Math.round(drawWidth * dpr);
+      canvas.height = Math.round(drawHeight * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
     const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      const width = Math.max(rect.width, 1);
-      const height = Math.max(rect.height, 1);
+      // Uses memoised drawWidth/drawHeight — no DOM read per frame.
+      const width = drawWidth;
+      const height = drawHeight;
 
       ctx.clearRect(0, 0, width, height);
 
@@ -192,6 +198,14 @@ export function NeuralMesh({
     buildNodes();
     resize();
 
+    // ADR-08 — ResizeObserver: triggers resize() (and a redraw) only when the
+    // canvas container actually changes size, instead of polling on every RAF.
+    const resizeObserver = new ResizeObserver(() => {
+      resize();
+      draw();
+    });
+    resizeObserver.observe(canvas);
+
     if (shouldReduce) {
       draw();
     } else {
@@ -206,6 +220,7 @@ export function NeuralMesh({
     return () => {
       stop();
       observer.disconnect();
+      resizeObserver.disconnect();
       host.removeEventListener("pointermove", handleMove);
       host.removeEventListener("pointerleave", handleLeave);
       mobileMatch.removeEventListener("change", updateDensity);

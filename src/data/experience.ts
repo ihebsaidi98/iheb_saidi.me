@@ -7,6 +7,36 @@ export type ExperienceEntry = {
   details: readonly string[];
 };
 
+/**
+ * Valide que chaque organisation déclarée dans la configuration d'expérience
+ * possède une période correspondante dans `workPeriodsByOrganization`.
+ *
+ * Lève une erreur descriptive au démarrage du module plutôt que de produire
+ * silencieusement `period: undefined` à l'exécution.
+ *
+ * @param entries - Entrées de configuration d'expérience (readonly, non modifiées)
+ * @param periods - Table des périodes (source unique, non modifié)
+ */
+export function validateExperiencePeriods(
+  entries: readonly { readonly organization: string }[],
+  periods: Readonly<Record<string, string>>,
+): void {
+  for (const entry of entries) {
+    const organization = entry.organization;
+    if (!(organization in periods)) {
+      throw new Error(
+        `Experience period missing for organization "${organization}": ` +
+          "no matching entry in workPeriodsByOrganization.",
+      );
+    }
+    if (periods[organization] === "") {
+      throw new Error(
+        `Experience period empty for organization "${organization}".`,
+      );
+    }
+  }
+}
+
 const EXPERIENCE_CONFIG = [
   {
     role: "Full Stack Engineer",
@@ -67,9 +97,11 @@ const EXPERIENCE_CONFIG = [
   },
 ] as const;
 
+validateExperiencePeriods(EXPERIENCE_CONFIG, workPeriodsByOrganization);
+
 export const experience: readonly ExperienceEntry[] = EXPERIENCE_CONFIG.map((job) => ({
   ...job,
-  period: workPeriodsByOrganization[job.organization as keyof typeof workPeriodsByOrganization],
+  period: workPeriodsByOrganization[job.organization],
 }));
 
 /*

@@ -58,3 +58,14 @@ __pycache__/
 *.save
 *.swp
 *~
+
+
+# Internal audit reports and agent-generated documentation
+/LOT-*.md
+/PHASE-*.md
+/*-REPORT.md
+/*-PREFLIGHT.md
+/*-AUDIT*.md
+# Internal audit reports and agent-generated documentation
+/*.md
+!/README.md

@@ -5,11 +5,16 @@ import Lenis from "lenis";
 import { ReactNode, useEffect } from "react";
 
 export function normalizeInitialHash(pathname: string, hash: string | null | undefined): string {
-  if (!pathname || pathname === "/") {
+  if (!hash || hash === "#") {
     return "";
   }
 
-  return hash ?? "";
+  // Preserve valid DOM element ID anchors (#about, #projects, #experience, etc.)
+  if (/^#[a-zA-Z0-9_-]+$/.test(hash)) {
+    return hash;
+  }
+
+  return "";
 }
 
 export function SmoothScroll({ children }: { children: ReactNode }) {
@@ -25,13 +30,15 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
     const normalizedHash = normalizeInitialHash(pathname, hash);
 
     if (normalizedHash !== hash) {
-      const nextUrl = `${pathname}${window.location.search}`;
+      const nextUrl = `${pathname}${window.location.search}${normalizedHash}`;
       window.history.replaceState(window.history.state, "", nextUrl);
     }
 
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    });
+    if (!normalizedHash || normalizedHash === "#top") {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      });
+    }
 
     // native scrolling on touch devices and for reduced-motion users
     if (reduceMotion || window.matchMedia("(pointer: coarse)").matches) {

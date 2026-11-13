@@ -84,7 +84,7 @@ export default async function RootLayout({
           className="pointer-events-none fixed inset-0 -z-10"
           style={{
             background:
-              "radial-gradient(ellipse 80% 45% at 50% -10%, rgba(56, 189, 248, 0.085), transparent 66%), radial-gradient(ellipse 55% 35% at 15% 20%, rgba(110, 231, 183, 0.035), transparent 70%), #05070a",
+              "radial-gradient(ellipse 80% 45% at 50% -10%, rgba(56, 189, 248, 0.085), transparent 66%), radial-gradient(ellipse 55% 35% at 15% 20%, rgba(110, 231, 183, 0.035), transparent 70%), var(--background)",
           }}
         />
 
