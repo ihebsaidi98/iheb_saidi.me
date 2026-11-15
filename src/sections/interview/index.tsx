@@ -1,5 +1,5 @@
 /**
- * src/sections/InterviewSimulator.tsx
+ * src/sections/interview/index.tsx
  *
  * Mixed-Format Technical Interview Simulator section.
  *
@@ -20,13 +20,12 @@ import { Announcer } from "@/components/ui/Announcer";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { useA11yMode } from "@/components/MotionProvider";
+import { EASE } from "@/lib/motion-ease";
 import {
   useInterview,
   type InterviewTrack,
   type InterviewQuestion,
   type SessionCompletionReport,
-  type MCQResult,
-  type WrittenResult,
 } from "@/hooks/useInterview";
 
 // ============================================================
@@ -64,8 +63,6 @@ const TRACK_OPTIONS: {
     desc: "Embeddings, RAG, Transformers, prompt engineering, LLM scaling",
   },
 ];
-
-const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 function trackLabel(t: InterviewTrack): string {
   return TRACK_OPTIONS.find((o) => o.value === t)?.label ?? t;

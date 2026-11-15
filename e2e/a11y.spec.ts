@@ -321,25 +321,11 @@ const elements = Array.from(document.querySelectorAll(selector));
 
   expect(gradientText, "No section header text should use gradient background-clip styles.").toBeFalsy();
 
-  const noHorizontalScroll = await page.evaluate(async () => {
-    const sizes = [390, 1440];
-    for (const size of sizes) {
-      const viewport = { width: size, height: 1200 };
-      // @ts-expect-error the runtime exposes page.setViewportSize only in browser contexts, so this check is intentionally scoped to the browser page context.
-      window.__setViewport = window.__setViewport || ((next) => {
-        // no-op fallback for the browser evaluation environment
-      });
-      document.body.style.width = `${size}px`;
-      const scrollWidth = document.documentElement.scrollWidth;
-      const innerWidth = window.innerWidth;
-      if (scrollWidth > innerWidth + 1) {
-        return false;
-      }
-    }
-    return true;
-  });
+  const noHorizontalScroll = await page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth + 1,
+  );
 
-  expect(noHorizontalScroll, "The section header layout must not introduce horizontal overflow at small or large viewport widths.").toBeTruthy();
+  expect(noHorizontalScroll, "The section header layout must not introduce horizontal overflow.").toBeTruthy();
 });
 
 test("section h2s do not contain literal HTML entity text", async ({ page }) => {

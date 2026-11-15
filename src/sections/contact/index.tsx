@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { EASE } from "@/components/hero-motion";
+import { EASE } from "@/lib/motion-ease";
 import { useA11yMode } from "@/components/MotionProvider";
 import { Magnetic } from "@/components/ui/Magnetic";
 import { SectionShell } from "@/components/ui/SectionShell";

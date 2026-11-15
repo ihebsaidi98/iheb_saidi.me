@@ -422,9 +422,26 @@ describe("POST /api/interview/complete — Secure Proxy Route", () => {
     }
   });
 
-  it("confirms start and submit routes preserve their independent quota of 15", async () => {
+  it("confirms start and submit routes preserve their independent quota of 15", async (t) => {
+    const originalSubmitInterviewAnswer = aiServiceClient.submitInterviewAnswer;
+    const originalIsConfigured = aiServiceClient.isConfigured;
+    const originalStartInterview = aiServiceClient.startInterview;
+    t.after(() => {
+      aiServiceClient.submitInterviewAnswer = originalSubmitInterviewAnswer;
+      aiServiceClient.isConfigured = originalIsConfigured;
+      aiServiceClient.startInterview = originalStartInterview;
+    });
     const startRoute = await import("../start/route");
     const submitRoute = await import("../submit/route");
+    aiServiceClient.submitInterviewAnswer = async () => ({
+      session_id: "s-1",
+      question_id: "q-1",
+      question_number: 1,
+      answered_count: 1,
+      total_questions: 10,
+      is_complete: false,
+      next_question: null,
+    });
     aiServiceClient.isConfigured = () => true;
     aiServiceClient.startInterview = async () => ({
       session_id: "s-1",
@@ -456,6 +473,23 @@ describe("POST /api/interview/complete — Secure Proxy Route", () => {
 
     const startRes = await startRoute.POST(startReq);
     assert.equal(startRes.headers.get("X-RateLimit-Limit"), "15");
+
+    const submitReq = new NextRequest("http://localhost:3000/api/interview/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-real-ip": "10.0.30.2",
+        "x-forwarded-for": "10.0.30.2",
+      },
+      body: JSON.stringify({
+        session_id: "s-1",
+        session_token: "t-1",
+        question_id: "q-1",
+        answer: "A",
+      }),
+    });
+    const submitRes = await submitRoute.POST(submitReq);
+    assert.equal(submitRes.headers.get("X-RateLimit-Limit"), "15");
   });
 
   it("answers 429 before the Content-Length check once the IP quota is spent (F5)", async () => {

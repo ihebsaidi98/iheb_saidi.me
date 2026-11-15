@@ -2,10 +2,10 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useRef } from "react";
-import { IdentityCard } from "@/components/about/IdentityCard";
-import { NeuralMesh } from "@/components/about/NeuralMesh";
-import { TechStackFiles } from "@/components/about/TechStackFiles";
-import { EASE } from "@/components/hero-motion";
+import { IdentityCard } from "./components/IdentityCard";
+import { NeuralMesh } from "./components/NeuralMesh";
+import { TechStackFiles } from "./components/TechStackFiles";
+import { EASE } from "@/lib/motion-ease";
 import { SectionShell } from "@/components/ui/SectionShell";
 
 function Mono({ children }: { children: React.ReactNode }) {

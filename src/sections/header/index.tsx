@@ -7,7 +7,7 @@ import {
 } from "framer-motion";
 import { useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
-import { EASE } from "@/components/hero-motion";
+import { EASE } from "@/lib/motion-ease";
 import { useA11yMode } from "@/components/MotionProvider";
 import { Magnetic } from "@/components/ui/Magnetic";
 import { Button } from "@/components/ui/Button";

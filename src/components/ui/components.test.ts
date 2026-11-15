@@ -17,7 +17,7 @@ import { SectionShell } from "./SectionShell";
 import { Badge } from "./Badge";
 import { StatusDot } from "./StatusDot";
 import { CopyButton } from "../CopyButton";
-import { ProfessionalExperience } from "../projects/ProfessionalExperience";
+import { ProfessionalExperience } from "@/sections/projects/components/ProfessionalExperience";
 import type { ProfessionalExperience as Experience } from "@/data/projects";
 import { ChatWidget } from "../chat/ChatWidget";
 

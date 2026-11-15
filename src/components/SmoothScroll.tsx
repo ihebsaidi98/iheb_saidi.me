@@ -4,7 +4,7 @@ import { useReducedMotion } from "framer-motion";
 import Lenis from "lenis";
 import { ReactNode, useEffect } from "react";
 
-export function normalizeInitialHash(pathname: string, hash: string | null | undefined): string {
+export function normalizeInitialHash(_pathname: string, hash: string | null | undefined): string {
   if (!hash || hash === "#") {
     return "";
   }

@@ -3,7 +3,7 @@
  *
  * `next.config.mjs` replaces Next's default file-loader rule for `.svg` with
  * `@svgr/webpack` (except for `*.svg?url`), so an SVG import yields a React
- * component — which is how `src/sections/Hero.tsx` uses it (`<ArrowDown />`).
+ * component — which is how `src/sections/hero/index.tsx` uses it (`<ArrowDown />`).
  *
  * TypeScript needs to be told that. Next ships such a declaration in
  * `next/image-types/global.d.ts`, but it only reaches the compiler through

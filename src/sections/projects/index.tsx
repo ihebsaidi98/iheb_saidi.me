@@ -1,6 +1,6 @@
 import { SectionShell } from "@/components/ui/SectionShell";
-import { ProfessionalExperience } from "@/components/projects/ProfessionalExperience";
-import { OtherBuilds } from "@/components/projects/OtherBuilds";
+import { ProfessionalExperience } from "./components/ProfessionalExperience";
+import { OtherBuilds } from "./components/OtherBuilds";
 import { professionalExperience, academicProjects } from "@/data/projects";
 
 /* =========================================================

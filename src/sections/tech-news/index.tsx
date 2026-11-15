@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * src/sections/TechNews.tsx
+ * src/sections/tech-news/index.tsx
  *
  * Tech News section — reuses the portfolio design system:
  *   SectionShell, design tokens, framer-motion patterns, typography scale.
@@ -25,6 +25,7 @@ import { twMerge } from "tailwind-merge";
 import { SectionShell } from "@/components/ui/SectionShell";
 import { CATEGORIES } from "@/lib/tech-news";
 import type { NewsArticle, CategoryId, TechNewsApiResponse } from "@/lib/tech-news";
+import { EASE } from "@/lib/motion-ease";
 
 // ============================================================
 // CONSTANTS
@@ -32,7 +33,6 @@ import type { NewsArticle, CategoryId, TechNewsApiResponse } from "@/lib/tech-ne
 
 const INITIAL_COUNT = 9;
 const LOAD_MORE_COUNT = 9;
-const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /** Colour scheme per category. Stays within the emerald/cyan dark-mode palette. */
 const CAT_STYLE: Record<string, { pill: string; badge: string }> = {

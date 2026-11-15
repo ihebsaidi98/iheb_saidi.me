@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { CopyButton } from "@/components/CopyButton";
-import { EASE } from "@/components/hero-motion";
+import { EASE } from "@/lib/motion-ease";
 import { SectionHeader } from "@/components/ui/SectionShell";
 import { SKILL_GROUPS, type SkillGroup } from "@/data/about";
 import { staggeredCardItem, staggeredCardList } from "@/lib/motion";

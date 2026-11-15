@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
-import { EASE } from "@/components/hero-motion";
+import { EASE } from "@/lib/motion-ease";
 import { profile } from "@/data/profile";
 import { useTilt } from "@/hooks/useTilt";
 

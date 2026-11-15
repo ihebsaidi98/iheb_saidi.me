@@ -387,7 +387,7 @@ describe("Phase 4 — RAG Factual Grounding Evaluation Suite (32 Cases)", () => 
   // 8. ANTI-HALLUCINATION: UNSUPPORTED TECHNOLOGIES (NEGATIVE/ABSTAIN)
   // -------------------------------------------------------------
   it("EVAL-21: abstains or disclaims experience with Rust", async () => {
-    const res = await searchPortfolioKnowledge("How many years of Rust programming experience does Iheb have?", evalOptions);
+    await searchPortfolioKnowledge("How many years of Rust programming experience does Iheb have?", evalOptions);
     // Either zero chunks retrieved (abstain), or system prompt disclaims
     assert.ok(SYSTEM_PROMPT.includes("unsupported technologies"));
   });

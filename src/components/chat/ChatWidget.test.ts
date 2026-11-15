@@ -10,7 +10,7 @@ import React from "react";
 import ReactDOMServer from "react-dom/server";
 import { ChatWidget } from "./ChatWidget";
 import { chatReducer, INITIAL_CHAT_STATE } from "@/hooks/useChat";
-import { InterviewSimulatorSkeleton } from "@/components/interview/InterviewSimulatorLazy";
+import { InterviewSimulatorSkeleton } from "@/sections/interview/InterviewSimulatorLazy";
 
 describe("Phase 2 — ChatWidget Scrolling, Auto-scroll & Mobile UX", () => {
   it("renders closed FAB with fixed bottom-6 right-6 and accessibility attributes", () => {

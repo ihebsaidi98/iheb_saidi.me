@@ -1,14 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  API_KEY_PATTERN,
-  BASIC_AUTH_PATTERN,
-  BEARER_PATTERN,
-  JWT_PATTERN,
-  SENSITIVE_PARAM_PATTERN,
-  redactSecrets,
-  sanitizeLogMessage,
-} from "./redact";
+import { redactSecrets, sanitizeLogMessage } from "./redact";
 
 describe("src/lib/redact — redactSecrets()", () => {
   describe("Category 1: Google API keys", () => {
@@ -126,15 +118,6 @@ describe("src/lib/redact — redactSecrets()", () => {
 
   describe("False Positive Protection", () => {
     it("does not redact ordinary words or benign parameters containing substring keys", () => {
-      const benign = [
-        "monkey=banana",
-        "hockey=stick",
-        "keyboard=mechanical",
-        "donkey=kong",
-        "token_type=Bearer",
-        "user=alice&public_key=present", // public_key has _key so it is sensitive, but user is untouched
-      ];
-
       assert.equal(redactSecrets("monkey=banana"), "monkey=banana");
       assert.equal(redactSecrets("hockey=stick"), "hockey=stick");
       assert.equal(redactSecrets("keyboard=mechanical"), "keyboard=mechanical");

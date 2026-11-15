@@ -1,5 +1,5 @@
 /**
- * src/components/interview/InterviewSimulatorLazy.tsx
+ * src/sections/interview/InterviewSimulatorLazy.tsx
  *
  * Client Component wrapper for ADR-04 code-splitting of InterviewSimulatorSection.
  * Allows `ssr: false` in App Router while rendering an accessible skeleton on the server.
@@ -26,7 +26,7 @@ export function InterviewSimulatorSkeleton() {
 
 const DynamicInterviewSimulator = dynamic(
   () =>
-    import("@/sections/InterviewSimulator").then(
+    import("@/sections/interview").then(
       (mod) => mod.InterviewSimulatorSection
     ),
   {

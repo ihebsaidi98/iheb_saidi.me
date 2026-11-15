@@ -17,7 +17,7 @@
  */
 
 import assert from "node:assert/strict";
-import { describe, it, before, after } from "node:test";
+import { describe, it } from "node:test";
 
 import React from "react";
 import ReactDOMServer from "react-dom/server";
@@ -36,7 +36,6 @@ import {
   clientIpRateLimitKey,
   formatRetrievedContext,
   formatUserPrompt,
-  escapeXml,
   ProxyConfigurationError,
   cleanChatResponse,
   cleanSourceTitle,
@@ -1874,20 +1873,20 @@ He also has experience with AI integration, including Spring AI, LangChain4j, Op
 
 describe("cleanSourceTitle — human-readable reference titles", () => {
   it("cleans internal skill titles to readable category names", () => {
-    assert.equal(cleanSourceTitle("Technical Skills — backend", "skills"), "Backend Development");
-    assert.equal(cleanSourceTitle("Technical Skills — frontend", "skills"), "Frontend Development");
-    assert.equal(cleanSourceTitle("Technical Skills — ai-ml", "skills"), "AI & Machine Learning");
-    assert.equal(cleanSourceTitle("Technical Skills — cloud-devops", "skills"), "Cloud & DevOps");
+    assert.equal(cleanSourceTitle("Technical Skills — backend"), "Backend Development");
+    assert.equal(cleanSourceTitle("Technical Skills — frontend"), "Frontend Development");
+    assert.equal(cleanSourceTitle("Technical Skills — ai-ml"), "AI & Machine Learning");
+    assert.equal(cleanSourceTitle("Technical Skills — cloud-devops"), "Cloud & DevOps");
   });
 
   it("cleans profile and contact titles", () => {
-    assert.equal(cleanSourceTitle("Iheb Saidi — Professional Profile", "profile"), "Professional Profile");
-    assert.equal(cleanSourceTitle("Contact Information — Iheb Saidi", "contact"), "Contact Information");
+    assert.equal(cleanSourceTitle("Iheb Saidi — Professional Profile"), "Professional Profile");
+    assert.equal(cleanSourceTitle("Contact Information — Iheb Saidi"), "Contact Information");
   });
 
   it("preserves custom project and experience titles", () => {
-    assert.equal(cleanSourceTitle("AgroRetail OS", "project"), "AgroRetail OS");
-    assert.equal(cleanSourceTitle("Experience at Novatek", "experience"), "Experience at Novatek");
+    assert.equal(cleanSourceTitle("AgroRetail OS"), "AgroRetail OS");
+    assert.equal(cleanSourceTitle("Experience at Novatek"), "Experience at Novatek");
   });
 });
 

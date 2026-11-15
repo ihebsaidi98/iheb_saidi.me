@@ -154,7 +154,7 @@ describe("AIServiceClient", () => {
       const originalFetch = globalThis.fetch;
       let interceptedHeaders: Headers | undefined;
 
-      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
         interceptedHeaders = new Headers(init?.headers);
         return new Response(
           JSON.stringify({
@@ -195,7 +195,7 @@ describe("AIServiceClient", () => {
       const originalFetch = globalThis.fetch;
       let interceptedHeaders: Headers | undefined;
 
-      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
         interceptedHeaders = new Headers(init?.headers);
         return new Response(
           JSON.stringify({

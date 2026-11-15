@@ -667,7 +667,7 @@ export function extractGeminiResponseText(response: unknown): string {
  * Normalizes document titles into clean, concise human-readable references.
  * Strips internal prefixes (like "Technical Skills — ", "Iheb Saidi — ") and redundant suffixes.
  */
-export function cleanSourceTitle(title: string, type?: KnowledgeDocumentType): string {
+export function cleanSourceTitle(title: string): string {
   if (!title || typeof title !== "string") return "";
   let clean = title.trim();
 
@@ -758,7 +758,7 @@ export function formatSources(chunks: KnowledgeChunk[]): ChatSource[] {
       seen.add(chunk.documentId);
       sources.push({
         id: chunk.documentId,
-        title: cleanSourceTitle(chunk.title, chunk.type),
+        title: cleanSourceTitle(chunk.title),
         type: chunk.type,
       });
     }

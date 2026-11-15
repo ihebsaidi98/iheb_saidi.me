@@ -1,10 +1,10 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { EASE } from "@/components/hero-motion";
+import { EASE } from "@/lib/motion-ease";
 import { SectionHeader } from "@/components/ui/SectionShell";
 import type { AcademicProject } from "@/data/projects";
-import { AcademicProjectRow } from "@/components/projects/AcademicProjectRow";
+import { AcademicProjectRow } from "./AcademicProjectRow";
 import { staggeredCardList } from "@/lib/motion";
 
 export function OtherBuilds({ projects }: { projects: readonly AcademicProject[] }) {

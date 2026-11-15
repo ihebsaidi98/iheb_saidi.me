@@ -18,7 +18,7 @@ import {
   useTransform,
   type Variants,
 } from "framer-motion";
-import { EASE } from "@/components/hero-motion";
+import { EASE } from "@/lib/motion-ease";
 import type { ProfessionalExperience as Experience } from "@/data/projects";
 
 /* =========================================================

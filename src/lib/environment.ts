@@ -2,10 +2,20 @@
 
 import { useSyncExternalStore } from "react";
 
+export type NavigatorConnection = EventTarget & {
+  saveData?: boolean;
+  effectiveType?: string;
+};
+
+export type NavigatorWithConnection = Navigator & {
+  connection?: NavigatorConnection;
+};
+
 export type Environment = {
   webgl: boolean;
   mobile: boolean;
   lowPower: boolean;
+  saveData: boolean;
   reduceMotion: boolean;
 };
 
@@ -13,6 +23,7 @@ const SERVER_ENV: Environment = {
   webgl: false,
   mobile: false,
   lowPower: false,
+  saveData: false,
   reduceMotion: false,
 };
 
@@ -60,11 +71,7 @@ function detect(): Environment {
     window.matchMedia("(max-width: 768px)").matches ||
     window.matchMedia("(pointer: coarse)").matches;
 
-  const conn = (
-    navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }
-  ).connection;
+  const conn = (navigator as NavigatorWithConnection).connection;
 
   cached = {
     webgl,
@@ -74,6 +81,7 @@ function detect(): Environment {
       conn?.saveData === true ||
       conn?.effectiveType === "2g" ||
       conn?.effectiveType === "slow-2g",
+    saveData: conn?.saveData === true,
     reduceMotion:
       window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
       new URLSearchParams(window.location.search).has("a11y"),
@@ -87,7 +95,10 @@ function subscribe(onChange: () => void) {
 
   const mqs = [
     "(max-width: 768px)",
+    "(min-width: 1024px)",
     "(pointer: coarse)",
+    "(pointer: fine)",
+    "(hover: hover)",
     "(prefers-reduced-motion: reduce)",
   ].map((q) => window.matchMedia(q));
 
@@ -96,8 +107,15 @@ function subscribe(onChange: () => void) {
     onChange();
   };
 
+  const connection = (navigator as NavigatorWithConnection).connection;
+
   mqs.forEach((mq) => mq.addEventListener("change", handleChange));
-  return () => mqs.forEach((mq) => mq.removeEventListener("change", handleChange));
+  connection?.addEventListener("change", handleChange);
+
+  return () => {
+    mqs.forEach((mq) => mq.removeEventListener("change", handleChange));
+    connection?.removeEventListener("change", handleChange);
+  };
 }
 
 export function useEnvironment(): Environment {

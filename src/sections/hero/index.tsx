@@ -17,14 +17,14 @@ type HeroSceneCapability = {
 
 let hasLoggedHeroSceneCapability = false;
 
-function getHeroSceneCapability(webglCapable = false): HeroSceneCapability {
+function getHeroSceneCapability(
+  webglCapable: boolean,
+  saveData: boolean,
+  prefersReducedMotion: boolean,
+): HeroSceneCapability {
   const pointerFine = window.matchMedia("(pointer: fine)").matches;
   const hoverable = window.matchMedia("(hover: hover)").matches;
   const wideViewport = window.matchMedia("(min-width: 1024px)").matches;
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const saveData = (
-    navigator as Navigator & { connection?: { saveData?: boolean } }
-  ).connection?.saveData === true;
 
   const webgl = webglCapable;
 
@@ -52,7 +52,7 @@ function StaticHeroScene() {
   );
 }
 
-const HeroScene3D = dynamic(() => import("@/components/HeroScene3D"), {
+const HeroScene3D = dynamic(() => import("./HeroScene3D"), {
   ssr: false,
   loading: () => <StaticHeroScene />,
 });
@@ -64,36 +64,23 @@ const ROLES = [
   "reactive Angular frontends",
   "production-grade REST APIs",
   "clean, maintainable architecture",
-];
+] as const;
 
 const TYPED_CODE = `@RestController
 @RequestMapping("/api/v1")
 public class OpportunityController {
 
   private final Engineer iheb =
-      Engineer.senior().stack("Java", "Spring", "Angular").build();
+      Engineer.fullStack().stack("Java", "Spring", "Angular").build();
 
   @GetMapping("/hire")
   public ResponseEntity<Offer> hire() {
       return ResponseEntity.ok(Offer.builder()
           .candidate(iheb)
-          .availability("IMMEDIATE")
-          .relocation(true)
+          .availability("OPEN_TO_OPPORTUNITIES")
           .build());
   }
 }`;
-
-/*
- * The terminal types the code in over time. Without reserved space the
- * <pre> grows line by line and the vertically-centred hero grid reflows
- * underneath it (reproducible CLS regression on desktop). Reserving the
- * full height of the final snippet keeps the layout stable from the
- * first paint.
- *
- * 24px = `leading-6` (1.5rem) per line, 32px = `py-4` (1rem top+bottom).
- */
-const TYPED_CODE_LINES = TYPED_CODE.split("\n").length;
-const TYPED_CODE_HEIGHT = TYPED_CODE_LINES * 24 + 32;
 
 /* ================= TERMINAL TOKENIZER (one-time, module scope) ================= */
 
@@ -129,7 +116,7 @@ function tokenize(code: string): Token[] {
   return tokens;
 }
 
-const TOKENS: Token[] = tokenize(TYPED_CODE);
+const TOKENS: readonly Token[] = tokenize(TYPED_CODE);
 
 function TypedCode({ len }: { len: number }) {
   const nodes: React.ReactNode[] = [];
@@ -155,12 +142,12 @@ function TypedCode({ len }: { len: number }) {
 
 /* ================= SMALL HOOKS ================= */
 
-function useTypewriter(words: string[], enabled: boolean) {
+function useTypewriter(words: readonly string[], enabled: boolean) {
   const [text, setText] = useState("");
 
   useEffect(() => {
     if (!enabled) {
-      setText(words[0]);
+      setText(words[0] ?? "");
       return;
     }
 
@@ -168,8 +155,13 @@ function useTypewriter(words: string[], enabled: boolean) {
     let char = 0;
     let deleting = false;
     let timer: ReturnType<typeof setTimeout>;
+    const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const tick = () => {
+      if (reducedMotionQuery.matches) {
+        setText(words[0] ?? "");
+        return;
+      }
       const current = words[word];
       if (!deleting) {
         char++;
@@ -194,7 +186,25 @@ function useTypewriter(words: string[], enabled: boolean) {
     };
 
     timer = setTimeout(tick, 800);
-    return () => clearTimeout(timer);
+
+    const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
+      clearTimeout(timer);
+      if (event.matches) {
+        setText(words[0] ?? "");
+      } else {
+        word = 0;
+        char = 0;
+        deleting = false;
+        setText("");
+        timer = setTimeout(tick, 800);
+      }
+    };
+
+    reducedMotionQuery.addEventListener("change", handleMotionPreferenceChange);
+    return () => {
+      clearTimeout(timer);
+      reducedMotionQuery.removeEventListener("change", handleMotionPreferenceChange);
+    };
   }, [words, enabled]);
 
   return text;
@@ -211,8 +221,13 @@ function useTypedCode(code: string, enabled: boolean) {
 
     let i = 0;
     let timer: ReturnType<typeof setTimeout>;
+    const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const step = () => {
+      if (reducedMotionQuery.matches) {
+        setLen(code.length);
+        return;
+      }
       i += Math.random() < 0.12 ? 3 : 1;
       i = Math.min(i, code.length);
       setLen(i);
@@ -220,7 +235,23 @@ function useTypedCode(code: string, enabled: boolean) {
     };
 
     timer = setTimeout(step, 1200);
-    return () => clearTimeout(timer);
+
+    const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
+      clearTimeout(timer);
+      if (event.matches) {
+        setLen(code.length);
+      } else {
+        i = 0;
+        setLen(0);
+        timer = setTimeout(step, 1200);
+      }
+    };
+
+    reducedMotionQuery.addEventListener("change", handleMotionPreferenceChange);
+    return () => {
+      clearTimeout(timer);
+      reducedMotionQuery.removeEventListener("change", handleMotionPreferenceChange);
+    };
   }, [code, enabled]);
 
   return len;
@@ -268,7 +299,7 @@ const LetterReveal = memo(function LetterReveal({
  * Isolated leaf: useTypewriter's 20–45ms ticks re-render ONLY this
  * component, not the entire hero section.
  */
-const TypedRole = memo(function TypedRole({ words }: { words: string[] }) {
+const TypedRole = memo(function TypedRole({ words }: { words: readonly string[] }) {
   const { reduceMotion } = useEnvironment();
   const typed = useTypewriter(words, !reduceMotion);
 
@@ -307,20 +338,20 @@ function TerminalCard() {
         <div className="relative bg-[#060d13]">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(6,13,19,0.12),rgba(6,13,19,0.64))]" />
           <pre className="hero-terminal-code relative m-0 w-full overflow-x-auto overflow-y-auto bg-transparent px-3 py-4 font-mono text-[9px] leading-5 text-white/80 sm:px-4 sm:text-[10px] sm:leading-6 md:text-[11px] lg:text-[12px]">
-            <code className="relative block min-w-0 w-full max-w-full whitespace-pre text-inherit sm:min-w-0">
+            <code aria-hidden="true" className="relative block min-w-0 w-full max-w-full whitespace-pre text-inherit sm:min-w-0">
               <TypedCode len={len} />
             </code>
-            <span className="hero-caret relative ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
+            <span aria-hidden="true" className="hero-caret relative ml-0.5 inline-block h-[13px] w-[7px] translate-y-[2px] bg-emerald-300/90 animate-[hero-caret_1.1s_steps(1)_infinite]" />
           </pre>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/[0.08] bg-[#081118]/95 px-3 py-2.5 font-mono text-[9px] text-white/60 sm:px-4 sm:text-[10px]">
           <span className="flex items-center gap-1.5 whitespace-nowrap text-emerald-200/80">
             <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
-            build: success
+            production-minded
           </span>
-          <span className="whitespace-nowrap text-white/70">tests: 42/42</span>
-          <span className="ml-auto whitespace-nowrap text-emerald-300/80">ready to ship</span>
+          <span className="whitespace-nowrap text-white/70">Java · Spring · Angular</span>
+          <span className="ml-auto whitespace-nowrap text-emerald-300/80">open to opportunities</span>
         </div>
       </div>
     </div>
@@ -346,18 +377,24 @@ export const HeroSection = () => {
   const [loadScene, setLoadScene] = useState(false);
 
   useEffect(() => {
-    const capability = getHeroSceneCapability(env.webgl);
+    const capability = getHeroSceneCapability(env.webgl, env.saveData, env.reduceMotion);
     if (process.env.NODE_ENV !== "production" && !hasLoggedHeroSceneCapability) {
       console.info("[hero-3d] capability", capability);
       hasLoggedHeroSceneCapability = true;
     }
     setLoadScene(capability.enabled);
-  }, [env.webgl]);
+  }, [env.webgl, env.saveData, env.reduceMotion]);
 
   /* scroll parallax — rAF-throttled DOM writes; detached once hero is off-screen */
   useEffect(() => {
     const el = contentRef.current;
-    if (!el || env.reduceMotion) return;
+    if (!el) return;
+
+    if (env.reduceMotion) {
+      el.style.removeProperty("transform");
+      el.style.removeProperty("opacity");
+      return;
+    }
 
     let raf = 0;
     let onScreen = true;
@@ -384,6 +421,8 @@ export const HeroSection = () => {
       window.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
+      el.style.removeProperty("transform");
+      el.style.removeProperty("opacity");
     };
   }, [env.reduceMotion]);
 
@@ -408,18 +447,16 @@ export const HeroSection = () => {
               </span>
             </div>
 
-            {/* aria-label on h1: screen readers get the sentence, not letter-by-letter */}
             <h1
               aria-label="Iheb Saidi, full-stack software engineer"
               className="mt-5 font-serif text-[clamp(3rem,12vmin,8rem)] leading-[0.85] tracking-[-0.06em]"
             >
-              {/* A11y audit: visual letters are decorative animation layers; the accessible heading is provided separately to avoid single-character false positives. */}
+              {/* The animated lettering is decorative and has an explicit heading name. */}
               <span aria-hidden="true" className="inline-block text-balance">
                 <LetterReveal text="Iheb" delay={0.15} />
                 <br />
                 <LetterReveal text="Saidi." delay={0.5} gradient />
               </span>
-              <span className="sr-only">Iheb Saidi, full-stack software engineer</span>
             </h1>
 
             {/* min-h reserves space for the longest role string so the vertically-centered

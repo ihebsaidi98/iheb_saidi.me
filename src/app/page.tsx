@@ -1,13 +1,13 @@
-import { Header } from "@/sections/Header";
-import { HeroSection } from "@/sections/Hero";
-import { ProjectsSection } from "@/sections/Projects";
-import { TapeSection } from "@/sections/Tape";
-import { AboutSection } from "@/sections/About";
-import { ExperienceSection } from "@/sections/Experience";
-import { InterviewSimulatorLazy } from "@/components/interview/InterviewSimulatorLazy";
-import { ContactSection } from "@/sections/Contact";
-import { TechNewsSection } from "@/sections/TechNews";
-import { Footer } from "@/sections/Footer";
+import { Header } from "@/sections/header";
+import { HeroSection } from "@/sections/hero";
+import { ProjectsSection } from "@/sections/projects";
+import { TapeSection } from "@/sections/tape";
+import { AboutSection } from "@/sections/about";
+import { ExperienceSection } from "@/sections/experience";
+import { InterviewSimulatorLazy } from "@/sections/interview/InterviewSimulatorLazy";
+import { ContactSection } from "@/sections/contact";
+import { TechNewsSection } from "@/sections/tech-news";
+import { Footer } from "@/sections/footer";
 import { SiteEnhancements } from "@/components/SiteEnhancements";
 
 export default function Home() {

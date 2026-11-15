@@ -30,6 +30,20 @@ export const dynamic = "force-dynamic";
 /** Hard application-level cap. A real CSP report is a few hundred bytes. */
 const MAX_CSP_REPORT_BYTES = 16 * 1024;
 
+type ReportObject = Record<string, unknown>;
+
+function isReportObject(value: unknown): value is ReportObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function reportField(report: ReportObject | undefined, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = report?.[key];
+    if (value !== undefined && value !== null) return String(value);
+  }
+  return "unknown";
+}
+
 // Module-level singleton — persists across requests in the same process.
 const { limit: CSP_REPORT_RATE_LIMIT, rateLimiter } = createRouteRateLimiter(
   "CSP_REPORT_RATE_LIMIT",
@@ -125,7 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return new NextResponse(null, { status: 204, headers: rlHeaders });
     }
 
-    let parsed: any;
+    let parsed: unknown;
     try {
       parsed = JSON.parse(rawText);
     } catch {
@@ -135,16 +149,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return new NextResponse(null, { status: 204, headers: rlHeaders });
     }
 
-    // Extract core fields from standard "csp-report" wrapper or Reporting API array
-    const reportObj =
-      parsed?.["csp-report"] ??
-      (Array.isArray(parsed) ? parsed[0]?.body : parsed);
+    // Extract core fields from standard "csp-report" wrapper or Reporting API array.
+    const parsedReport = isReportObject(parsed) ? parsed : undefined;
+    const firstReport = Array.isArray(parsed) ? parsed[0] : undefined;
+    const reportContainer = parsedReport?.["csp-report"] ??
+      (isReportObject(firstReport) ? firstReport.body : parsed);
+    const reportObj = isReportObject(reportContainer) ? reportContainer : undefined;
 
-    const blockedUri = String(reportObj?.["blocked-uri"] ?? reportObj?.["blockedURI"] ?? "unknown");
-    const violatedDirective = String(
-      reportObj?.["violated-directive"] ?? reportObj?.["effectiveDirective"] ?? "unknown",
-    );
-    const documentUri = String(reportObj?.["document-uri"] ?? reportObj?.["documentURL"] ?? "unknown");
+    const blockedUri = reportField(reportObj, "blocked-uri", "blockedURI");
+    const violatedDirective = reportField(reportObj, "violated-directive", "effectiveDirective");
+    const documentUri = reportField(reportObj, "document-uri", "documentURL");
 
     const sanitizedBlocked = sanitizeCspReportData(blockedUri);
     const sanitizedDirective = sanitizeCspReportData(violatedDirective);
